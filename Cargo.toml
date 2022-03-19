@@ -1,0 +1,29 @@
+[package]
+name = "nreplops-tool"
+version = "0.0.1"
+authors = ["Matti Hänninen <matti@mjhanninen.com>"]
+description = "A non-interactive nREPL client for shell scripting and the command line"
+keywords = ["nrepl", "repl", "clojure"]
+categories = ["command-line-utilities", "development-tools"]
+repository = "https://github.com/mjhanninen/nreplops-tool"
+license = "Apache-2.0"
+readme = "README.md"
+
+exclude = ["TODO.md"]
+
+edition = "2021"
+
+[dependencies]
+addr = "0.15"
+anyhow = "1.0"
+clap = { version = "3.1", features = ["derive"] }
+dns-lookup = "1.0"
+is-terminal = "0.2"
+regex = "1.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_bencode = "0.2"
+thiserror = "1.0"
+
+[[bin]]
+name = "nr"
+path = "src/main.rs"
