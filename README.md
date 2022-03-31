@@ -7,6 +7,11 @@ scripts and on the command line.
 implementation to play with but it has rough edges and every new version will
 probably be breaking for some time.
 
+## Goals
+
+- Easy of use in shell scripts
+- Consistency and interoperability with Babashka and jq
+
 ## Quick examples
 
 Before starting make sure that you have a Clojure nREPL server running in the

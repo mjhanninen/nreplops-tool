@@ -6,4 +6,5 @@
 - values from environment variables
 - JSON results
 - tagged literal functions for running the scripts directly on the host Clojure process
-- the --help option shows scripts help (leading comment lines) when shebanging
+- --help renders script help (leading comment lines) when invoked via shebang
+- -! takes minimum version
