@@ -68,3 +68,9 @@ $ ./get-user-by-email.nrepl wile.e.coyote@example.com
  :email "wile.e.coyote@example.com"
  :phone "555-555 555"}
 ```
+
+## Installing
+
+```
+cargo +nightly install nreplops-tool
+```
