@@ -22,10 +22,10 @@ use std::{
     rc::Rc,
 };
 
-use crate::cli::{self, IoArg};
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {}
+use crate::{
+    cli::{self, IoArg},
+    error::Error,
+};
 
 #[derive(Clone)]
 pub struct Output<'a>(Rc<RefCell<dyn Write + 'a>>);
@@ -83,13 +83,14 @@ impl<'a> Outputs<'a> {
         let mut nrepl_stdout = None;
         let mut nrepl_stderr = None;
         let mut nrepl_results = None;
-
         for (sink, sources) in logical_connections.into_iter() {
             let output = match sink {
                 Dst::StdOut => stdout.clone(),
                 Dst::StdErr => stderr.clone(),
                 Dst::File(ref p) => {
-                    let f = fs::File::create(p).unwrap();
+                    let f = fs::File::create(p).map_err(|_| {
+                        Error::CannotWriteFile(p.to_string_lossy().to_string())
+                    })?;
                     let w = io::BufWriter::new(f);
                     Output::new(w)
                 }

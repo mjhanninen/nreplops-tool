@@ -21,6 +21,8 @@ pub enum Error {
     CannotReadStdIn,
     #[error("cannot read file {0}")]
     CannotReadFile(String),
+    #[error("cannot write file {0}")]
+    CannotWriteFile(String),
     #[error("bad port file {0}")]
     CannotParsePortFile(String),
     #[error("cannot resolve the IP address for the domain {0}")]

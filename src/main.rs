@@ -27,9 +27,16 @@ use std::{net, process};
 
 use clap::Parser;
 
+fn main() {
+    if let Err(e) = main1() {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
+}
+
 fn main1() -> Result<(), anyhow::Error> {
     let options = cli::Cli::parse();
-    let task = cli::Args::try_from(&options).unwrap();
+    let task = cli::Args::try_from(&options)?;
     let host = host_resolution::resolve_host_from_args(&task.host)?;
     let sources =
         sources::load_sources(&task.source_args[..], &task.template_args[..])?;
@@ -89,11 +96,4 @@ fn main1() -> Result<(), anyhow::Error> {
         }
     }
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = main1() {
-        eprintln!("Error: {}", e);
-        process::exit(1);
-    }
 }
