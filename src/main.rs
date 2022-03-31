@@ -69,18 +69,18 @@ fn main1() -> Result<(), anyhow::Error> {
                 continue;
             }
             if let Some(ref s) = resp.value {
-                if let Some(mut w) = outputs.results.borrow_mut() {
-                    writeln!(w, "{}", s)?;
+                if let Some(ref w) = outputs.nrepl_results {
+                    writeln!(w.borrow_mut(), "{}", s)?;
                 }
             }
             if let Some(ref s) = resp.out {
-                if let Some(mut w) = outputs.stdout.borrow_mut() {
-                    write!(w, "{}", s)?;
+                if let Some(ref w) = outputs.nrepl_stdout {
+                    write!(w.borrow_mut(), "{}", s)?;
                 }
             }
             if let Some(ref s) = resp.err {
-                if let Some(mut w) = outputs.stderr.borrow_mut() {
-                    write!(w, "{}", s)?;
+                if let Some(ref w) = outputs.nrepl_stderr {
+                    write!(w.borrow_mut(), "{}", s)?;
                 }
             }
             if resp.has_status("done") {

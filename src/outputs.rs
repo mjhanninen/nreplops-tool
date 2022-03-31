@@ -27,30 +27,31 @@ use crate::cli::{self, IoArg};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {}
 
-#[derive(Clone, Default)]
-pub struct Output<'a>(Option<Rc<RefCell<dyn Write + 'a>>>);
+#[derive(Clone)]
+pub struct Output<'a>(Rc<RefCell<dyn Write + 'a>>);
 
 impl<'a> Output<'a> {
     pub fn new(w: impl Write + 'a) -> Self {
-        Self(Some(Rc::new(RefCell::new(w))))
+        Self(Rc::new(RefCell::new(w)))
     }
 
     // Panics (by design) if borrowed in two places at the same time
-    pub fn borrow_mut(&self) -> Option<RefMut<'_, (dyn Write + 'a)>> {
-        self.0.as_ref().map(|r| r.borrow_mut())
+    pub fn borrow_mut(&self) -> RefMut<'_, (dyn Write + 'a)> {
+        self.0.borrow_mut()
     }
 }
 
-// XXX(soija) Fix Output's interior to Rc<RefCell<...>> and these to
-//            Option<Output<'a>>. Also implement Write for Output.
-#[derive(Default)]
 pub struct Outputs<'a> {
-    // Receives nREPL's standard output
+    // Receives our "internal" normal output
     pub stdout: Output<'a>,
-    // Receives nREPL's standard error
+    // Receives our "internal" error output
     pub stderr: Output<'a>,
+    // Receives nREPL's standard output
+    pub nrepl_stdout: Option<Output<'a>>,
+    // Receives nREPL's standard error
+    pub nrepl_stderr: Option<Output<'a>>,
     // Receives result forms
-    pub results: Output<'a>,
+    pub nrepl_results: Option<Output<'a>>,
 }
 
 impl<'a> Outputs<'a> {
@@ -77,11 +78,16 @@ impl<'a> Outputs<'a> {
             Some(IoArg::File(ref p)) => connect(Src::Results, Dst::File(p)),
             None => (),
         }
-        let mut self_ = Self::default();
+        let stdout = Output::new(io::stdout().lock());
+        let stderr = Output::new(io::stderr().lock());
+        let mut nrepl_stdout = None;
+        let mut nrepl_stderr = None;
+        let mut nrepl_results = None;
+
         for (sink, sources) in logical_connections.into_iter() {
             let output = match sink {
-                Dst::StdOut => Output::new(io::stdout().lock()),
-                Dst::StdErr => Output::new(io::stderr().lock()),
+                Dst::StdOut => stdout.clone(),
+                Dst::StdErr => stderr.clone(),
                 Dst::File(ref p) => {
                     let f = fs::File::create(p).unwrap();
                     let w = io::BufWriter::new(f);
@@ -90,13 +96,19 @@ impl<'a> Outputs<'a> {
             };
             for source in sources.into_iter() {
                 match source {
-                    Src::StdOut => self_.stdout = output.clone(),
-                    Src::StdErr => self_.stderr = output.clone(),
-                    Src::Results => self_.results = output.clone(),
+                    Src::StdOut => nrepl_stdout = Some(output.clone()),
+                    Src::StdErr => nrepl_stderr = Some(output.clone()),
+                    Src::Results => nrepl_results = Some(output.clone()),
                 }
             }
         }
-        Ok(self_)
+        Ok(Self {
+            stdout,
+            stderr,
+            nrepl_stdout,
+            nrepl_stderr,
+            nrepl_results,
+        })
     }
 }
 
