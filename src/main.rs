@@ -25,8 +25,6 @@ mod sources;
 
 use std::{net, process};
 
-use clap::Parser;
-
 fn main() {
     if let Err(e) = main1() {
         eprintln!("Error: {}", e);
@@ -35,12 +33,11 @@ fn main() {
 }
 
 fn main1() -> Result<(), anyhow::Error> {
-    let options = cli::Cli::parse();
-    let task = cli::Args::try_from(&options)?;
-    let host = host_resolution::resolve_host_from_args(&task.host)?;
+    let args = cli::Args::from_command_line()?;
+    let host = host_resolution::resolve_host_from_args(&args.host)?;
     let sources =
-        sources::load_sources(&task.source_args[..], &task.template_args[..])?;
-    let outputs = outputs::Outputs::try_from_args(&task)?;
+        sources::load_sources(&args.source_args[..], &args.template_args[..])?;
+    let outputs = outputs::Outputs::try_from_args(&args)?;
 
     let stream = net::TcpStream::connect(host)?;
     stream.set_nodelay(true)?;

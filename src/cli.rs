@@ -15,6 +15,7 @@
 
 use std::{ffi, io, net, path};
 
+use clap::Parser;
 use is_terminal::IsTerminal;
 
 use crate::error::Error;
@@ -28,6 +29,12 @@ pub struct Args {
     pub results_to: Option<IoArg>,
     pub source_args: Vec<SourceArg>,
     pub template_args: Vec<TemplateArg>,
+}
+
+impl Args {
+    pub fn from_command_line() -> Result<Self, Error> {
+        Self::try_from(Cli::parse())
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -65,10 +72,10 @@ pub struct TemplateArg {
     pub value: String,
 }
 
-impl TryFrom<&Cli> for Args {
+impl TryFrom<Cli> for Args {
     type Error = Error;
 
-    fn try_from(cli: &Cli) -> Result<Self, Self::Error> {
+    fn try_from(cli: Cli) -> Result<Self, Self::Error> {
         let mut pos_arg_it = cli.pos_args.iter();
 
         let source_args = if !cli.exprs.is_empty() {
@@ -236,7 +243,7 @@ pub struct IoParseError(String);
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "An nREPL client for the command line", max_term_width = 80)]
-pub struct Cli {
+struct Cli {
     /// Connect to nREPL server on [HOST:]PORT
     ///
     /// Specifies the (HOST and) PORT of the nREPL server to connect.  If HOST
@@ -248,7 +255,7 @@ pub struct Cli {
     /// from the current working directory and its ancestors. (See also the
     /// --port-file option.)
     #[clap(long, short, visible_alias = "host", value_name = "[HOST:]PORT")]
-    pub port: Option<HostExpr>,
+    port: Option<HostExpr>,
 
     /// Read nREPL server port from FILE
     ///
@@ -257,13 +264,13 @@ pub struct Cli {
     ///
     /// The --port option takes precedence over this option.
     #[clap(long, value_name = "FILE")]
-    pub port_file: Option<path::PathBuf>,
+    port_file: Option<path::PathBuf>,
 
     /// Evaluate within NAMESPACE
     ///
     /// Specifies the namespace inside which the expressions are evaluated.
     #[clap(long, visible_alias = "namespace", value_name = "NAMESPACE")]
-    pub ns: Option<String>,
+    ns: Option<String>,
 
     /// Evaluate EXPRESSION
     ///
@@ -278,7 +285,7 @@ pub struct Cli {
         value_name = "EXPRESSION",
         conflicts_with = "files"
     )]
-    pub exprs: Vec<String>,
+    exprs: Vec<String>,
 
     /// Evaluate the content of FILE
     ///
@@ -293,7 +300,7 @@ pub struct Cli {
         value_name = "FILE",
         conflicts_with = "exprs"
     )]
-    pub files: Vec<ffi::OsString>,
+    files: Vec<ffi::OsString>,
 
     /// Send FILE to nREPL server's standard input
     ///
@@ -304,7 +311,7 @@ pub struct Cli {
     ///
     /// If not given then nothing is sent over to the standard input.
     #[clap(long, visible_aliases = &["in", "input"], value_name = "FILE")]
-    pub stdin: Option<ffi::OsString>,
+    stdin: Option<ffi::OsString>,
 
     /// Write nREPL server's standard output to FILE
     ///
@@ -312,7 +319,7 @@ pub struct Cli {
     /// file. If not given then the remote output is directed to the local
     /// standard output.
     #[clap(long, visible_aliases = &["out", "output"], value_name = "FILE")]
-    pub stdout: Option<path::PathBuf>,
+    stdout: Option<path::PathBuf>,
 
     /// Discard nREPL server's standard output
     ///
@@ -322,7 +329,7 @@ pub struct Cli {
         visible_aliases = &["no-out", "no-output"],
         conflicts_with = "stdout",
     )]
-    pub no_stdout: bool,
+    no_stdout: bool,
 
     /// Write nREPL server's standard error to FILE
     ///
@@ -330,7 +337,7 @@ pub struct Cli {
     /// file. If not given then the remote error output is directed to the local
     /// standard error.
     #[clap(long, visible_alias = "err", value_name = "FILE")]
-    pub stderr: Option<path::PathBuf>,
+    stderr: Option<path::PathBuf>,
 
     /// Discard nREPL server's standard error
     ///
@@ -340,7 +347,7 @@ pub struct Cli {
         visible_aliases = &["no-err", "no-error"],
         conflicts_with = "stderr",
     )]
-    pub no_stderr: bool,
+    no_stderr: bool,
 
     /// Write evaluation results to FILE
     ///
@@ -348,7 +355,7 @@ pub struct Cli {
     /// per line. If not given then the results are directed to the local
     /// standard output.
     #[clap(long, visible_aliases = &["res", "values"], value_name = "FILE")]
-    pub results: Option<path::PathBuf>,
+    results: Option<path::PathBuf>,
 
     /// Discard evaluation results
     ///
@@ -358,7 +365,7 @@ pub struct Cli {
         visible_aliases = &["no-res", "no-values"],
         conflicts_with = "results",
     )]
-    pub no_results: bool,
+    no_results: bool,
 
     /// Set template argument NAME to VALUE
     ///
@@ -374,7 +381,7 @@ pub struct Cli {
     /// $NAME:sym = symbol
     ///
     #[clap(long = "arg", short = 'a', value_name = "NAME=VALUE")]
-    pub args: Vec<String>,
+    args: Vec<String>,
 
     /// Positional arguments whose interpretation depends on the presence and
     /// absence of different options.
@@ -391,7 +398,7 @@ pub struct Cli {
     /// The template variable values given through --arg options are prepended to
     /// the positional arguments  present then the positional arguments that
     #[clap(value_name = "ARG")]
-    pub pos_args: Vec<ffi::OsString>,
+    pos_args: Vec<ffi::OsString>,
 
     /// Allow only shebang-safe arguments
     #[clap(
@@ -399,7 +406,7 @@ pub struct Cli {
         short = '!',
         conflicts_with_all = &["exprs", "files"],
     )]
-    pub _shebang_guard: bool,
+    _shebang_guard: bool,
 }
 
 #[derive(Debug)]
