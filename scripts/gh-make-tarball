@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+BUILD_TARGET_DIR="target/${TARGET_ARCH}/release"
+
+die() {
+  echo "ERROR:" "$@" >&2
+  exit 1
+}
+
+PACKAGE_NAME="${PROJECT_NAME}-${VERSION}-${BUILD_NAME}"
+
+[[ ! -e "$PACKAGE_NAME" ]] \
+  || die "the file or directory ${PACKAGE_NAME} exists against expectation!"
+
+mkdir "$PACKAGE_NAME"
+
+cp "${BUILD_TARGET_DIR}/${BINARY_NAME}" "${PACKAGE_NAME}/"
+cp README.md "${PACKAGE_NAME}/"
+cp LICENSE "${PACKAGE_NAME}/"
+cp NOTICE "${PACKAGE_NAME}/"
+
+TARBALL_PATH="$PACKAGE_NAME.tar.gz"
+tar -czf "$TARBALL_PATH" "$PACKAGE_NAME"/*
+
+TARBALL_SHA256="$(sha256sum "$TARBALL_PATH" | cut -c 1-64)"
+
+cat <<EOF
+TARBALL_PATH=${TARBALL_PATH}
+TARBALL_SHA256=${TARBALL_SHA256}
+EOF
+
+if "${GITHUB_OUTPUTS:-false}"; then
+  echo "::set-output name=tarball-path::${TARBALL_PATH}"
+  echo "::set-output name=tarball-sha256::${TARBALL_SHA256}"
+fi

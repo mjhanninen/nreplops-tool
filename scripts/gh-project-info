@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+cd "$(git rev-parse --show-toplevel)"
+
+case "$(uname)" in
+  Darwin)
+    SED=gsed
+    ;;
+  *)
+    SED=sed
+    ;;
+esac
+
+PROJECT_NAME="$(
+  $SED -n -e '/^\[package\]/,/^\[/ { s/^name = "\(.*\)"$/\1/p }' Cargo.toml
+)"
+
+MAYBE_BINARY_NAME="$(
+  $SED -n -e '/^\[\[bin\]\]/,/^\[/ { s/^name = "\(.*\)"$/\1/p }' Cargo.toml
+)"
+
+cat <<EOF
+PROJECT_NAME=${PROJECT_NAME}
+BINARY_NAME=${MAYBE_BINARY_NAME:-${PROJECT_NAME}}
+VERSION=$($SED -n -e 's/^version = "\(.*\)"$/\1/p' Cargo.toml)
+EOF

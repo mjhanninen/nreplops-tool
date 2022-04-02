@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+die() {
+  echo "Error:" "$@" >&2
+  exit 1
+}
+
+[[ -n "${VERSION:-}" ]] || die "variable VERSION not defined"
+
+grep -q "^version = \"${VERSION}\"\$" ./Cargo.toml \
+  || die "conflicting version in Cargo.toml"
+
+echo "All good"
