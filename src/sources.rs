@@ -128,6 +128,15 @@ impl From<&[cli::TemplateArg]> for Context {
         let regex = if table.is_empty() {
             None
         } else {
+            let keys = table
+                .keys()
+                .map(|s| regex::escape(s))
+                .collect::<Vec<String>>();
+            let key_union = keys.join("|");
+            let pat = format!(r#"#nr\s*\[\s*({})\s*\]"#, key_union,);
+            // XXX(soija) Once https://github.com/rust-lang/rust/issues/79524 lands, use
+            // intersperse.
+            /*
             let pat = format!(
                 r#"#nr\s*\[\s*({})\s*\]"#,
                 table
@@ -136,6 +145,7 @@ impl From<&[cli::TemplateArg]> for Context {
                     .intersperse("|".to_string())
                     .collect::<String>(),
             );
+            */
             Some(regex::Regex::new(&pat).unwrap())
         };
         Self { table, regex }

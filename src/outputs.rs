@@ -16,7 +16,7 @@
 use std::{
     cell::{RefCell, RefMut},
     collections::HashMap,
-    fs,
+    fmt, fs,
     io::{self, Write},
     path,
     rc::Rc,
@@ -28,35 +28,70 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct Output<'a>(Rc<RefCell<dyn Write + 'a>>);
+pub enum Output {
+    StdOut,
+    StdErr,
+    File(Rc<RefCell<io::BufWriter<fs::File>>>),
+}
 
-impl<'a> Output<'a> {
-    pub fn new(w: impl Write + 'a) -> Self {
-        Self(Rc::new(RefCell::new(w)))
-    }
-
-    // Panics (by design) if borrowed in two places at the same time
-    pub fn borrow_mut(&self) -> RefMut<'_, (dyn Write + 'a)> {
-        self.0.borrow_mut()
+impl Output {
+    pub fn writer(&self) -> OutputWriter<'_> {
+        match *self {
+            Output::StdOut => OutputWriter::StdOut,
+            Output::StdErr => OutputWriter::StdErr,
+            Output::File(ref f) => OutputWriter::File(f.borrow_mut()),
+        }
     }
 }
 
-pub struct Outputs<'a> {
+pub enum OutputWriter<'a> {
+    StdOut,
+    StdErr,
+    File(RefMut<'a, io::BufWriter<fs::File>>),
+}
+
+impl<'a> Write for OutputWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match *self {
+            OutputWriter::StdOut => io::stdout().lock().write(buf),
+            OutputWriter::StdErr => io::stderr().lock().write(buf),
+            OutputWriter::File(ref mut f) => f.write(buf),
+        }
+    }
+
+    fn write_fmt(&mut self, fmt: fmt::Arguments) -> io::Result<()> {
+        match *self {
+            OutputWriter::StdOut => io::stdout().lock().write_fmt(fmt),
+            OutputWriter::StdErr => io::stderr().lock().write_fmt(fmt),
+            OutputWriter::File(ref mut f) => f.write_fmt(fmt),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match *self {
+            OutputWriter::StdOut => io::stdout().lock().flush(),
+            OutputWriter::StdErr => io::stderr().lock().flush(),
+            OutputWriter::File(ref mut f) => f.flush(),
+        }
+    }
+}
+
+pub struct Outputs {
     // Receives our "internal" normal output
-    pub stdout: Output<'a>,
+    pub stdout: Output,
     // Receives our "internal" error output
-    pub stderr: Output<'a>,
+    pub stderr: Output,
     // Receives nREPL's standard output
-    pub nrepl_stdout: Option<Output<'a>>,
+    pub nrepl_stdout: Option<Output>,
     // Receives nREPL's standard error
-    pub nrepl_stderr: Option<Output<'a>>,
+    pub nrepl_stderr: Option<Output>,
     // Receives result forms
-    pub nrepl_results: Option<Output<'a>>,
+    pub nrepl_results: Option<Output>,
 }
 
-impl<'a> Outputs<'a> {
+impl Outputs {
     pub fn try_from_args<'b>(args: &'b cli::Args) -> Result<Self, Error> {
-        let mut logical_connections = HashMap::<Dst<'a>, Vec<Src>>::new();
+        let mut logical_connections = HashMap::<Dst<'b>, Vec<Src>>::new();
         let mut connect = |source: Src, sink: Dst<'b>| {
             logical_connections
                 .entry(sink)
@@ -78,8 +113,8 @@ impl<'a> Outputs<'a> {
             Some(IoArg::File(ref p)) => connect(Src::Results, Dst::File(p)),
             None => (),
         }
-        let stdout = Output::new(io::stdout().lock());
-        let stderr = Output::new(io::stderr().lock());
+        let stdout = Output::StdOut;
+        let stderr = Output::StdErr;
         let mut nrepl_stdout = None;
         let mut nrepl_stderr = None;
         let mut nrepl_results = None;
@@ -92,7 +127,7 @@ impl<'a> Outputs<'a> {
                         Error::CannotWriteFile(p.to_string_lossy().to_string())
                     })?;
                     let w = io::BufWriter::new(f);
-                    Output::new(w)
+                    Output::File(Rc::new(RefCell::new(w)))
                 }
             };
             for source in sources.into_iter() {

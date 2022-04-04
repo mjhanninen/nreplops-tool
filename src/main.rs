@@ -13,8 +13,6 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#![feature(iter_intersperse)]
-
 mod bencode;
 mod cli;
 mod error;
@@ -23,6 +21,7 @@ mod nrepl;
 mod outputs;
 mod sources;
 
+use std::io::Write;
 use std::{net, process};
 
 fn main() {
@@ -74,17 +73,17 @@ fn main1() -> Result<(), anyhow::Error> {
             }
             if let Some(ref s) = resp.value {
                 if let Some(ref w) = outputs.nrepl_results {
-                    writeln!(w.borrow_mut(), "{}", s)?;
+                    writeln!(w.writer(), "{}", s)?;
                 }
             }
             if let Some(ref s) = resp.out {
                 if let Some(ref w) = outputs.nrepl_stdout {
-                    write!(w.borrow_mut(), "{}", s)?;
+                    write!(w.writer(), "{}", s)?;
                 }
             }
             if let Some(ref s) = resp.err {
                 if let Some(ref w) = outputs.nrepl_stderr {
-                    write!(w.borrow_mut(), "{}", s)?;
+                    write!(w.writer(), "{}", s)?;
                 }
             }
             if resp.has_status("done") {
