@@ -72,5 +72,5 @@ $ ./get-user-by-email.nrepl wile.e.coyote@example.com
 ## Installing
 
 ```
-cargo +nightly install nreplops-tool
+cargo install nreplops-tool
 ```
