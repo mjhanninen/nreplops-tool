@@ -2,7 +2,7 @@
 name = "nreplops-tool"
 version = "0.0.4"
 authors = ["Matti Hänninen <matti@mjhanninen.com>"]
-description = "A non-interactive nREPL client for shell scripting and the command line"
+description = "Non-interactive nREPL client for shell scripting and command-line"
 keywords = ["nrepl", "repl", "clojure"]
 categories = ["command-line-utilities", "development-tools"]
 repository = "https://github.com/mjhanninen/nreplops-tool"
