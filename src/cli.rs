@@ -244,41 +244,19 @@ pub struct IoParseError(String);
 #[derive(Debug, clap::Parser)]
 #[clap(about = "An nREPL client for the command line", max_term_width = 80)]
 struct Cli {
-    /// Connect to nREPL server on [HOST:]PORT
-    ///
-    /// Specifies the (HOST and) PORT of the nREPL server to connect.  If HOST
-    /// is not given then "localhost" is assumed.  The domain name resolution
-    /// prefers IPv4 addresses over the IPv6 addresses.
-    ///
-    /// If this option is not given then the program consults the nearest
-    /// .nrepl-port file for the connection information. The file is searched
-    /// from the current working directory and its ancestors. (See also the
-    /// --port-file option.)
+    /// Connect to server on [HOST:]PORT
     #[clap(long, short, visible_alias = "host", value_name = "[HOST:]PORT")]
     port: Option<HostExpr>,
 
-    /// Read nREPL server port from FILE
-    ///
-    /// Reads the (host and) port of the nREPL server from this specific file
-    /// instead of seeking for the nearest .nrepl-port file.
-    ///
-    /// The --port option takes precedence over this option.
+    /// Read server port from FILE
     #[clap(long, value_name = "FILE")]
     port_file: Option<path::PathBuf>,
 
     /// Evaluate within NAMESPACE
-    ///
-    /// Specifies the namespace inside which the expressions are evaluated.
     #[clap(long, visible_alias = "namespace", value_name = "NAMESPACE")]
     ns: Option<String>,
 
     /// Evaluate EXPRESSION
-    ///
-    /// Gives the EXPRESSION to be evaluated on the nREPL server.  This option
-    /// can be given multiple times in which case all expressions are evaluated
-    /// within the same nREPL session in the left-to-right order.
-    ///
-    /// This option conflicts with the --file option.
     #[clap(
         long = "expr",
         short,
@@ -287,13 +265,7 @@ struct Cli {
     )]
     exprs: Vec<String>,
 
-    /// Evaluate the content of FILE
-    ///
-    /// Reads the expressions to be evaluated from FILE.  This option can be
-    /// given multiple times in which case the content of all files is evaluated
-    /// in the left-to-right order.
-    ///
-    /// This option conflicts with the --expr option.
+    /// Evaluate FILE
     #[clap(
         long = "file",
         short = 'f',
@@ -302,28 +274,15 @@ struct Cli {
     )]
     files: Vec<ffi::OsString>,
 
-    /// Send FILE to nREPL server's standard input
-    ///
-    /// Sends the content of this file to the nREPL server as the remote
-    /// standard input. If FILE is "-" then the local standard input is used as
-    /// input. This requires the use of either --expr or --file option to pass
-    /// the expressions.
-    ///
-    /// If not given then nothing is sent over to the standard input.
+    /// Send FILE to server's stdin
     #[clap(long, visible_aliases = &["in", "input"], value_name = "FILE")]
     stdin: Option<ffi::OsString>,
 
-    /// Write nREPL server's standard output to FILE
-    ///
-    /// Writes the remote standard output produced by the nREPL server into this
-    /// file. If not given then the remote output is directed to the local
-    /// standard output.
+    /// Write server's stdout to FILE
     #[clap(long, visible_aliases = &["out", "output"], value_name = "FILE")]
     stdout: Option<path::PathBuf>,
 
-    /// Discard nREPL server's standard output
-    ///
-    /// This option conflicts with the --stdout option.
+    /// Discard server's stdout
     #[clap(
         long,
         visible_aliases = &["no-out", "no-output"],
@@ -331,17 +290,11 @@ struct Cli {
     )]
     no_stdout: bool,
 
-    /// Write nREPL server's standard error to FILE
-    ///
-    /// Writes the remote standard error produced by the nREPL server into this
-    /// file. If not given then the remote error output is directed to the local
-    /// standard error.
+    /// Write server's stderr to FILE
     #[clap(long, visible_alias = "err", value_name = "FILE")]
     stderr: Option<path::PathBuf>,
 
-    /// Discard nREPL server's standard error
-    ///
-    /// This option conflicts with the --stderr option.
+    /// Discard server's stderr
     #[clap(
         long,
         visible_aliases = &["no-err", "no-error"],
@@ -350,16 +303,10 @@ struct Cli {
     no_stderr: bool,
 
     /// Write evaluation results to FILE
-    ///
-    /// Writes the results from the evaluation into this file, a single result
-    /// per line. If not given then the results are directed to the local
-    /// standard output.
     #[clap(long, visible_aliases = &["res", "values"], value_name = "FILE")]
     results: Option<path::PathBuf>,
 
     /// Discard evaluation results
-    ///
-    /// This option conflicts with the --results option.
     #[clap(
         long,
         visible_aliases = &["no-res", "no-values"],
@@ -368,39 +315,13 @@ struct Cli {
     no_results: bool,
 
     /// Set template argument NAME to VALUE
-    ///
-    /// The template arguments are textual. If they look like a number they are
-    /// interpolated as a number and otherwise they are interpolated as a string
-    /// literal.
-    ///
-    /// $NAME:kw = keyword
-    /// $NAME:num = number
-    /// $NAME:quot = quote
-    /// $NAME:raw = raw
-    /// $NAME:str = string
-    /// $NAME:sym = symbol
-    ///
     #[clap(long = "arg", short = 'a', value_name = "NAME=VALUE")]
     args: Vec<String>,
 
-    /// Positional arguments whose interpretation depends on the presence and
-    /// absence of different options.
-    ///
-    /// Normally the first argument gives the source file and any remaining
-    /// arguments are interpreted as positional template arguments to be
-    /// interpolated into the source.  The source file argument is interpreted
-    /// like the --file option.
-    ///
-    /// If either --file or --expr options are present or the command is run
-    /// within a pipe then all positional arguments are interpreted as values
-    /// for template variables.
-    ///
-    /// The template variable values given through --arg options are prepended to
-    /// the positional arguments  present then the positional arguments that
     #[clap(value_name = "ARG")]
     pos_args: Vec<ffi::OsString>,
 
-    /// Allow only shebang-safe arguments
+    /// Shebang-safe mode
     #[clap(
         long = "shebang-guard",
         short = '!',
