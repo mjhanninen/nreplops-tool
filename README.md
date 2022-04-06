@@ -1,16 +1,33 @@
 # nreplops-tool (nr)
 
-nreplops-tool is a non-interactive nREPL client designed to be used in shell
-scripts and on the command line.
+nreplops-tool (`nr`) is a non-interactive nREPL client designed to be used in
+shell scripts and on the command-line.
 
-**WARNING:** This project is at **early concept** phase. There is a base
-implementation to play with but it has rough edges and every new version will
-probably be breaking for some time.
+> **WARNING:** This project is at an **early concept** phase. The tool is
+> usable as it is but the interface is unstable and not documented well.
 
-## Goals
+## Try it out in 1 minute
 
-- Easy of use in shell scripts
-- Consistency and interoperability with Babashka and jq
+This example assumes you are able to install packages with Homebrew.  See the
+[Installation](#installation) section below for other options.
+
+Start by installing nreplops-tool (`nr`) and Babashka (`bb`):
+
+```
+brew install mjhanninen/sour/nreplops-tool borkdude/brew/babashka
+```
+
+Launch a Babashka nREPL server (that listens on the port 1667 by default):
+
+```
+bb nrepl-server
+```
+
+Open another terminal and evaluate an expression with `nr`:
+
+```
+nr -p 1667 -e '(println "Hello, world!")'
+```
 
 ## Quick examples
 
@@ -69,8 +86,36 @@ $ ./get-user-by-email.nrepl wile.e.coyote@example.com
  :phone "555-555 555"}
 ```
 
-## Installing
+## Installation
+
+### Homebrew
+
+```
+brew install mjhanninen/sour/nreplops-tool
+```
+
+### Cargo
 
 ```
 cargo install nreplops-tool
 ```
+
+### Building from sources
+
+```
+git clone https://github.com/mjhanninen/nreplops-tool.git
+cargo install --path .
+```
+
+## Goals
+
+- Easy of use in shell scripts
+- Consistency and interoperability with Babashka and jq
+
+## License
+
+Copyright 2022 Matti Hänninen
+
+Licensed under the Apache License 2.0
+
+Please see the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files.
