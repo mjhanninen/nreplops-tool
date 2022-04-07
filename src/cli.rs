@@ -242,7 +242,11 @@ impl TryFrom<&ffi::OsString> for IoArg {
 pub struct IoParseError(String);
 
 #[derive(Debug, clap::Parser)]
-#[clap(about = "An nREPL client for the command line", max_term_width = 80)]
+#[clap(
+    about = "Non-interactive nREPL client for scripts and command-line",
+    version,
+    max_term_width = 80
+)]
 struct Cli {
     /// Connect to server on [HOST:]PORT
     #[clap(long, short, visible_alias = "host", value_name = "[HOST:]PORT")]
@@ -321,13 +325,32 @@ struct Cli {
     #[clap(value_name = "ARG")]
     pos_args: Vec<ffi::OsString>,
 
-    /// Shebang-safe mode
+    /// Run in shebang (#!) mode
     #[clap(
-        long = "shebang-guard",
         short = '!',
         conflicts_with_all = &["exprs", "files"],
     )]
     _shebang_guard: bool,
+
+    /// Wait for .nrepl-port file
+    #[clap(
+        long = "wait-port-file",
+        value_name = "SECONDS",
+        parse(try_from_str = not_implemented),
+    )]
+    _wait_port_file: Option<u32>,
+
+    /// Set timeout for program execution
+    #[clap(
+        long = "timeout",
+        value_name = "SECONDS",
+        parse(try_from_str = not_implemented),
+    )]
+    _timeout: Option<u32>,
+}
+
+fn not_implemented<T>(_: &str) -> Result<T, &'static str> {
+    Err("this feature has not been implemented yet, sorry")
 }
 
 #[derive(Debug)]

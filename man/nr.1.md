@@ -11,8 +11,8 @@ nr - The nREPL ops tool
 # SYNOPSIS
 
 | **nr** \[_options_] _file_ \[_args_]
-| **nr** \[_options_] **-f** _file_ `...` \[_args_]
-| **nr** \[_options_] **-e** _expr_ `...` \[_args_]
+| **nr** \[_options_] **-f** _file_ ...\ \[_args_]
+| **nr** \[_options_] **-e** _expr_ ...\ \[_args_]
 | **nr** \[_options_] **-!** _file_ \[_args_]
 | **nr** **\--wait-port-file** _seconds_
 | **nr** **\--version**
@@ -42,10 +42,24 @@ the positional arguments  present then the positional arguments that
 ## General options
 
 **-!**
-:   Run in the shebang mode.
+
+:   Runs in the shebang mode.
 
     Allows only those options and arguments that are safe to use while running
     within a shebang context (i.e. when invoked through `#!`).
+
+**\--timeout** _seconds_
+
+:   Aborts the execution after the given _seconds_ has elapsed if it has not
+    completed before.
+
+    The duration is measured from the very start of the program execution and
+    includes, for example, the time elapsed waiting for the port file (see the
+    **\--port-file** option).
+
+**-V**, **\--version**
+
+:   Prints the version information.
 
 ## Connection options
 
@@ -121,7 +135,7 @@ the positional arguments  present then the positional arguments that
 
 ## Result and output options
 
-**\--stdin** _file_
+**\-in**, **\--input**, **\--stdin** _file_
 
 :   Sends the content of _file_ to the nREPL server as the remote standard input.
 
@@ -142,7 +156,7 @@ the positional arguments  present then the positional arguments that
     If this option is not given then nothing is sent over to the server's
     standard input.
 
-**\--stdout** _file_
+**\--out**, **\--output**, **\--stdout** _file_
 
 :   Writes the nREPL server's standard output to _file_. If not given then the
     remote output is directed to the local standard output.
@@ -153,7 +167,7 @@ the positional arguments  present then the positional arguments that
 
     This option conflicts with the **\--stdout** option.
 
-**\--stderr** _file_
+**\--err**, **\--stderr** _file_
 
 :   Writes the nREPL server's standard serror to _file_. If not given then the
     remote output is directed to the local standard error.
@@ -180,9 +194,13 @@ the positional arguments  present then the positional arguments that
 
 To be written.
 
-# EXIT VALUES
+# EXIT STATUS
 
-0
+An exit status of zero indicates success and a non-zero status indicates
+failure. The possible exit status codes are the following:
 
-: Success
-
+| Status | Reason  |
+|:-------|:--------|
+| 0      | Success |
+| 1      | Error   |
+| 2      | Timeout |
