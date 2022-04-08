@@ -4,3 +4,6 @@
 # Clojure
 .cpcache/
 .nrepl-port
+
+# Generated manpage
+/man/nr.1
