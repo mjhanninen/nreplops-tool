@@ -1,6 +1,6 @@
 [package]
 name = "nreplops-tool"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 description = "Non-interactive nREPL client for shell scripting and command-line"
 keywords = ["nrepl", "repl", "clojure"]
