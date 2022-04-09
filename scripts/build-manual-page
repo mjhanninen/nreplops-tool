@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+die() {
+  echo "Error:" "$@" >&2
+  exit 1
+}
+
+command -v pandoc &>/dev/null \
+  || die "pandoc not found (please install)"
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+exec pandoc -s -f markdown -t man -o man/nr.1 man/nr.1.md
