@@ -1,25 +1,53 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+# To test this script locally you want to run it like this:
+#
+# env BUILD_NAME=local $(scripts/gh-project-info) scripts/gh-make-tarball
 
-BUILD_TARGET_DIR="target/${TARGET_ARCH}/release"
+set -euo pipefail
 
 die() {
   echo "ERROR:" "$@" >&2
   exit 1
 }
 
+if [[ -n "${TARGET_ARCH+defined}" ]]; then
+  BUILD_TARGET_DIR="target/${TARGET_ARCH}/release"
+else
+  BUILD_TARGET_DIR="target/release"
+fi
+
 PACKAGE_NAME="${PROJECT_NAME}-${VERSION}-${BUILD_NAME}"
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 [[ ! -e "$PACKAGE_NAME" ]] \
   || die "the file or directory ${PACKAGE_NAME} exists against expectation!"
 
 mkdir "$PACKAGE_NAME"
+trap "rm -Rd '${PACKAGE_NAME}'" EXIT
 
-cp "${BUILD_TARGET_DIR}/${BINARY_NAME}" "${PACKAGE_NAME}/"
+BINARY_PATH="${BUILD_TARGET_DIR}/${BINARY_NAME}"
+[[ -f "$BINARY_PATH" ]] \
+  || die "binary ${BINARY_PATH} missin; forgot to build"
+cp "$BINARY_PATH" "${PACKAGE_NAME}/"
+
 cp README.md "${PACKAGE_NAME}/"
 cp LICENSE "${PACKAGE_NAME}/"
 cp NOTICE "${PACKAGE_NAME}/"
+
+MAN_FILE="man/${BINARY_NAME}.1"
+[[ -f "$MAN_FILE" ]] \
+  || die "manual page ${MAN_FILE} missing; forgot to generate?"
+cp "$MAN_FILE" "${PACKAGE_NAME}/"
+
+cat <<EOF > "${PACKAGE_NAME}/install.sh"
+#!/usr/bin/env bash
+PREFIX="\${PREFIX-\$HOME/.local}"
+install -D -m 0755 -t "\${PREFIX}/bin" "$BINARY_NAME"
+install -D -m 0644 -t "\${PREFIX}/share/man/man1" "$(basename "$MAN_FILE")"
+EOF
+chmod +x "${PACKAGE_NAME}/install.sh"
 
 TARBALL_PATH="$PACKAGE_NAME.tar.gz"
 tar -czf "$TARBALL_PATH" "$PACKAGE_NAME"/*

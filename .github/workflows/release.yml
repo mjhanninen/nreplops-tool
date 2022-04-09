@@ -90,8 +90,11 @@ jobs:
 
       - name: Install macOS tools
         if: startsWith(matrix.job.os, 'macos')
-        run: |
-          brew install coreutils gnu-sed
+        run: brew install coreutils gnu-sed pandoc
+
+      - name: Install Ubuntu tools
+        if: startsWith(matrix.job.os, 'ubuntu')
+        run: sudo apt-get install -y pandoc
 
       - name: Shallow checkout
         uses: actions/checkout@v3
@@ -113,6 +116,9 @@ jobs:
           use-cross: ${{ matrix.job.use-cross }}
           command: build
           args: --locked --release --target ${{ matrix.job.target }}
+
+      - name: Build manual page
+        run: scripts/build-manual-page
 
       - name: Build tarball
         id: build-tarball
