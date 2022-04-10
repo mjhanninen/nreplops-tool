@@ -1,6 +1,9 @@
 # To-Do
 
+- configure the CI to run the integration (Clojure) tests
 - `--wait-port-file <timeout>` option
+- `--exprs-to <sink>` option echos sent expressions to `<sink>`
+- `--stdin-to <sink>` option echos sent input to `<sink>`
 - short-circuit: given `-e A -e B` if `A` fails, don't evaluate `B`
 - interpolation with string/number magic
 - interpolation directives (e.g. :s for strings)
@@ -12,7 +15,5 @@
 - `#nr[... :name <argname>]` → human readable `<argname>` in `--help` synopsis
 - `#nr[... :or <value>]` for providing a default value
 - `#nr[<arg> :or-void]` for having nothing, if `<arg>` not provided
-- `--exprs-to <sink>` option echos sent expressions to `<sink>`
-- `--stdin-to <sink>` option echos sent input to `<sink>`
 - replacements (e.g clojure.pprint/print → puget.cprint) when sending stdout to terminal
 - tunnel through ssh (libssh or libssh2)
