@@ -67,7 +67,7 @@ fn main1() -> Result<(), anyhow::Error> {
             file: input.file,
         })?;
         loop {
-            let resp = con.try_recv().unwrap();
+            let resp = con.try_recv()?;
             if resp.id.as_deref().unwrap_or("") != id {
                 continue;
             }

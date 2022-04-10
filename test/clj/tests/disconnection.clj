@@ -14,32 +14,37 @@
 (defonce state (atom {}))
 
 (deftest host-disconnects
-  (testing "nr aborts when host disconnects"
+  (testing "nr aborts when the host disconnects"
     ;; Okay, some non-obvious latching mechanism here to ensure proper
     ;; synchronization between the processes before cutting off the nREPL
     ;; server.
     (let [sid (uuid)
           latch (promise)
           _ (swap! state assoc sid latch)
-          fut (future
-                (sh *nr-exe*
-                    "-p" (str *bind* ":" *port*)
-                    "-e" (pr-str
-                           `(do
-                              (-> state
-                                  deref
-                                  (get ~sid)
-                                  (deliver :okay))
-                              (while true)))))]
-      (is (= :okay (deref latch 1000 :timeout)) "... nr has started")
-      (is (not (future-done? fut)) "... nr is hung waiting")
+          nr (future
+               (sh *nr-exe*
+                   "-p" (str *bind* ":" *port*)
+                   "-e" (pr-str
+                          `(do
+                             (-> state
+                                 deref
+                                 (get ~sid)
+                                 (deliver :started))
+                             (while true)))))]
+      (is (= :started (deref latch 1000 :timeout)) "... nr has started")
+      (is (not (future-done? nr)) "... nr is waiting in infinite loop")
       (nrepl/stop-server *server*)
       (Thread/sleep 1000)
       (is (= :aborted
-             (if (future-done? fut)
+             (if (future-done? nr)
                :aborted
                (do
-                 (future-cancel fut)
+                 (future-cancel nr)
                  :hung)))
-          "... nr aborts as server is stopped"))))
+          "... nr aborts as the server is stopped")
+      (is (= {:out ""
+              :err "Error: host disconnected unexpectedly\n"
+              :exit 1}
+             @nr)
+          "... nr process outcome reflects disconnection"))))
 

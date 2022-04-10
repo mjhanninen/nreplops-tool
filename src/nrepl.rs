@@ -131,10 +131,13 @@ impl Connection {
                 }
                 Err(bencode::Error::UnexpectedEnd) => (),
                 Err(bencode::Error::BadInput) => {
-                    return Err(RecvError::BadInput)
+                    return Err(RecvError::BadInput);
                 }
             }
             let bytes_read = self.stream.read(&mut buffer)?;
+            if bytes_read == 0 {
+                return Err(RecvError::HostDisconnected);
+            }
             self.buffer.extend_from_slice(&buffer[0..bytes_read]);
         }
     }
@@ -146,4 +149,6 @@ pub enum RecvError {
     Io(#[from] io::Error),
     #[error("bad input")]
     BadInput,
+    #[error("unexpected disconnection by host")]
+    HostDisconnected,
 }
