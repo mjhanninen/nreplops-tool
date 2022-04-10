@@ -1,0 +1,10 @@
+{:paths ["test/clj"]
+ :deps {nrepl/nrepl {:mvn/version "0.9.0"}
+        cider/cider-nrepl {:mvn/version "0.28.3"}}
+ :aliases {:test {:exec-fn tests/run}
+           :repl {:main-opts ["-m" "nrepl.cmdline"
+                              "--middleware" "[cider.nrepl/cider-middleware]"
+                              "--interactive" "--color"]}
+           :style {:extra-deps {mvxcvi/cljstyle #:git{:url "https://github.com/greglook/cljstyle.git"
+                                                      :sha "14c18e5b593c39bc59f10df1b894c31a0020dc49"}}
+                   :main-opts ["-m" "cljstyle.main"]}}}
