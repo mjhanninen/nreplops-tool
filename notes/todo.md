@@ -1,6 +1,19 @@
 # To-Do
 
-- tunnel through ssh (libssh or libssh2)
+- tunnel through ssh
+  - [Thrussh](https://crates.io/crates/thrussh)
+    - pure Rust
+    - apache-2.0
+    - docs not okay
+  - [ssh2](https://crates.io/crates/ssh2) and [libssh2-sys](https://crates.io/crates/libssh2-sys)
+    - wraps libssh2 C lib
+    - mit or apache-2.0 (check static linking)
+    - Session::channel_direct_tcpip
+    - docs okay
+  - [openssh](https://crates.io/crates/openssh)
+    - wraps `ssh` client command (not lib)
+    - oh! [jonhoo](https://github.com/jonhoo) goodness!
+    - mit or apache-2.0
 - argument interpolation
   - string/number/keyword magic by default
   - `#nr[... :str]` and `#nr[... :clj]` directives
