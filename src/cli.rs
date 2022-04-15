@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{ffi, io, net, path};
+use std::{ffi, io, net, path, time};
 
 use clap::Parser;
 use is_terminal::IsTerminal;
@@ -29,6 +29,7 @@ pub struct Args {
     pub results_to: Option<IoArg>,
     pub source_args: Vec<SourceArg>,
     pub template_args: Vec<TemplateArg>,
+    pub wait_port_file_for: Option<time::Duration>,
 }
 
 impl Args {
@@ -98,6 +99,8 @@ impl TryFrom<Cli> for Args {
             vec![IoArg::parse_from_path_or_pipe(f)
                 .map(SourceArg::from)
                 .map_err(|_| Error::BadSourceFile)?]
+        } else if cli.wait_port_file.is_some() {
+            vec![]
         } else {
             return Err(Error::NoInput);
         };
@@ -171,6 +174,9 @@ impl TryFrom<Cli> for Args {
             },
             source_args,
             template_args: args,
+            wait_port_file_for: cli
+                .wait_port_file
+                .map(time::Duration::from_secs),
         })
     }
 }
@@ -332,13 +338,9 @@ struct Cli {
     )]
     _shebang_guard: bool,
 
-    /// Wait for .nrepl-port file
-    #[clap(
-        long = "wait-port-file",
-        value_name = "SECONDS",
-        parse(try_from_str = not_implemented),
-    )]
-    _wait_port_file: Option<u32>,
+    /// Wait .nrepl-port file to appear for SECONDS
+    #[clap(long = "wait-port-file", value_name = "SECONDS")]
+    wait_port_file: Option<u64>,
 
     /// Set timeout for program execution
     #[clap(

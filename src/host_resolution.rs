@@ -13,24 +13,50 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{fs, io, net, path};
+use std::{fs, io, net, path, thread, time};
 
 use crate::{cli, error::Error};
 
 pub fn resolve_host_from_args(
     host_arg: &cli::HostArg,
+    wait_for: &Option<time::Duration>,
 ) -> Result<net::SocketAddr, Error> {
     use cli::HostArg::*;
     match host_arg {
         HostExpr(e) => resolve_from_host_expr(e),
-        PortFile(Some(ref f)) => resolve_from_port_file(f),
-        PortFile(None) => {
-            if let Some(ref f) = find_port_file().map_err(|_| Error::Unknown)? {
-                resolve_from_port_file(f)
+        PortFile(f) => {
+            if let Some(d) = wait_for {
+                let deadline = time::SystemTime::now() + *d;
+                loop {
+                    match try_resolve_from_port_file(f.as_ref()) {
+                        Ok(r) => return Ok(r),
+                        Err(e) => match e {
+                            Error::NotSpecified | Error::NotFound(_) => {
+                                if time::SystemTime::now() >= deadline {
+                                    return Err(Error::PortFileTimeout);
+                                }
+                            }
+                            _ => return Err(e),
+                        },
+                    }
+                    thread::sleep(time::Duration::from_millis(50));
+                }
             } else {
-                Err(Error::NotSpecified)
+                try_resolve_from_port_file(f.as_ref())
             }
         }
+    }
+}
+
+fn try_resolve_from_port_file(
+    given: Option<impl AsRef<path::Path>>,
+) -> Result<net::SocketAddr, Error> {
+    if let Some(f) = given {
+        resolve_from_port_file(f)
+    } else if let Some(ref f) = find_port_file().map_err(|_| Error::Unknown)? {
+        resolve_from_port_file(f)
+    } else {
+        Err(Error::NotSpecified)
     }
 }
 
@@ -86,7 +112,13 @@ fn resolve_from_port_file(
 ) -> Result<net::SocketAddr, Error> {
     let path = path.as_ref();
     let host_expr = fs::read_to_string(path)
-        .map_err(|_| Error::CannotReadFile(path.to_string_lossy().into()))?
+        .map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                Error::NotFound(path.to_string_lossy().into())
+            } else {
+                Error::CannotReadFile(path.to_string_lossy().into())
+            }
+        })?
         .trim()
         .parse::<cli::HostExpr>()
         .map_err(|_| {

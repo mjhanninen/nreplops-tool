@@ -33,9 +33,21 @@ fn main() {
 
 fn main1() -> Result<(), anyhow::Error> {
     let args = cli::Args::from_command_line()?;
-    let host = host_resolution::resolve_host_from_args(&args.host)?;
+
+    let host = host_resolution::resolve_host_from_args(
+        &args.host,
+        &args.wait_port_file_for,
+    )?;
+
     let sources =
         sources::load_sources(&args.source_args[..], &args.template_args[..])?;
+
+    // Short-circuit if there is nothing to evaluate; effectively this happens
+    // when the program is used only as a latch for the port file.
+    if sources.is_empty() {
+        return Ok(());
+    }
+
     let outputs = outputs::Outputs::try_from_args(&args)?;
 
     let stream = net::TcpStream::connect(host)?;

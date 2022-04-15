@@ -17,6 +17,8 @@
 pub enum Error {
     #[error("No input")]
     NoInput,
+    #[error("file {0} not found")]
+    NotFound(String),
     #[error("cannot read stdin")]
     CannotReadStdIn,
     #[error("cannot read file {0}")]
@@ -41,4 +43,6 @@ pub enum Error {
     NonUtf8TemplateArgument,
     #[error("non-positional template argument must be named")]
     UnnamedNonPositionalTemplateArgument,
+    #[error("timeout while waiting for port file")]
+    PortFileTimeout,
 }
