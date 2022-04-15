@@ -65,13 +65,13 @@ nr - The nREPL ops tool
 
 **\--wait-port-file** _seconds_
 
-:   Waits _seconds_ for a port file to appear in case none can be found
-    immediately.  If _seconds_ elapses before a port file becomes available
-    then the program execution is aborted with a timeout status.
+:   Waits _seconds_ for the port file to become available in case of none exists
+    when the program starts.  After _seconds_ have elapsed the program aborts
+    execution with the timeout status unless the port file has become available.
 
-    This option can be given without supplying any expression input.  In that
-    case the program just waits for the port file and, upon success, returns
-    immediately with a success status.
+    This option can be given without supplying any expression to be sent to the
+    server.  In that case the program just waits for the port file and when it
+    appears returns immediately with a success status.
 
 ## Evaluation options
 
