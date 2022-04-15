@@ -1,6 +1,5 @@
 # To-Do
 
-- `--wait-port-file <timeout>` option
 - tunnel through ssh (libssh or libssh2)
 - argument interpolation
   - string/number/keyword magic by default
