@@ -43,6 +43,7 @@
       - a remote nREPL host, reachable via SSH host on a port within a given range
       - e.g. `vpn.biscuit.example.com:1024-1027,1032:[::1]:7000`
       - obvious but name resolution post-poned to the remote side
+    - `<ssh-user>@<ssh-host>:<ssh-port>:<remote-host>:<remote-port>`
 - try to connect to all resolved addresses instead of only to the first one
   - cache the lucky one
 - argument interpolation
