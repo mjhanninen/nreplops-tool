@@ -13,12 +13,12 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{ffi, io, net, path, time};
+use std::{ffi, io, path, time};
 
 use clap::Parser;
 use is_terminal::IsTerminal;
 
-use crate::error::Error;
+use crate::{error::Error, host_expression::HostExpr};
 
 #[derive(Debug)]
 pub struct Args {
@@ -359,63 +359,4 @@ fn not_implemented<T>(_: &str) -> Result<T, &'static str> {
 pub enum HostArg {
     HostExpr(HostExpr),
     PortFile(Option<path::PathBuf>),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum HostExpr {
-    Port(u16),
-    DomainPort(String, u16),
-    SocketAddr(net::SocketAddr),
-}
-
-impl std::str::FromStr for HostExpr {
-    type Err = HostOptionParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(port) = s.parse::<u16>() {
-            return Ok(HostExpr::Port(port));
-        }
-        if let Ok(socket_addr) = s.parse::<net::SocketAddr>() {
-            return Ok(HostExpr::SocketAddr(socket_addr));
-        }
-        if let Some((host_part, port_part)) = s.rsplit_once(':') {
-            if let Ok(port) = port_part.parse::<u16>() {
-                if let Ok(domain) = addr::parse_domain_name(host_part) {
-                    return Ok(HostExpr::DomainPort(domain.to_string(), port));
-                }
-            }
-        }
-        Err(HostOptionParseError)
-    }
-}
-
-#[derive(Debug, PartialEq, thiserror::Error)]
-#[error("bad host and port expression")]
-pub struct HostOptionParseError;
-
-#[cfg(test)]
-mod test_options {
-
-    use super::*;
-    use std::net;
-
-    #[test]
-    fn host_option_parsing() {
-        assert_eq!("5678".parse::<HostExpr>(), Ok(HostExpr::Port(5678)),);
-        assert_eq!(
-            "1.2.3.4:5678".parse::<HostExpr>(),
-            Ok(HostExpr::SocketAddr(net::SocketAddr::from((
-                [1, 2, 3, 4],
-                5678
-            )))),
-        );
-        assert_eq!(
-            "localhost:5678".parse::<HostExpr>(),
-            Ok(HostExpr::DomainPort("localhost".to_string(), 5678)),
-        );
-        assert_eq!(
-            "example.com:5678".parse::<HostExpr>(),
-            Ok(HostExpr::DomainPort("example.com".to_string(), 5678)),
-        );
-    }
 }

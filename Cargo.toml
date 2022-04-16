@@ -9,8 +9,6 @@ repository = "https://github.com/mjhanninen/nreplops-tool"
 license = "Apache-2.0"
 readme = "README.md"
 
-exclude = ["TODO.md"]
-
 edition = "2021"
 
 [dependencies]
@@ -19,6 +17,8 @@ anyhow = "1.0"
 clap = { version = "3.1", features = ["derive"] }
 dns-lookup = "1.0"
 is-terminal = "0.2"
+pest = "2.1"
+pest_derive = "2.1"
 regex = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_bencode = "0.2"

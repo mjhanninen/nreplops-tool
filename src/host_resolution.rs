@@ -15,7 +15,7 @@
 
 use std::{fs, io, net, path, thread, time};
 
-use crate::{cli, error::Error};
+use crate::{cli, error::Error, host_expression::HostExpr};
 
 pub fn resolve_host_from_args(
     host_arg: &cli::HostArg,
@@ -73,13 +73,13 @@ fn find_port_file() -> io::Result<Option<path::PathBuf>> {
 }
 
 fn resolve_from_host_expr(
-    host_expr: &cli::HostExpr,
+    host_expr: &HostExpr,
 ) -> Result<net::SocketAddr, Error> {
-    use cli::HostExpr::*;
+    use HostExpr::*;
     match host_expr {
-        Port(port) => resolve_from_domaint_and_port("localhost", *port),
-        SocketAddr(addr) => Ok(*addr),
-        DomainPort(domain, port) => {
+        Local(port) => resolve_from_domaint_and_port("localhost", *port),
+        RemoteIP(addr) => Ok(*addr),
+        RemoteDomain(domain, port) => {
             resolve_from_domaint_and_port(domain, *port)
         }
     }
@@ -120,7 +120,7 @@ fn resolve_from_port_file(
             }
         })?
         .trim()
-        .parse::<cli::HostExpr>()
+        .parse::<HostExpr>()
         .map_err(|_| {
             Error::CannotParsePortFile(path.to_string_lossy().into())
         })?;

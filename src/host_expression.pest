@@ -1,0 +1,50 @@
+host_expr      =  { SOI ~ ( tunneled_port | remote_port | local_port ) ~ EOI }
+
+tunneled_port  =  { authority ~ ":" ~ remote_port }
+
+remote_port    =  { addr ~ ":" ~ local_port }
+
+local_port     =  { port_set }
+
+port_set       =  { ( port | port_range ) ~ ( "," ~ ( port | port_range ) )* }
+
+    port_range =  { port ~ "-" ~ port }
+
+port           =  { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+
+authority      =  { ( userinfo ~ "@" )? ~ addr }
+
+    userinfo   =  { ASCII_ALPHANUMERIC | "!" | "$" | "&" | "'" | "(" | ")" | "*"
+                  | "+" | "," | "-" | "." | ";" | "=" | "_" | "~" }
+
+addr           =  { "[" ~ ipv6_addr ~ "]" | ipv4_addr | domain_addr }
+
+domain_addr    = @{ "."? ~ label ~ ( "." ~ label )* }
+
+    label      =  { ASCII_ALPHA ~ ( ( ASCII_ALPHANUMERIC | "-")* ~ ASCII_ALPHANUMERIC )? }
+
+ipv6_addr      =  {                                        ( h16 ~ ":" ){6} ~ ls32
+                  |                                 "::" ~ ( h16 ~ ":" ){5} ~ ls32
+                  |   h16?                        ~ "::" ~ ( h16 ~ ":" ){4} ~ ls32
+                  | ( h16 ~ ( ":" ~ h16 ){0,1} )? ~ "::" ~ ( h16 ~ ":" ){3} ~ ls32
+                  | ( h16 ~ ( ":" ~ h16 ){0,2} )? ~ "::" ~ ( h16 ~ ":" ){2} ~ ls32
+                  | ( h16 ~ ( ":" ~ h16 ){0,3} )? ~ "::" ~   h16 ~ ":"      ~ ls32
+                  | ( h16 ~ ( ":" ~ h16 ){0,4} )? ~ "::"                    ~ ls32
+                  | ( h16 ~ ( ":" ~ h16 ){0,5} )? ~ "::"                    ~ h16
+                  | ( h16 ~ ( ":" ~ h16 ){0,6} )? ~ "::"
+                  }
+
+    ls32       =  { h16 ~ ":" ~ h16
+                  | ipv4_addr
+                  }
+
+    h16        = @{ ASCII_HEX_DIGIT{1,4} }
+
+ipv4_addr      = @{ d8 ~ ( "." ~ d8 ){0,3} }
+
+    d8         = @{ "25" ~ ( '0'..'5' )
+                  | "2" ~ ( '0'..'4' ) ~ ASCII_DIGIT
+                  | "1" ~ ASCII_DIGIT ~ ASCII_DIGIT
+                  | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT
+                  }
+

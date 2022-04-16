@@ -24,6 +24,7 @@
 mod bencode;
 mod cli;
 mod error;
+mod host_expression;
 mod host_resolution;
 mod nrepl;
 mod outputs;
