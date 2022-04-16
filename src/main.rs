@@ -13,6 +13,14 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+#![deny(
+    future_incompatible,
+    missing_debug_implementations,
+    nonstandard_style,
+    rust_2021_compatibility,
+    unused
+)]
+
 mod bencode;
 mod cli;
 mod error;
