@@ -15,11 +15,18 @@
 
 host_expr = { SOI ~ ( tunneled_port | remote_port | local_port ) ~ end }
 
-tunneled_port = { tunnel ~ ":" ~ remote_port }
-remote_port = { addr ~ ":" ~ port_set }
+// XXX(soija) The first octet of the server's IPv4 address could be get confused
+//            with the tunnel host's optional port, if it's left out.  Therefore
+//            we need this slightly messy rule.
+tunneled_port = {
+   ( user ~ "@" )? ~ (
+       addr          ~ ":" ~ remote_port
+     | addr_and_port ~ ":" ~ remote_port
+   )
+}
+remote_port = { addr ~ ":" ~ local_port }
 local_port = { port_set }
 
-tunnel = { ( user ~ "@" )? ~ addr ~ ( ":" ~ port_set )? }
 user = { user_char+ }
 user_char = _{
     ASCII_ALPHANUMERIC
@@ -31,6 +38,8 @@ port_set_expr = { SOI ~ port_set ~ end }
 port_set = { ( port_range | port ) ~ ( "," ~ ( port_range | port ) )* }
 port_range = { port ~ "-" ~ port }
 port = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+
+addr_and_port = { addr ~ ":" ~ port_set }
 
 addr_expr = { SOI ~ addr ~ end }
 addr = { "[" ~ ipv6_addr ~ "]" | ipv4_addr | domain_addr }

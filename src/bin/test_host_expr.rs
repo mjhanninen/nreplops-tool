@@ -20,7 +20,7 @@ use nreplops_tool::host_expression::parser::*;
 fn main() {
     for arg in env::args().skip(1) {
         println!("INPUT: {}", arg);
-        let result = HostExprLanguage::parse(Rule::port_set_expr, arg.as_str());
+        let result = HostExprLanguage::parse(Rule::host_expr, arg.as_str());
         println!("RESULT:\n{:#?}", result);
     }
 }

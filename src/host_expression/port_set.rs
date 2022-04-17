@@ -20,7 +20,7 @@ use super::parser::{self, Parser};
 pub type Port = u16;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PortSet(Vec<Port>);
+pub struct PortSet(pub Vec<u16>);
 
 impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
     type Error = CannotConvertToPortSetError;
