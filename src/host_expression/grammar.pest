@@ -27,17 +27,17 @@ user_char = _{
   | "_" | "~"
 }
 
-port_set_expr = !{ SOI ~ port_set ~ end }
+port_set_expr = { SOI ~ port_set ~ end }
 port_set = { ( port_range | port ) ~ ( "," ~ ( port_range | port ) )* }
 port_range = { port ~ "-" ~ port }
 port = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 
+addr_expr = { SOI ~ addr ~ end }
 addr = { "[" ~ ipv6_addr ~ "]" | ipv4_addr | domain_addr }
 
-domain_addr = @{ domain_label ~ ( "." ~ domain_label )* ~ "."? }
+domain_addr = { domain_label ~ ( "." ~ domain_label )* ~ "."? }
 domain_label = { ASCII_ALPHA ~ ( "-"* ~ ASCII_ALPHANUMERIC+ )* }
 
-// Fun fact: ::0 parses to IPv4!
 ipv6_addr = @{
                                           ( h16 ~ ":" ){6} ~ ls32
   |                                "::" ~ ( h16 ~ ":" ){5} ~ ls32
@@ -52,7 +52,9 @@ ipv6_addr = @{
 ls32 = { h16 ~ ":" ~ h16 | ipv4_addr }
 h16 = { ASCII_HEX_DIGIT{1,4} }
 
-ipv4_addr = @{ dec_octet ~ ( "." ~ dec_octet ){,3} }
+// XXX(soija) Strictly speaking the trailing zero octets of an IPv4 address are
+//            optional.  However Rust's net::IpAddr has issues with this.
+ipv4_addr = @{ dec_octet ~ ( "." ~ dec_octet ){3} }
 dec_octet = {
     "25" ~ '0'..'5'
   | "2" ~ '0'..'4' ~ ASCII_DIGIT

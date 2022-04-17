@@ -12,8 +12,8 @@ readme = "README.md"
 edition = "2021"
 
 [dependencies]
-addr = "0.15"
-anyhow = "1.0"
+addr = "0.15" # kill
+anyhow = "1.0" # get rid of
 clap = { version = "3.1", features = ["derive"] }
 dns-lookup = "1.0"
 is-terminal = "0.2"

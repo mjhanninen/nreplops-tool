@@ -13,6 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+mod addr;
 pub mod parser;
 mod port_set;
 
@@ -66,7 +67,7 @@ impl str::FromStr for Host_DEPRECATED {
         }
         if let Some((host_part, port_part)) = s.rsplit_once(':') {
             if let Ok(port) = port_part.parse::<u16>() {
-                if let Ok(domain) = addr::parse_domain_name(host_part) {
+                if let Ok(domain) = ::addr::parse_domain_name(host_part) {
                     return Ok(Host_DEPRECATED::RemoteDomain(
                         domain.to_string(),
                         port,
