@@ -1,4 +1,4 @@
-// host_expression/pest.rs
+// host_expression/parser.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -19,4 +19,4 @@ pub use pest::{iterators::Pair, Parser};
 
 #[derive(pest_derive::Parser)]
 #[grammar = "host_expression/grammar.pest"]
-pub struct HostExpr;
+pub struct HostExprLanguage;

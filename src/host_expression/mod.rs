@@ -15,9 +15,9 @@
 
 pub mod parser;
 
-use pest::Parser;
-
 use std::{net, str};
+
+use parser::Parser;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostExpr {
@@ -120,7 +120,7 @@ impl str::FromStr for PortSet {
     type Err = PortSetParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parser::HostExpr::parse(parser::Rule::port_set_expr, s)
+        parser::HostExprLanguage::parse(parser::Rule::port_set_expr, s)
             .map_err(|_| PortSetParseError)?
             .next()
             .expect("grammar guaranteed post_set_expr")
