@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-host_expr = { SOI ~ ( tunneled_port | remote_port | local_port ) ~ EOI }
+host_expr = { SOI ~ ( tunneled_port | remote_port | local_port ) ~ end }
 
 tunneled_port = { tunnel ~ ":" ~ remote_port }
 remote_port = { addr ~ ":" ~ port_set }
@@ -27,6 +27,7 @@ user_char = _{
   | "_" | "~"
 }
 
+port_set_expr = !{ SOI ~ port_set ~ end }
 port_set = { ( port_range | port ) ~ ( "," ~ ( port_range | port ) )* }
 port_range = { port ~ "-" ~ port }
 port = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
@@ -59,3 +60,6 @@ dec_octet = {
   | '1'..'9' ~ ASCII_DIGIT
   | ASCII_DIGIT
 }
+
+end = _{ EOI }
+

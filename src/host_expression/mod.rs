@@ -13,12 +13,11 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-pub mod pest;
+pub mod parser;
 
-use std::{
-    iter::{Enumerate, Peekable},
-    net, str,
-};
+use pest::Parser;
+
+use std::{net, str};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostExpr {
@@ -52,122 +51,90 @@ pub struct Tunnel {
 pub struct PortSet(Vec<u16>);
 
 #[derive(Debug, PartialEq, thiserror::Error)]
-#[error("parse error")]
-pub struct ParseError;
+#[error("cannot convert to port set")]
+pub struct CannotConvertToPortSetError;
 
-#[derive(Debug)]
-enum PortExprToken<'a> {
-    Number(&'a str),
-    Separator,
-    Range,
-}
+impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
+    type Error = CannotConvertToPortSetError;
 
-struct PortExprTokens<'a> {
-    s: &'a str,
-    i: Peekable<Enumerate<str::Chars<'a>>>,
-}
-
-impl<'a> PortExprTokens<'a> {
-    fn new(s: &'a str) -> Self {
-        Self {
-            s,
-            i: s.chars().enumerate().peekable(),
-        }
-    }
-}
-
-impl<'a> Iterator for PortExprTokens<'a> {
-    type Item = Result<PortExprToken<'a>, ParseError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let head = self.i.peek()?;
-        match *head {
-            (start, '0'..='9') => {
-                let s = loop {
-                    self.i.next().expect("peek guarantees existence");
-                    match self.i.peek() {
-                        Some((_, '0'..='9')) => (),
-                        Some((stop, _)) => break &self.s[start..*stop],
-                        None => break &self.s[start..],
-                    }
-                };
-                Some(Ok(PortExprToken::Number(s)))
-            }
-            (_, ',') => {
-                self.i.next().expect("peek guarantees existence");
-                Some(Ok(PortExprToken::Separator))
-            }
-            (_, '-') => {
-                self.i.next().expect("peek guarantees existence");
-                Some(Ok(PortExprToken::Range))
-            }
-            (_, _) => Some(Err(ParseError)),
-        }
-    }
-}
-
-fn parse_range_or_port(
-    tokens: &mut Peekable<PortExprTokens>,
-    ports: &mut Vec<u16>,
-) -> Result<(), ParseError> {
-    use PortExprToken::*;
-    if let Some(Ok(Number(s))) = tokens.next() {
-        let start = s.parse().map_err(|_| ParseError)?;
-        let is_range = match tokens.peek() {
-            Some(Ok(Range)) => true,
-            _ => false,
-        };
-        if is_range {
-            tokens
-                .next()
-                .expect("peek guarantees Some")
-                .expect("peek guarantees Ok");
-            if let Some(Ok(Number(s))) = tokens.next() {
-                let stop = s.parse().map_err(|_| ParseError)?;
-                if start <= stop {
-                    for port in start..=stop {
+    fn try_from(
+        pair: parser::Pair<'a, parser::Rule>,
+    ) -> Result<Self, Self::Error> {
+        use parser::Rule;
+        if matches!(pair.as_rule(), Rule::port_set) {
+            let mut ports = vec![];
+            for p in pair.into_inner() {
+                match p.as_rule() {
+                    Rule::port => {
+                        let port = p
+                            .as_str()
+                            .parse()
+                            .map_err(|_| CannotConvertToPortSetError)?;
                         if !ports.contains(&port) {
                             ports.push(port)
                         }
                     }
-                } else {
-                    for port in (stop..=start).rev() {
-                        if !ports.contains(&port) {
-                            ports.push(port)
+                    Rule::port_range => {
+                        let mut limits = p.into_inner();
+                        let start = limits
+                            .next()
+                            .expect("grammar guarantees start port")
+                            .as_str()
+                            .parse()
+                            .map_err(|_| CannotConvertToPortSetError)?;
+                        let end = limits
+                            .next()
+                            .expect("grammar guarantees end port")
+                            .as_str()
+                            .parse()
+                            .map_err(|_| CannotConvertToPortSetError)?;
+                        if start <= end {
+                            for port in start..=end {
+                                if !ports.contains(&port) {
+                                    ports.push(port)
+                                }
+                            }
+                        } else {
+                            for port in (end..=start).rev() {
+                                if !ports.contains(&port) {
+                                    ports.push(port)
+                                }
+                            }
                         }
                     }
+                    _ => unreachable!("grammar guarantees port or port_range"),
                 }
-            } else {
-                return Err(ParseError);
             }
+            Ok(Self(ports))
         } else {
-            if !ports.contains(&start) {
-                ports.push(start)
-            }
+            Err(CannotConvertToPortSetError)
         }
-    } else {
-        return Err(ParseError);
     }
-    Ok(())
 }
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+#[error("cannot parse port set expression")]
+pub struct PortSetParseError;
 
 impl str::FromStr for PortSet {
-    type Err = ParseError;
+    type Err = PortSetParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut ports = vec![];
-        let mut tokens = PortExprTokens::new(s).peekable();
-        parse_range_or_port(&mut tokens, &mut ports)?;
-        while let Some(token) = tokens.next() {
-            if let Ok(PortExprToken::Separator) = token {
-                parse_range_or_port(&mut tokens, &mut ports)?;
-            } else {
-                return Err(ParseError);
-            }
-        }
-        Ok(Self(ports))
+        parser::HostExpr::parse(parser::Rule::port_set_expr, s)
+            .map_err(|_| PortSetParseError)?
+            .next()
+            .expect("grammar guaranteed post_set_expr")
+            .into_inner()
+            .next()
+            .expect("grammar guarantees post_set")
+            .try_into()
+            .map_err(|_| PortSetParseError)
     }
 }
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+#[error("parse error")]
+pub struct ParseError;
 
 impl str::FromStr for Host_DEPRECATED {
     type Err = HostOptionParseError;
@@ -211,18 +178,18 @@ mod test {
         assert_eq!("1-3".parse(), Ok(PortSet(vec![1, 2, 3])));
         assert_eq!("3-1".parse(), Ok(PortSet(vec![3, 2, 1])));
         assert_eq!("1,1-2,5,2-4".parse(), Ok(PortSet(vec![1, 2, 5, 3, 4])));
-        assert_eq!("".parse::<PortSet>(), Err(ParseError));
-        assert_eq!(" 1".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1 ".parse::<PortSet>(), Err(ParseError));
-        assert_eq!(",".parse::<PortSet>(), Err(ParseError));
-        assert_eq!(",1".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1,".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("-1".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1-".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1,,2".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1--2".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("1-2-3".parse::<PortSet>(), Err(ParseError));
-        assert_eq!("65536".parse::<PortSet>(), Err(ParseError));
+        assert_eq!("".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!(" 1".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1 ".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!(",".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!(",1".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1,".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("-1".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1-".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1,,2".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1--2".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("1-2-3".parse::<PortSet>(), Err(PortSetParseError));
+        assert_eq!("65536".parse::<PortSet>(), Err(PortSetParseError));
     }
 
     #[test]

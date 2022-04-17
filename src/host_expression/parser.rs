@@ -15,7 +15,7 @@
 
 #![allow(missing_debug_implementations)]
 
-pub use pest::Parser;
+pub use pest::{iterators::Pair, Parser};
 
 #[derive(pest_derive::Parser)]
 #[grammar = "host_expression/grammar.pest"]

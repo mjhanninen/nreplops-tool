@@ -15,7 +15,7 @@
 
 use std::env;
 
-use nreplops_tool::host_expression::pest::*;
+use nreplops_tool::host_expression::parser::*;
 
 fn main() {
     for arg in env::args().skip(1) {
