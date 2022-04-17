@@ -22,6 +22,7 @@
 )]
 
 pub mod cli;
+pub mod host_expression;
 pub mod host_resolution;
 pub mod nrepl;
 pub mod outputs;
@@ -29,4 +30,3 @@ pub mod sources;
 
 mod bencode;
 mod error;
-mod host_expression;

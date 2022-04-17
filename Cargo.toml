@@ -27,3 +27,7 @@ thiserror = "1.0"
 [[bin]]
 name = "nr"
 path = "src/bin/main.rs"
+
+[[bin]]
+name = "nr-test-host-expr"
+path = "src/bin/test_host_expr.rs"

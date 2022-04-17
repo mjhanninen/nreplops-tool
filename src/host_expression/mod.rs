@@ -1,4 +1,4 @@
-// host_expression.rs
+// host_expression/mod.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -12,6 +12,8 @@
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 // License for the specific language governing permissions and limitations under
 // the License.
+
+pub mod parser;
 
 use std::{
     iter::{Enumerate, Peekable},
@@ -173,12 +175,6 @@ impl str::FromStr for HostExpr {
 #[derive(Debug, PartialEq, thiserror::Error)]
 #[error("bad host and port expression")]
 pub struct HostOptionParseError;
-
-use pest_derive::Parser;
-
-#[derive(Parser)]
-#[grammar = "host_expression.pest"]
-struct HostExprParser;
 
 #[cfg(test)]
 mod test {
