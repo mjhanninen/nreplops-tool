@@ -18,7 +18,7 @@ use std::{ffi, io, path, time};
 use clap::Parser;
 use is_terminal::IsTerminal;
 
-use crate::{error::Error, host_expression::HostExpr};
+use crate::{error::Error, host_expression::Host_DEPRECATED};
 
 #[derive(Debug)]
 pub struct Args {
@@ -256,7 +256,7 @@ pub struct IoParseError(String);
 struct Cli {
     /// Connect to server on [HOST:]PORT
     #[clap(long, short, visible_alias = "host", value_name = "[HOST:]PORT")]
-    port: Option<HostExpr>,
+    port: Option<Host_DEPRECATED>,
 
     /// Read server port from FILE
     #[clap(long, value_name = "FILE")]
@@ -357,6 +357,6 @@ fn not_implemented<T>(_: &str) -> Result<T, &'static str> {
 
 #[derive(Debug)]
 pub enum HostArg {
-    HostExpr(HostExpr),
+    HostExpr(Host_DEPRECATED),
     PortFile(Option<path::PathBuf>),
 }

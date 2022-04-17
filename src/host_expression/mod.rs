@@ -21,6 +21,34 @@ use std::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct HostExpr {
+    host: Host,
+    tunnel: Option<Tunnel>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Host {
+    Local { ports: PortSet },
+    RemoteDomain { domain: String, ports: PortSet },
+    RemoteIP { addr: net::IpAddr, ports: PortSet },
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum Host_DEPRECATED {
+    Local(u16),
+    RemoteDomain(String, u16),
+    RemoteIP(net::SocketAddr),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tunnel {
+    user: Option<String>,
+    host: String,
+    port: Option<PortSet>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct PortSet(Vec<u16>);
 
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -141,27 +169,20 @@ impl str::FromStr for PortSet {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum HostExpr {
-    Local(u16),
-    RemoteDomain(String, u16),
-    RemoteIP(net::SocketAddr),
-}
-
-impl str::FromStr for HostExpr {
+impl str::FromStr for Host_DEPRECATED {
     type Err = HostOptionParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(port) = s.parse::<u16>() {
-            return Ok(HostExpr::Local(port));
+            return Ok(Host_DEPRECATED::Local(port));
         }
         if let Ok(socket_addr) = s.parse::<net::SocketAddr>() {
-            return Ok(HostExpr::RemoteIP(socket_addr));
+            return Ok(Host_DEPRECATED::RemoteIP(socket_addr));
         }
         if let Some((host_part, port_part)) = s.rsplit_once(':') {
             if let Ok(port) = port_part.parse::<u16>() {
                 if let Ok(domain) = addr::parse_domain_name(host_part) {
-                    return Ok(HostExpr::RemoteDomain(
+                    return Ok(Host_DEPRECATED::RemoteDomain(
                         domain.to_string(),
                         port,
                     ));
@@ -206,21 +227,27 @@ mod test {
 
     #[test]
     fn host_option_parsing() {
-        assert_eq!("5678".parse::<HostExpr>(), Ok(HostExpr::Local(5678)),);
         assert_eq!(
-            "1.2.3.4:5678".parse::<HostExpr>(),
-            Ok(HostExpr::RemoteIP(net::SocketAddr::from((
+            "5678".parse::<Host_DEPRECATED>(),
+            Ok(Host_DEPRECATED::Local(5678)),
+        );
+        assert_eq!(
+            "1.2.3.4:5678".parse::<Host_DEPRECATED>(),
+            Ok(Host_DEPRECATED::RemoteIP(net::SocketAddr::from((
                 [1, 2, 3, 4],
                 5678
             )))),
         );
         assert_eq!(
-            "localhost:5678".parse::<HostExpr>(),
-            Ok(HostExpr::RemoteDomain("localhost".to_string(), 5678)),
+            "localhost:5678".parse::<Host_DEPRECATED>(),
+            Ok(Host_DEPRECATED::RemoteDomain("localhost".to_string(), 5678)),
         );
         assert_eq!(
-            "example.com:5678".parse::<HostExpr>(),
-            Ok(HostExpr::RemoteDomain("example.com".to_string(), 5678)),
+            "example.com:5678".parse::<Host_DEPRECATED>(),
+            Ok(Host_DEPRECATED::RemoteDomain(
+                "example.com".to_string(),
+                5678
+            )),
         );
     }
 }

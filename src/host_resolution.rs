@@ -15,7 +15,7 @@
 
 use std::{fs, io, net, path, thread, time};
 
-use crate::{cli, error::Error, host_expression::HostExpr};
+use crate::{cli, error::Error, host_expression::Host_DEPRECATED};
 
 pub fn resolve_host_from_args(
     host_arg: &cli::HostArg,
@@ -73,9 +73,9 @@ fn find_port_file() -> io::Result<Option<path::PathBuf>> {
 }
 
 fn resolve_from_host_expr(
-    host_expr: &HostExpr,
+    host_expr: &Host_DEPRECATED,
 ) -> Result<net::SocketAddr, Error> {
-    use HostExpr::*;
+    use Host_DEPRECATED::*;
     match host_expr {
         Local(port) => resolve_from_domaint_and_port("localhost", *port),
         RemoteIP(addr) => Ok(*addr),
@@ -120,7 +120,7 @@ fn resolve_from_port_file(
             }
         })?
         .trim()
-        .parse::<HostExpr>()
+        .parse::<Host_DEPRECATED>()
         .map_err(|_| {
             Error::CannotParsePortFile(path.to_string_lossy().into())
         })?;
