@@ -27,7 +27,7 @@ use crate::{
     error::Error,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Output {
     StdOut,
     StdErr,
@@ -44,6 +44,7 @@ impl Output {
     }
 }
 
+#[derive(Debug)]
 pub enum OutputWriter<'a> {
     StdOut,
     StdErr,
@@ -76,6 +77,7 @@ impl<'a> Write for OutputWriter<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Outputs {
     // Receives our "internal" normal output
     pub stdout: Output,

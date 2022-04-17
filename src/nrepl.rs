@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bencode;
 
+#[derive(Debug)]
 pub enum Op {
     Clone,
     Close,
@@ -95,6 +96,7 @@ impl Response {
     }
 }
 
+#[derive(Debug)]
 pub struct Connection {
     stream: TcpStream,
     buffer: Vec<u8>,

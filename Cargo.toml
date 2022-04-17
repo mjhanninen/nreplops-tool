@@ -26,4 +26,4 @@ thiserror = "1.0"
 
 [[bin]]
 name = "nr"
-path = "src/main.rs"
+path = "src/bin/main.rs"
