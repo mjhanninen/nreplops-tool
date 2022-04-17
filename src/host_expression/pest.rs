@@ -1,4 +1,4 @@
-// bin/test_host_expr.rs
+// host_expression/pest.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -13,14 +13,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::env;
+#![allow(missing_debug_implementations)]
 
-use nreplops_tool::host_expression::pest::*;
+pub use pest::Parser;
 
-fn main() {
-    for arg in env::args().skip(1) {
-        println!("INPUT: {}", arg);
-        let result = HostExpr::parse(Rule::host_expr, arg.as_str());
-        println!("RESULT:\n{:#?}", result);
-    }
-}
+#[derive(pest_derive::Parser)]
+#[grammar = "host_expression/grammar.pest"]
+pub struct HostExpr;

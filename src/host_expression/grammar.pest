@@ -1,49 +1,61 @@
-host_expr      =  { SOI ~ ( tunneled_port | remote_port | local_port ) ~ EOI }
+// host_expression/grammar.pest
+// Copyright 2022 Matti Hänninen
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
-tunneled_port  =  { authority ~ ":" ~ remote_port }
+host_expr = { SOI ~ ( tunneled_port | remote_port | local_port ) ~ EOI }
 
-remote_port    =  { addr ~ ":" ~ local_port }
+tunneled_port = { tunnel ~ ":" ~ remote_port }
+remote_port = { addr ~ ":" ~ port_set }
+local_port = { port_set }
 
-local_port     =  { port_set }
+tunnel = { ( user ~ "@" )? ~ addr ~ ( ":" ~ port_set )? }
+user = { user_char+ }
+user_char = _{
+    ASCII_ALPHANUMERIC
+  | "!" | "$" | "&" | "'" | "(" | ")" | "*" | "+" | "," | "-" | "." | ";" | "="
+  | "_" | "~"
+}
 
-port_set       =  { ( port | port_range ) ~ ( "," ~ ( port | port_range ) )* }
+port_set = { ( port_range | port ) ~ ( "," ~ ( port_range | port ) )* }
+port_range = { port ~ "-" ~ port }
+port = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 
-    port_range =  { port ~ "-" ~ port }
+addr = { "[" ~ ipv6_addr ~ "]" | ipv4_addr | domain_addr }
 
-port           =  { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+domain_addr = @{ domain_label ~ ( "." ~ domain_label )* ~ "."? }
+domain_label = { ASCII_ALPHA ~ ( "-"* ~ ASCII_ALPHANUMERIC+ )* }
 
-authority      =  { ( userinfo ~ "@" )? ~ addr }
+// Fun fact: ::0 parses to IPv4!
+ipv6_addr = @{
+                                          ( h16 ~ ":" ){6} ~ ls32
+  |                                "::" ~ ( h16 ~ ":" ){5} ~ ls32
+  |   h16?                       ~ "::" ~ ( h16 ~ ":" ){4} ~ ls32
+  | ( h16 ~ ( ":" ~ h16 ){,1} )? ~ "::" ~ ( h16 ~ ":" ){3} ~ ls32
+  | ( h16 ~ ( ":" ~ h16 ){,2} )? ~ "::" ~ ( h16 ~ ":" ){2} ~ ls32
+  | ( h16 ~ ( ":" ~ h16 ){,3} )? ~ "::" ~   h16 ~ ":"      ~ ls32
+  | ( h16 ~ ( ":" ~ h16 ){,4} )? ~ "::"                    ~ ls32
+  | ( h16 ~ ( ":" ~ h16 ){,5} )? ~ "::"                    ~ h16
+  | ( h16 ~ ( ":" ~ h16 ){,6} )? ~ "::"
+}
+ls32 = { h16 ~ ":" ~ h16 | ipv4_addr }
+h16 = { ASCII_HEX_DIGIT{1,4} }
 
-    userinfo   =  { ASCII_ALPHANUMERIC | "!" | "$" | "&" | "'" | "(" | ")" | "*"
-                  | "+" | "," | "-" | "." | ";" | "=" | "_" | "~" }
-
-addr           =  { "[" ~ ipv6_addr ~ "]" | ipv4_addr | domain_addr }
-
-domain_addr    = @{ "."? ~ label ~ ( "." ~ label )* }
-
-    label      =  { ASCII_ALPHA ~ ( ( ASCII_ALPHANUMERIC | "-")* ~ ASCII_ALPHANUMERIC )? }
-
-ipv6_addr      =  {                                        ( h16 ~ ":" ){6} ~ ls32
-                  |                                 "::" ~ ( h16 ~ ":" ){5} ~ ls32
-                  |   h16?                        ~ "::" ~ ( h16 ~ ":" ){4} ~ ls32
-                  | ( h16 ~ ( ":" ~ h16 ){,1} )? ~ "::" ~ ( h16 ~ ":" ){3} ~ ls32
-                  | ( h16 ~ ( ":" ~ h16 ){,2} )? ~ "::" ~ ( h16 ~ ":" ){2} ~ ls32
-                  | ( h16 ~ ( ":" ~ h16 ){,3} )? ~ "::" ~   h16 ~ ":"      ~ ls32
-                  | ( h16 ~ ( ":" ~ h16 ){,4} )? ~ "::"                    ~ ls32
-                  | ( h16 ~ ( ":" ~ h16 ){,5} )? ~ "::"                    ~ h16
-                  | ( h16 ~ ( ":" ~ h16 ){,6} )? ~ "::"
-                  }
-
-    ls32       =  { h16 ~ ":" ~ h16
-                  | ipv4_addr
-                  }
-
-    h16        = @{ ASCII_HEX_DIGIT{1,4} }
-
-ipv4_addr      = @{ d8 ~ ( "." ~ d8 ){0,3} }
-
-    d8         = @{ "25" ~ ( '0'..'5' )
-                  | "2" ~ ( '0'..'4' ) ~ ASCII_DIGIT
-                  | "1" ~ ASCII_DIGIT ~ ASCII_DIGIT
-                  | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT
-                  }
+ipv4_addr = @{ dec_octet ~ ( "." ~ dec_octet ){,3} }
+dec_octet = {
+    "25" ~ '0'..'5'
+  | "2" ~ '0'..'4' ~ ASCII_DIGIT
+  | "1" ~ ASCII_DIGIT ~ ASCII_DIGIT
+  | '1'..'9' ~ ASCII_DIGIT
+  | ASCII_DIGIT
+}
