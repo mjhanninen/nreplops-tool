@@ -23,7 +23,6 @@
 
 pub mod cli;
 pub mod conn_expr;
-pub mod host_resolution;
 pub mod nrepl;
 pub mod outputs;
 pub mod sources;

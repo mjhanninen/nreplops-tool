@@ -19,8 +19,19 @@ use super::parser::{self, Parser};
 
 pub type Port = u16;
 
+/// Non-empty ordered set of ports
 #[derive(Clone, Debug, PartialEq)]
-pub struct PortSet(pub Vec<u16>);
+pub struct PortSet(Vec<Port>);
+
+impl PortSet {
+    pub fn as_slice(&self) -> &[Port] {
+        self.0.as_slice()
+    }
+
+    pub fn into_inner(self) -> Vec<Port> {
+        self.0
+    }
+}
 
 impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
     type Error = CannotConvertToPortSetError;
@@ -73,6 +84,7 @@ impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
                     _ => unreachable!("grammar guarantees port or port_range"),
                 }
             }
+            assert!(!ports.is_empty());
             Ok(Self(ports))
         } else {
             Err(CannotConvertToPortSetError)

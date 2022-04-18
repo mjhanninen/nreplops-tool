@@ -18,18 +18,20 @@ use std::{ffi, io, path, time};
 use clap::Parser;
 use is_terminal::IsTerminal;
 
-use crate::{error::Error, conn_expr::Host_DEPRECATED};
+use crate::{
+    conn_expr::{ConnectionExpr, ConnectionExprSource},
+    error::Error,
+};
 
 #[derive(Debug)]
 pub struct Args {
-    pub host: HostArg,
+    pub conn_expr_src: ConnectionExprSource,
     pub stdin_from: Option<IoArg>,
     pub stdout_to: Option<IoArg>,
     pub stderr_to: Option<IoArg>,
     pub results_to: Option<IoArg>,
     pub source_args: Vec<SourceArg>,
     pub template_args: Vec<TemplateArg>,
-    pub wait_port_file_for: Option<time::Duration>,
 }
 
 impl Args {
@@ -133,14 +135,17 @@ impl TryFrom<Cli> for Args {
             )
             .collect::<Result<_, _>>()?;
 
-        let host = if let Some(ref h) = cli.port {
-            HostArg::HostExpr(h.clone())
+        let conn_expr_src = if let Some(ref h) = cli.port {
+            h.into()
         } else {
-            HostArg::PortFile(cli.port_file.clone())
+            ConnectionExprSource::PortFile {
+                path: cli.port_file.clone(),
+                wait_for: cli.wait_port_file.map(time::Duration::from_secs),
+            }
         };
 
         Ok(Self {
-            host,
+            conn_expr_src,
             stdin_from,
             stdout_to: if cli.no_stdout {
                 None
@@ -174,9 +179,6 @@ impl TryFrom<Cli> for Args {
             },
             source_args,
             template_args: args,
-            wait_port_file_for: cli
-                .wait_port_file
-                .map(time::Duration::from_secs),
         })
     }
 }
@@ -255,8 +257,13 @@ pub struct IoParseError(String);
 )]
 struct Cli {
     /// Connect to server on [HOST:]PORT
-    #[clap(long, short, visible_alias = "host", value_name = "[HOST:]PORT")]
-    port: Option<Host_DEPRECATED>,
+    #[clap(
+        long,
+        short,
+        visible_alias = "host",
+        value_name = "[[[USER@]TUNNEL[:PORT]:]HOST:]PORT"
+    )]
+    port: Option<ConnectionExpr>,
 
     /// Read server port from FILE
     #[clap(long, value_name = "FILE")]
@@ -353,10 +360,4 @@ struct Cli {
 
 fn not_implemented<T>(_: &str) -> Result<T, &'static str> {
     Err("this feature has not been implemented yet, sorry")
-}
-
-#[derive(Debug)]
-pub enum HostArg {
-    HostExpr(Host_DEPRECATED),
-    PortFile(Option<path::PathBuf>),
 }

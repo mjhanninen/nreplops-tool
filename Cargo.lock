@@ -3,16 +3,6 @@
 version = 3
 
 [[package]]
-name = "addr"
-version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4299322d87d6ae73d3bd74918983e712acc3a1b73c880258eb5a0b45895e7b85"
-dependencies = [
- "psl",
- "psl-types",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -287,7 +277,6 @@ checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 name = "nreplops-tool"
 version = "0.0.7"
 dependencies = [
- "addr",
  "anyhow",
  "clap",
  "dns-lookup",
@@ -387,21 +376,6 @@ checksum = "ec757218438d5fda206afc041538b2f6d889286160d649a86a24d37e1235afd1"
 dependencies = [
  "unicode-xid",
 ]
-
-[[package]]
-name = "psl"
-version = "2.0.87"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "676a055de12d26776790188a69ec2969f9272f85e00ab0555df81f74db867434"
-dependencies = [
- "psl-types",
-]
-
-[[package]]
-name = "psl-types"
-version = "2.0.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8eda7c62d9ecaafdf8b62374c006de0adf61666ae96a96ba74a37134aa4e470"
 
 [[package]]
 name = "quote"

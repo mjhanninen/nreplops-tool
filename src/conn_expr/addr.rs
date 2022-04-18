@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{net, str};
+use std::{fmt, net, str};
 
 use super::parser::{HostExprLanguage, Pair, Parser, Rule};
 
@@ -21,6 +21,15 @@ use super::parser::{HostExprLanguage, Pair, Parser, Rule};
 pub enum Addr {
     Domain(String),
     IP(net::IpAddr),
+}
+
+impl fmt::Display for Addr {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Addr::Domain(domain) => domain.fmt(fmt),
+            Addr::IP(ip) => ip.fmt(fmt),
+        }
+    }
 }
 
 impl<'a> TryFrom<Pair<'a, Rule>> for Addr {
