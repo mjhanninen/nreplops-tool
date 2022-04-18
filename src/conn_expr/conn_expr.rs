@@ -340,15 +340,11 @@ mod test {
     use std::net;
 
     fn ps(ports: &[u16]) -> PortSet {
-        PortSet(Vec::from_iter(ports.iter().cloned()))
+        maybe_ps(ports).unwrap()
     }
 
     fn maybe_ps(ports: &[u16]) -> Option<PortSet> {
-        if ports.is_empty() {
-            None
-        } else {
-            Some(ps(ports))
-        }
+        PortSet::try_from_iter(ports.iter().cloned())
     }
 
     fn ip4(a: u8, b: u8, c: u8, d: u8) -> Addr {

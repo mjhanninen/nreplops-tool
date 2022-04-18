@@ -24,6 +24,20 @@ pub type Port = u16;
 pub struct PortSet(Vec<Port>);
 
 impl PortSet {
+    pub fn try_from_iter(iter: impl Iterator<Item = Port>) -> Option<PortSet> {
+        let mut ports = vec![];
+        for port in iter {
+            if !ports.contains(&port) {
+                ports.push(port)
+            }
+        }
+        if ports.is_empty() {
+            None
+        } else {
+            Some(Self(ports))
+        }
+    }
+
     pub fn as_slice(&self) -> &[Port] {
         self.0.as_slice()
     }
@@ -44,18 +58,14 @@ impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
             let mut ports = vec![];
             for p in pair.into_inner() {
                 match p.as_rule() {
-                    Rule::port => {
-                        let port = p
-                            .as_str()
+                    Rule::port => ports.push(
+                        p.as_str()
                             .parse()
-                            .map_err(|_| CannotConvertToPortSetError)?;
-                        if !ports.contains(&port) {
-                            ports.push(port)
-                        }
-                    }
+                            .map_err(|_| CannotConvertToPortSetError)?,
+                    ),
                     Rule::port_range => {
                         let mut limits = p.into_inner();
-                        let start = limits
+                        let start: Port = limits
                             .next()
                             .expect("grammar guarantees start port")
                             .as_str()
@@ -68,24 +78,16 @@ impl<'a> TryFrom<parser::Pair<'a, parser::Rule>> for PortSet {
                             .parse()
                             .map_err(|_| CannotConvertToPortSetError)?;
                         if start <= end {
-                            for port in start..=end {
-                                if !ports.contains(&port) {
-                                    ports.push(port)
-                                }
-                            }
+                            ports.extend(start..=end);
                         } else {
-                            for port in (end..=start).rev() {
-                                if !ports.contains(&port) {
-                                    ports.push(port)
-                                }
-                            }
+                            ports.extend((end..=start).rev());
                         }
                     }
                     _ => unreachable!("grammar guarantees port or port_range"),
                 }
             }
-            assert!(!ports.is_empty());
-            Ok(Self(ports))
+            Ok(Self::try_from_iter(ports.into_iter())
+                .expect("grammar guarantees at least one port"))
         } else {
             Err(CannotConvertToPortSetError)
         }
