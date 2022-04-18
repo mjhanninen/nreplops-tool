@@ -1,4 +1,4 @@
-// host_expression/mod.rs
+// conn_expr/mod.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -28,24 +28,24 @@ pub use port_set::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct HostExpr {
+pub struct ConnectionExpr {
     ports: PortSet,
     addr: Option<Addr>,
-    tunnel: Option<Tunnel>,
+    tunnel: Option<TunnelExpr>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Tunnel {
+pub struct TunnelExpr {
     user: Option<String>,
     addr: Addr,
     ports: Option<PortSet>,
 }
 
-impl str::FromStr for HostExpr {
+impl str::FromStr for ConnectionExpr {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let top_pair = HostExprLanguage::parse(Rule::host_expr, s)
+        let top_pair = HostExprLanguage::parse(Rule::connection_expr, s)
             .map_err(|_| ParseError)?
             .next()
             .expect("grammar guarantees host expression")
@@ -53,18 +53,18 @@ impl str::FromStr for HostExpr {
             .next()
             .expect("grammar guarantees inner specific host expression");
         match top_pair.as_rule() {
-            Rule::local_port => host_expr_from_local_port_pair(top_pair.into_inner()),
-            Rule::remote_port => host_expr_from_remote_port_pair(top_pair.into_inner()),
-            Rule::tunneled_port => host_expr_from_tunneled_port_pair(top_pair.into_inner()),
+            Rule::local_connection_expr => connection_expr_from_local_connection_expr_pair(top_pair.into_inner()),
+            Rule::remote_connection_expr => connection_expr_from_remote_connection_expr_pair(top_pair.into_inner()),
+            Rule::tunneled_connection_expr => connection_expr_from_tunneled_connection_expr_pair(top_pair.into_inner()),
             _ => unreachable!("grammar guarantees local, remote, or tunneled remote host expression"),
         }
     }
 }
 
-fn host_expr_from_local_port_pair(
+fn connection_expr_from_local_connection_expr_pair(
     mut pairs: Pairs<Rule>,
-) -> Result<HostExpr, ParseError> {
-    Ok(HostExpr {
+) -> Result<ConnectionExpr, ParseError> {
+    Ok(ConnectionExpr {
         ports: pairs
             .next()
             .expect("grammar guarantees a port set")
@@ -76,41 +76,41 @@ fn host_expr_from_local_port_pair(
     })
 }
 
-fn host_expr_from_remote_port_pair(
+fn connection_expr_from_remote_connection_expr_pair(
     mut pairs: Pairs<Rule>,
-) -> Result<HostExpr, ParseError> {
+) -> Result<ConnectionExpr, ParseError> {
     let addr = pairs
         .next()
         .expect("grammar guarantees an address")
         .try_into()
         .expect("grammar guarantees the address is legal");
-    let mut host_expr = host_expr_from_local_port_pair(
+    let mut connection_expr = connection_expr_from_local_connection_expr_pair(
         pairs
             .next()
             .expect("grammar guarantees a local port expression")
             .into_inner(),
     )?;
-    host_expr.addr = Some(addr);
-    Ok(host_expr)
+    connection_expr.addr = Some(addr);
+    Ok(connection_expr)
 }
 
-fn host_expr_from_tunneled_port_pair(
+fn connection_expr_from_tunneled_connection_expr_pair(
     pairs: Pairs<Rule>,
-) -> Result<HostExpr, ParseError> {
+) -> Result<ConnectionExpr, ParseError> {
     let (tunnel, mut pairs) = tunnel_from_pairs(pairs)?;
-    let mut host_expr = host_expr_from_remote_port_pair(
+    let mut connection_expr = connection_expr_from_remote_connection_expr_pair(
         pairs
             .next()
             .expect("grammar guarantees a remote port expression")
             .into_inner(),
     )?;
-    host_expr.tunnel = Some(tunnel);
-    Ok(host_expr)
+    connection_expr.tunnel = Some(tunnel);
+    Ok(connection_expr)
 }
 
 fn tunnel_from_pairs(
     mut pairs: Pairs<Rule>,
-) -> Result<(Tunnel, Pairs<Rule>), ParseError> {
+) -> Result<(TunnelExpr, Pairs<Rule>), ParseError> {
     let mut next = pairs.next().expect("grammar guarantees a user or address");
     let user = if matches!(next.as_rule(), Rule::user) {
         let s = next.as_str().to_owned();
@@ -121,7 +121,7 @@ fn tunnel_from_pairs(
     };
     match next.as_rule() {
         Rule::addr => Ok((
-            Tunnel {
+            TunnelExpr {
                 user,
                 addr: next
                     .try_into()
@@ -143,7 +143,7 @@ fn tunnel_from_pairs(
                 .try_into()
                 .map_err(|_| ParseError)?;
             Ok((
-                Tunnel {
+                TunnelExpr {
                     user,
                     addr,
                     ports: Some(ports),
@@ -235,9 +235,9 @@ mod test {
     }
 
     #[test]
-    fn local_port_expression_parsing() {
+    fn local_connection_expr_parsing() {
         let mk = |ports| {
-            Ok(HostExpr {
+            Ok(ConnectionExpr {
                 ports: ps(ports),
                 addr: None,
                 tunnel: None,
@@ -250,9 +250,9 @@ mod test {
     }
 
     #[test]
-    fn remote_port_expression_parsing() {
+    fn remote_connection_expr_parsing() {
         let mk = |addr, ports| {
-            Ok(HostExpr {
+            Ok(ConnectionExpr {
                 ports: ps(ports),
                 addr: Some(addr),
                 tunnel: None,
@@ -267,16 +267,16 @@ mod test {
     }
 
     #[test]
-    fn tunneled_port_expression_parsing() {
+    fn tunneled_connection_expr_parsing() {
         let mk = |tunnel_user: Option<&str>,
                   tunnel_addr,
                   tunnel_ports: &[u16],
                   server_addr,
                   server_ports| {
-            Ok(HostExpr {
+            Ok(ConnectionExpr {
                 ports: ps(server_ports),
                 addr: Some(server_addr),
-                tunnel: Some(Tunnel {
+                tunnel: Some(TunnelExpr {
                     user: tunnel_user.map(|s| s.to_owned()),
                     addr: tunnel_addr,
                     ports: maybe_ps(tunnel_ports),

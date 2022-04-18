@@ -18,7 +18,7 @@ use std::{ffi, io, path, time};
 use clap::Parser;
 use is_terminal::IsTerminal;
 
-use crate::{error::Error, host_expression::Host_DEPRECATED};
+use crate::{error::Error, conn_expr::Host_DEPRECATED};
 
 #[derive(Debug)]
 pub struct Args {

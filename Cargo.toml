@@ -29,5 +29,5 @@ name = "nr"
 path = "src/bin/main.rs"
 
 [[bin]]
-name = "nr-test-host-expr"
-path = "src/bin/test_host_expr.rs"
+name = "nr-test-conn-expr"
+path = "src/bin/test_conn_expr.rs"

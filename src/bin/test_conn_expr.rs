@@ -1,4 +1,4 @@
-// bin/test_host_expr.rs
+// bin/test_connection_expr.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -15,12 +15,13 @@
 
 use std::env;
 
-use nreplops_tool::host_expression::parser::*;
+use nreplops_tool::conn_expr::parser::*;
 
 fn main() {
     for arg in env::args().skip(1) {
         println!("INPUT: {}", arg);
-        let result = HostExprLanguage::parse(Rule::host_expr, arg.as_str());
+        let result =
+            HostExprLanguage::parse(Rule::connection_expr, arg.as_str());
         println!("RESULT:\n{:#?}", result);
     }
 }

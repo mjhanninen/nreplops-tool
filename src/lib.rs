@@ -22,7 +22,7 @@
 )]
 
 pub mod cli;
-pub mod host_expression;
+pub mod conn_expr;
 pub mod host_resolution;
 pub mod nrepl;
 pub mod outputs;

@@ -1,4 +1,4 @@
-// host_expression/grammar.pest
+// conn_expr/grammar.pest
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -13,19 +13,25 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-host_expr = { SOI ~ ( tunneled_port | remote_port | local_port ) ~ end }
+connection_expr = {
+    SOI ~ (
+        tunneled_connection_expr
+      | remote_connection_expr
+      | local_connection_expr
+    ) ~ end
+}
 
 // XXX(soija) The first octet of the server's IPv4 address could be get confused
 //            with the tunnel host's optional port, if it's left out.  Therefore
 //            we need this slightly messy rule.
-tunneled_port = {
+tunneled_connection_expr = {
    ( user ~ "@" )? ~ (
-       addr          ~ ":" ~ remote_port
-     | addr_and_port ~ ":" ~ remote_port
+       addr          ~ ":" ~ remote_connection_expr
+     | addr_and_port ~ ":" ~ remote_connection_expr
    )
 }
-remote_port = { addr ~ ":" ~ local_port }
-local_port = { port_set }
+remote_connection_expr = { addr ~ ":" ~ local_connection_expr }
+local_connection_expr = { port_set }
 
 user = { user_char+ }
 user_char = _{

@@ -15,7 +15,7 @@
 
 use std::{fs, io, net, path, thread, time};
 
-use crate::{cli, error::Error, host_expression::Host_DEPRECATED};
+use crate::{cli, error::Error, conn_expr::Host_DEPRECATED};
 
 pub fn resolve_host_from_args(
     host_arg: &cli::HostArg,
