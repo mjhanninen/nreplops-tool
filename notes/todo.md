@@ -58,6 +58,7 @@
 - JSON encoded results (for piping to `jq`)
 - socket REPL support
 - pREPL support
+- browser repl support (find a way to browser no matter what)
 - configure the CI to run the integration (Clojure) tests
 - short-circuiting: given `-e A -e B` when `A` fails don't evaluate `B`
 - `--exprs-to <sink>` for echoing sent expressions to `<sink>`
