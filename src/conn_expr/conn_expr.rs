@@ -70,7 +70,7 @@ impl RouteSet {
                     dns_lookup::lookup_host(domain)
                         .map_err(|_| Error::DomainNotFound(domain.clone()))?
                 }
-                Some(Addr::IP(ref ip)) => vec![ip.clone()],
+                Some(Addr::IP(ip)) => vec![ip],
             };
             ips.sort();
             Ok(RouteSet::Direct {
@@ -159,7 +159,7 @@ impl RouteSet {
                 let ix_addr = ix % addrs.len();
                 let ix_port = ix / addrs.len();
                 Route::Direct(net::SocketAddr::new(
-                    addrs[ix_addr].clone(),
+                    addrs[ix_addr],
                     ports.as_slice()[ix_port],
                 ))
             }

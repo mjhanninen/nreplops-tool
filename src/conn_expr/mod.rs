@@ -16,9 +16,12 @@
 pub mod parser;
 
 mod addr;
-mod conn_expr;
 mod port_set;
 mod resolution;
+
+// XXX(soija) Okay, "deinception" this
+#[allow(clippy::module_inception)]
+mod conn_expr;
 
 pub use self::{
     addr::{
