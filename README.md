@@ -3,9 +3,10 @@
 nreplops-tool (`nr`) is a non-interactive nREPL client designed to be used in
 shell scripts and on the command-line.
 
-> **Early α warning:**  This project at a very early development phase.  While
-> the tool is probably reasonably usable (and the author uses it daily) the
-> current development focus is not on quality, stability, or documentation.
+> **Early α warning:**  This project is still at a very early development
+> phase.  While the tool is probably reasonably usable (and the author uses it
+> daily) the current development focus is not on quality, stability, or
+> documentation.
 
 ## Try it out in 1 minute
 
