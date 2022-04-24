@@ -112,7 +112,12 @@ cargo install --path .
 ## Goals
 
 - Easy of use in shell scripts
-- Consistency and interoperability with Babashka and jq
+- Consistency and interoperability with selected CLI tools:
+  [Babashka][babashka], [Jet][jet], and [jq][jq]
+
+[babashka]: https://github.com/babashka/babashka
+[jet]: https://github.com/borkdude/jet
+[jq]: https://github.com/stedolan/jq
 
 ## License
 
