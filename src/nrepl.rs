@@ -97,23 +97,49 @@ impl Response {
 }
 
 #[derive(Debug)]
+enum Socket {
+    TcpStream(TcpStream),
+}
+
+impl From<TcpStream> for Socket {
+    fn from(s: TcpStream) -> Self {
+        Socket::TcpStream(s)
+    }
+}
+
+impl Socket {
+    fn borrow_mut_read(&mut self) -> &mut dyn Read {
+        match *self {
+            Socket::TcpStream(ref mut s) => s,
+        }
+    }
+
+    fn borrow_mut_write(&mut self) -> &mut dyn Write {
+        match *self {
+            Socket::TcpStream(ref mut s) => s,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Connection {
-    stream: TcpStream,
+    socket: Socket,
     buffer: Vec<u8>,
 }
 
 impl Connection {
-    pub fn new(stream: TcpStream) -> Self {
+    pub fn from_tcp_stream(stream: TcpStream) -> Self {
         Self {
-            stream,
+            socket: stream.into(),
             buffer: Default::default(),
         }
     }
 
     pub fn send(&mut self, request: &WireRequest) -> Result<(), io::Error> {
         let payload = serde_bencode::to_bytes(request).unwrap();
-        self.stream.write_all(&payload)?;
-        self.stream.flush()
+        let w = self.socket.borrow_mut_write();
+        w.write_all(&payload)?;
+        w.flush()
     }
 
     pub fn try_recv(&mut self) -> Result<Response, RecvError> {
@@ -136,7 +162,7 @@ impl Connection {
                     return Err(RecvError::BadInput);
                 }
             }
-            let bytes_read = self.stream.read(&mut buffer)?;
+            let bytes_read = self.socket.borrow_mut_read().read(&mut buffer)?;
             if bytes_read == 0 {
                 return Err(RecvError::HostDisconnected);
             }

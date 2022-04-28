@@ -75,7 +75,7 @@ fn main1() -> Result<(), anyhow::Error> {
     let stream = try_connect(conn_routes)?;
 
     stream.set_nodelay(true)?;
-    let mut con = nrepl::Connection::new(stream);
+    let mut con = nrepl::Connection::from_tcp_stream(stream);
 
     con.send(&nrepl::WireRequest {
         op: nrepl::Op::Clone.to_string(),
