@@ -21,37 +21,15 @@
     unused
 )]
 
-use std::{
-    io::{self, Write},
-    net, process,
-};
+use std::{io::Write, process};
 
-use nreplops_tool::{self, conn_expr::Route, *};
+use nreplops_tool::{self, *};
 
 fn main() {
     if let Err(e) = main1() {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
-}
-
-fn try_connect(routes: conn_expr::Routes) -> Result<net::TcpStream, io::Error> {
-    let mut last_err = None;
-    for route in routes {
-        if let Route::Direct(ip) = route {
-            // XXX(soija) connection timeout perhaps? fast round, slow round?
-            match net::TcpStream::connect(ip) {
-                Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
-                    last_err = Some(e);
-                    continue;
-                }
-                res => return res,
-            }
-        } else {
-            panic!("tunneled connections not yet supported: {:?}", route);
-        };
-    }
-    Err(last_err.expect("at least one failed connection attempt"))
 }
 
 fn main1() -> Result<(), anyhow::Error> {
@@ -72,10 +50,9 @@ fn main1() -> Result<(), anyhow::Error> {
 
     let outputs = outputs::Outputs::try_from_args(&args)?;
 
-    let stream = try_connect(conn_routes)?;
+    let socket = socket::connect(conn_routes)?;
 
-    stream.set_nodelay(true)?;
-    let mut con = nrepl::Connection::from_tcp_stream(stream);
+    let mut con = nrepl::Connection::new(socket);
 
     con.send(&nrepl::WireRequest {
         op: nrepl::Op::Clone.to_string(),

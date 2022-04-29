@@ -25,6 +25,7 @@ pub mod cli;
 pub mod conn_expr;
 pub mod nrepl;
 pub mod outputs;
+pub mod socket;
 pub mod sources;
 
 mod bencode;

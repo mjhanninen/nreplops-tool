@@ -88,13 +88,16 @@ pub enum Route {
     // likewise, the ssh server to resolve to final host's address.  This way
     // the name resolution behaves the same as it would when you debug it by
     // hand with the actual ssh client.
-    Tunneled {
-        ssh_user: Option<String>,
-        ssh_addr: Addr,
-        ssh_port: Option<Port>,
-        host_addr: Addr,
-        host_port: Port,
-    },
+    Tunneled(TunnelOptions),
+}
+
+#[derive(Clone, Debug)]
+pub struct TunnelOptions {
+    pub ssh_user: Option<String>,
+    pub ssh_addr: Addr,
+    pub ssh_port: Option<Port>,
+    pub host_addr: Addr,
+    pub host_port: Port,
 }
 
 #[derive(Clone, Debug)]
@@ -169,13 +172,13 @@ impl RouteSet {
                 ssh_ports: None,
                 host_addr,
                 host_ports,
-            } => Route::Tunneled {
+            } => Route::Tunneled(TunnelOptions {
                 ssh_user: ssh_user.clone(),
                 ssh_addr: ssh_addr.clone(),
                 ssh_port: None,
                 host_addr: host_addr.clone(),
                 host_port: host_ports.as_slice()[ix],
-            },
+            }),
             RouteSet::Tunneled {
                 ssh_user,
                 ssh_addr,
@@ -188,13 +191,13 @@ impl RouteSet {
                 let ssh_ports = ssh_ports.as_slice();
                 let ix_ssh_port = ix % ssh_ports.len();
                 let ix_host_port = ix / ssh_ports.len();
-                Route::Tunneled {
+                Route::Tunneled(TunnelOptions {
                     ssh_user: ssh_user.clone(),
                     ssh_addr: ssh_addr.clone(),
                     ssh_port: Some(ssh_ports[ix_ssh_port]),
                     host_addr: host_addr.clone(),
                     host_port: host_ports.as_slice()[ix_host_port],
-                }
+                })
             }
         }
     }

@@ -13,13 +13,11 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{
-    io::{self, Read, Write},
-    net::TcpStream,
-};
+use std::io;
 
 use serde::{Deserialize, Serialize};
 
+use super::socket::Socket;
 use crate::bencode;
 
 #[derive(Debug)]
@@ -97,40 +95,15 @@ impl Response {
 }
 
 #[derive(Debug)]
-enum Socket {
-    TcpStream(TcpStream),
-}
-
-impl From<TcpStream> for Socket {
-    fn from(s: TcpStream) -> Self {
-        Socket::TcpStream(s)
-    }
-}
-
-impl Socket {
-    fn borrow_mut_read(&mut self) -> &mut dyn Read {
-        match *self {
-            Socket::TcpStream(ref mut s) => s,
-        }
-    }
-
-    fn borrow_mut_write(&mut self) -> &mut dyn Write {
-        match *self {
-            Socket::TcpStream(ref mut s) => s,
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Connection {
     socket: Socket,
     buffer: Vec<u8>,
 }
 
 impl Connection {
-    pub fn from_tcp_stream(stream: TcpStream) -> Self {
+    pub fn new(socket: Socket) -> Self {
         Self {
-            socket: stream.into(),
+            socket,
             buffer: Default::default(),
         }
     }
