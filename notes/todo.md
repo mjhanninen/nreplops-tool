@@ -1,54 +1,10 @@
 # To-Do
 
+## Features
+
 - check the presence and version of the ssh client as needed (ssh)
 - don't let other things block the timeout watchdog
-- add a connection examples section to the manual
-- tunnel through ssh
-  - [Thrussh](https://crates.io/crates/thrussh)
-    - pure Rust
-    - apache-2.0
-    - not so good docs
-  - [ssh2](https://crates.io/crates/ssh2) and [libssh2-sys](https://crates.io/crates/libssh2-sys)
-    - wraps libssh2 C lib
-    - mit or apache-2.0 (check static linking)
-    - `Session::channel_direct_tcpip`
-    - okay docs
-  - [openssh](https://crates.io/crates/openssh)
-    - wraps `ssh` client command (not lib)
-    - mit or apache-2.0
-    - oh! [jonhoo](https://github.com/jonhoo) goodness!
-    - `~/.ssh/config` works
-    - very command oriented
-    - `Session::request_port_forward` (so a bit roundabout)
-    - good docs
-  - by using ControlMaster
-  - calling ssh directly
-    - use `-o BatchMode=yes`
-      - disables interactive passwords and confirmations
-      - does it disable ssh-agent kick as well?
-    - use `-o ClearAllForwardings=yes`
-      - ignores any other forwardings set out in ssh_config
-    - port forwarding `-L`
-      - `ssh -x -n -N -T -L <random-port>:<host>:<port>`
-      - use openssh crate instead
-    - stdin/out forwarding `-W`
-      - `ssh -x -N -T -o ExitOnForwardFailure=yes -o ClearAllForwardings=yes -W <host>:<port>`
-  - port file syntax
-    - `<port>`
-      - a local nREPL host
-    - `<remote-host>:<remote-port>`
-      - a remote nREPL host
-    - `<ssh-host>:<remote-host>:<remote-port>`
-      - a remote nREPL host, reachable via SSH host (port 22 or from `.ssh/config`)
-    - `<ssh-host>:<ssh-port>:<remote-host>:<remove-port>`
-      - a remote nREPL host, reachable via SSH host on specific port
-    - `<ssh-host>:<ssh-port-list>:<remote-host>:<remove-port>`
-      - a remote nREPL host, reachable via SSH host on a port within a given range
-      - e.g. `vpn.biscuit.example.com:1024-1027,1032:[::1]:7000`
-      - obvious but name resolution post-poned to the remote side
-    - `<ssh-user>@<ssh-host>:<ssh-port>:<remote-host>:<remote-port>`
-- try to connect to all resolved addresses instead of only to the first one
-  - cache the lucky one
+- when a port expression resolves to multiple routes, cache the one that succeed
 - argument interpolation
   - string/number/keyword magic by default
   - `#nr[... :str]` and `#nr[... :clj]` directives
@@ -72,3 +28,7 @@
   - conditional on stdout or stderr being connected to tty locally
 - Windows support
 - provide tagged literal function `#nr` for running the scripts directly on the host Clojure process (for testing purposes)
+
+## Documentation
+
+- add a connection examples section to the manual
