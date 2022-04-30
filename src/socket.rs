@@ -2,18 +2,14 @@ use super::conn_expr;
 
 use std::{
     io::{self, Read, Write},
-    net::TcpStream,
-    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    net::{self, TcpStream},
+    process::{Child, Command, Stdio},
 };
 
 #[derive(Debug)]
 pub enum Socket {
     TcpStream(TcpStream),
-    SshClient {
-        process: Child,
-        stdin: ChildStdin,
-        stdout: ChildStdout,
-    },
+    SshClient(Child),
 }
 
 impl From<TcpStream> for Socket {
@@ -26,18 +22,36 @@ impl Socket {
     pub fn borrow_mut_read(&mut self) -> &mut dyn Read {
         match *self {
             Socket::TcpStream(ref mut s) => s,
-            Socket::SshClient {
-                stdout: ref mut r, ..
-            } => r,
+            Socket::SshClient(ref mut p) => {
+                p.stdout.as_mut().expect("child process's stdout is piped")
+            }
         }
     }
 
     pub fn borrow_mut_write(&mut self) -> &mut dyn Write {
         match *self {
             Socket::TcpStream(ref mut s) => s,
-            Socket::SshClient {
-                stdin: ref mut w, ..
-            } => w,
+            Socket::SshClient(ref mut p) => {
+                p.stdin.as_mut().expect("child process's stdin is piped")
+            }
+        }
+    }
+}
+
+impl Drop for Socket {
+    fn drop(&mut self) {
+        match *self {
+            Socket::TcpStream(ref mut s) => {
+                let _ignore = s.shutdown(net::Shutdown::Both);
+            }
+            Socket::SshClient(ref mut p) => {
+                if let Ok(Some(_)) = p.try_wait() {
+                    // Already stopped
+                } else {
+                    // XXX(soija) Maybe use SIGTERM first?
+                    let _ = p.kill();
+                }
+            }
         }
     }
 }
@@ -90,18 +104,7 @@ fn connect_impl(route: &conn_expr::Route) -> Result<Socket, io::Error> {
                 cmd.arg("-p").arg(port.to_string());
             }
             cmd.arg(opts.ssh_addr.to_string());
-            let mut process = cmd.spawn()?;
-            let stdin =
-                process.stdin.take().expect("child process has piped stdin");
-            let stdout = process
-                .stdout
-                .take()
-                .expect("child process has piped stdout");
-            Ok(Socket::SshClient {
-                process,
-                stdin,
-                stdout,
-            })
+            Ok(Socket::SshClient(cmd.spawn()?))
         }
     }
 }
