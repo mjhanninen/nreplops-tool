@@ -1,5 +1,8 @@
 # To-Do
 
+- check the presence and version of the ssh client as needed (ssh)
+- don't let other things block the timeout watchdog
+- add a connection examples section to the manual
 - tunnel through ssh
   - [Thrussh](https://crates.io/crates/thrussh)
     - pure Rust
