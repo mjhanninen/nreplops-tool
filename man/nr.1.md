@@ -28,12 +28,12 @@ nr - The nREPL ops tool
 
 **\--timeout** _seconds_
 
-:   Aborts the program execution after _seconds_ have elapsed unless the
-    program has managed complete otherwise before it.
+:   Aborts the program execution after _seconds_ have elapsed unless the program
+    has managed to complete before it.
 
     The duration is measured from the very start of the program execution and
     includes, for example, the time elapsed while waiting for the port file to
-    appear (see the **\--port-file** option).
+    appear (see the **\--wait-port-file** option).
 
 **-V**, **\--version**
 
@@ -72,23 +72,23 @@ nr - The nREPL ops tool
 
 **\--wait-port-file** _seconds_
 
-:   Waits _seconds_ for the port file to become available in case of none exists
-    when the program starts.  After _seconds_ have elapsed the program aborts
+:   Waits _seconds_ for the port file to become available if none exists when
+    the program starts.  After _seconds_ have elapsed the program aborts
     execution with the timeout status unless the port file has become available.
 
-    This option can be given without supplying any expression to be sent to the
-    server.  In that case the program just waits for the port file and when it
-    appears returns immediately with a success status.
+    This option can be used without supplying the program any expressions to be
+    evaluted the server.  In that case the program just waits for the port file
+    to appear and then returns immediately.
 
 ## Evaluation options
 
 **-a**, **\--arg** _name=value_
 
-:   Set the template argument _name_ to _value_.
+:   Sets the template argument _name_ to _value_.
 
-    **NB:** Currently _value_ is interpolated into the source code as-is
-    without any kind of interpretation.  For example, in order to pass a string
-    you need to pass the double quotes with string:
+    **NB:** Currently _value_ is interpolated into the source code as-is without
+    any kind of interpretation.  For example, in order to pass a string you need
+    to pass the double quotes with string:
 
     ```
     nr --arg 'foo="Hello world"'
@@ -107,11 +107,11 @@ nr - The nREPL ops tool
 
 **-f**, **\--file** _file_
 
-:   Evaluates the whole content of the _file_ on the nREPL server.  The file
-    can contain more than one expression.
+:   Evaluates the whole content of the _file_ on the nREPL server.  The file can
+    contain more than one expression.
 
     This option can be given multiple times in which case the files are
-    evaluated within the same nREPL session in the left-to-right order.  For
+    evaluated within the same nREPL session in the order they are given.  For
     example:
 
     ```
@@ -124,16 +124,16 @@ nr - The nREPL ops tool
 
 :   Evaluates the expressions within the _namespace_.
 
-    If this optionn is not given then the expressions are evaluated within the
+    If this option is not given then the expressions are evaluated within the
     `*user*` namespace.
 
-## Result and output options
+## Input, output, and result options
 
-**\-in**, **\--input**, **\--stdin** _file_
+**\--in**, **\--input**, **\--stdin** _file_
 
 :   Sends the content of _file_ to the nREPL server as the remote standard input.
 
-    If _file_ is `-` then the local standard input is tunneled to the nREPL
+    If _file_ is `-` then the local standard input is forwarded to the nREPL
     server.  This requires the use of either **\--expr** or **\--file** option
     to pass the expressions.  For example:
 
@@ -150,34 +150,46 @@ nr - The nREPL ops tool
     If this option is not given then nothing is sent over to the server's
     standard input.
 
-**\--out**, **\--output**, **\--stdout** _file_
+**\--stdout**, **\--out**, **\--output** _file_
 
-:   Writes the nREPL server's standard output to _file_.  If not given then the
-    remote output is directed to the local standard output.
+:   Writes the nREPL server's standard output to _file_.
+
+    If this option is not given then the remote output is directed to the local
+    standard output.
+
+    See also the **\--no-stdout** option.
 
 **\--no-stdout**, **\--no-out**, **\--no-output**
 
 :   Discards the nREPL server's standard output.
 
-    This option conflicts with the **\--stdout** option.
+    This option conflicts with the **\--out** option.
 
-**\--err**, **\--stderr** _file_
+**\--stderr**, **\--err** _file_
 
-:   Writes the nREPL server's standard serror to _file_.  If not given then the
-    remote output is directed to the local standard error.
+:   Writes the nREPL server's standard serror to _file_.
 
-**\--no-stderr**, **\--no-err**, **\--no-error**
+    If this option is not given then the remote output is directed to the local
+    standard error.
+
+    See also the **\--no-stderr** option.
+
+**\--no-stderr**, **\--no-err**
 
 :   Discards the nREPL server's standard error.
 
     This option conflicts with the **\--stderr** option.
 
-**\--res**, **\--results**, **\--values** _file_
+**\--results**, **\--res**, **\--values** _file_
 
-:   Writes the evaluation results to _file_, a single result per line.  If not
-    given then the results are directed to the local standard output.
+:   Writes the evaluation results to _file_, a single result per line.
 
-**\--no-res**, **\--no-results**, **\--no-values**
+    If this option is not given then the results are directed to the local
+    standard output.
+
+    See also the **\--no-results** option.
+
+**\--no-results**, **\--no-res**, **\--no-values**
 
 :   Discards evaluation results.  This can be useful when the expressions are
     evaluated only for their side-effects.
