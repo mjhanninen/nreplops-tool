@@ -314,7 +314,7 @@ struct Cli {
     /// Discard server's stderr
     #[clap(
         long,
-        visible_aliases = &["no-err", "no-error"],
+        visible_aliases = &["no-err"],
         conflicts_with = "stderr",
     )]
     no_stderr: bool,
