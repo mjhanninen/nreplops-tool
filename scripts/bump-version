@@ -18,7 +18,6 @@ VERSION="$1"
   || die "repository is not in a clean state"
 
 # Dancing around macOS sed
-
 if [[ -d "/opt/homebrew/opt/gnu-sed/libexec/gnubin" ]]; then
   export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 fi
@@ -50,8 +49,13 @@ sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "'"$VERSION"'"/' Ca
   && cargo check \
   || die "failed to update Cargo.toml"
 
+# Bump CHANGELOG.md
+sed -i -Ee 's/^## Unreleased$/## Unreleased\n\n## Version '"$VERSION"'/' CHANGELOG.md \
+  && git status --porcelain | grep -q '^ M CHANGELOG.md$' \
+  || die "failed to update CHANGELOG.md"
+
 # Commit and release tag
-git add Cargo.toml Cargo.lock
+git add Cargo.toml Cargo.lock CHANGELOG.md
 git commit -m "Bump version to ${VERSION}"
 git tag -a -m "Release ${VERSION}" "v${VERSION}"
 git show HEAD
