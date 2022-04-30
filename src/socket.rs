@@ -106,6 +106,18 @@ fn connect_impl(route: &conn_expr::Route) -> Result<Socket, io::Error> {
                 cmd.arg("-p").arg(port.to_string());
             }
             cmd.arg(opts.ssh_addr.to_string());
+            //
+            // XXX(soija) Here we are content with just being able to spawn the
+            //            child process successfully and don't verify that a
+            //            forwarded connection is actually formed.
+            //
+            //            This is okay for now as a failing ssh client seems to
+            //            cause a decent enough error when we try to read from
+            //            or write to the socket on this side.  However, this
+            //            needs to be solved somehow before it is possible to
+            //            knock multiple ports (in case I want to retain that
+            //            feature).
+            //
             Ok(Socket::SshClient(cmd.spawn()?))
         }
     }
