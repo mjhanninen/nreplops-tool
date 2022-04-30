@@ -95,6 +95,8 @@ fn connect_impl(route: &conn_expr::Route) -> Result<Socket, io::Error> {
                 .arg("ExitOnForwardFailure=yes")
                 .arg("-o")
                 .arg("ClearAllForwardings=yes")
+                .arg("-o")
+                .arg("ConnectTimeout=5")
                 .arg("-W")
                 .arg(format!("{}:{}", opts.host_addr, opts.host_port));
             if let Some(ref user) = opts.ssh_user {
