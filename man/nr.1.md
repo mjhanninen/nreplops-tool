@@ -41,13 +41,20 @@ nr - The nREPL ops tool
 
 ## Connection options
 
-**-p**, **\--port** \[_host_:]_port_
+**-p**, **\--port**, **\--host** \[\[_tunnel_:]_host_:]_port_
 
 :   Connects to the nREPL server listening on the \[_host_:]_port_.
 
     The _host_, if given, can be an IPv4 address, IPv6 address, or domain name.
     In case the domain name resolves to multiple addresses the IPv4 addresses
     are preferred over the IPv6 addresses.
+
+    The _tunnel_, if given, should be of the form
+    \[_login_@]_ssh-host_\[:_ssh-port_] specifying the SSH connection through
+    which the nREPL connection is to be tunneled.  When the connection is
+    tunneled the name and address resolution of the _host_ happens on the
+    forwarding SSH host.  Tunneling requires that the local system has the
+    OpenSSH remote login client (ssh) installed on it.
 
     If this option is not given then the program searches for a `.nrepl-port`
     file and reads the connection information from it.  The search covers the
