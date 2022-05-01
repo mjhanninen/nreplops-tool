@@ -46,41 +46,6 @@ impl ConnectionExpr {
     }
 }
 
-impl RouteSet {
-    fn try_from_conn_expr(conn_expr: &ConnectionExpr) -> Result<Self, Error> {
-        if let Some(ref tunnel) = conn_expr.tunnel {
-            let host_addr = conn_expr
-                .addr
-                .as_ref()
-                .expect("tunneling should guarantee final host address")
-                .clone();
-            Ok(RouteSet::Tunneled {
-                ssh_user: tunnel.user.clone(),
-                ssh_addr: tunnel.addr.clone(),
-                ssh_ports: tunnel.ports.clone(),
-                host_addr,
-                host_ports: conn_expr.ports.clone(),
-            })
-        } else {
-            let mut ips = match conn_expr.addr {
-                None => dns_lookup::lookup_host("localhost").map_err(|_| {
-                    Error::DomainNotFound("localhost".to_owned())
-                })?,
-                Some(Addr::Domain(ref domain)) => {
-                    dns_lookup::lookup_host(domain)
-                        .map_err(|_| Error::DomainNotFound(domain.clone()))?
-                }
-                Some(Addr::IP(ip)) => vec![ip],
-            };
-            ips.sort();
-            Ok(RouteSet::Direct {
-                ips,
-                ports: conn_expr.ports.clone(),
-            })
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum Route {
     Direct(net::SocketAddr),
@@ -136,6 +101,39 @@ enum RouteSet {
 }
 
 impl RouteSet {
+    fn try_from_conn_expr(conn_expr: &ConnectionExpr) -> Result<Self, Error> {
+        if let Some(ref tunnel) = conn_expr.tunnel {
+            let host_addr = conn_expr
+                .addr
+                .as_ref()
+                .expect("tunneling should guarantee final host address")
+                .clone();
+            Ok(RouteSet::Tunneled {
+                ssh_user: tunnel.user.clone(),
+                ssh_addr: tunnel.addr.clone(),
+                ssh_ports: tunnel.ports.clone(),
+                host_addr,
+                host_ports: conn_expr.ports.clone(),
+            })
+        } else {
+            let mut ips = match conn_expr.addr {
+                None => dns_lookup::lookup_host("localhost").map_err(|_| {
+                    Error::DomainNotFound("localhost".to_owned())
+                })?,
+                Some(Addr::Domain(ref domain)) => {
+                    dns_lookup::lookup_host(domain)
+                        .map_err(|_| Error::DomainNotFound(domain.clone()))?
+                }
+                Some(Addr::IP(ip)) => vec![ip],
+            };
+            ips.sort();
+            Ok(RouteSet::Direct {
+                ips,
+                ports: conn_expr.ports.clone(),
+            })
+        }
+    }
+
     fn len(&self) -> usize {
         match self {
             RouteSet::Direct { ips: addrs, ports } => {
@@ -229,6 +227,14 @@ impl str::FromStr for ConnectionExpr {
                 connection_expr_from_tunneled_connection_expr_pair(
                     top_pair.into_inner(),
                 )
+            }
+            Rule::host_key_expr => {
+                todo!("host key expression parsing");
+                /*
+                connection_expr_from_host_key_expr_pair(
+                    top_pair.into_inner(),
+                )
+                */
             }
             _ => unreachable!(
                 r#"grammar guarantees local, remote, or tunneled remote host \

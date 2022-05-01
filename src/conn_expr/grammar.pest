@@ -18,6 +18,7 @@ connection_expr = {
         tunneled_connection_expr
       | remote_connection_expr
       | local_connection_expr
+      | host_key_expr
     ) ~ end
 }
 
@@ -32,6 +33,10 @@ tunneled_connection_expr = {
 }
 remote_connection_expr = { addr ~ ":" ~ local_connection_expr }
 local_connection_expr = { port_set }
+
+host_key_expr = { host_key_leading_char ~ host_key_char* }
+host_key_leading_char = _{ ASCII_ALPHA }
+host_key_char = _{ ASCII_ALPHANUMERIC | "-" | "_" }
 
 user = { user_char+ }
 user_char = _{
