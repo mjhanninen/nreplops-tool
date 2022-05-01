@@ -22,7 +22,19 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ConnectionExpr {
+pub enum ConnectionExpr {
+    RouteExpr(RouteExpr),
+    HostKey(String),
+}
+
+impl From<RouteExpr> for ConnectionExpr {
+    fn from(route_expr: RouteExpr) -> Self {
+        ConnectionExpr::RouteExpr(route_expr)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RouteExpr {
     pub ports: PortSet,
     pub addr: Option<Addr>,
     pub tunnel: Option<TunnelExpr>,
@@ -51,16 +63,19 @@ impl str::FromStr for ConnectionExpr {
                 connection_expr_from_local_connection_expr_pair(
                     top_pair.into_inner(),
                 )
+                .map(|e| e.into())
             }
             Rule::remote_connection_expr => {
                 connection_expr_from_remote_connection_expr_pair(
                     top_pair.into_inner(),
                 )
+                .map(|e| e.into())
             }
             Rule::tunneled_connection_expr => {
                 connection_expr_from_tunneled_connection_expr_pair(
                     top_pair.into_inner(),
                 )
+                .map(|e| e.into())
             }
             Rule::host_key_expr => {
                 todo!("host key expression parsing");
@@ -80,8 +95,8 @@ impl str::FromStr for ConnectionExpr {
 
 fn connection_expr_from_local_connection_expr_pair(
     mut pairs: Pairs<Rule>,
-) -> Result<ConnectionExpr, ParseError> {
-    Ok(ConnectionExpr {
+) -> Result<RouteExpr, ParseError> {
+    Ok(RouteExpr {
         ports: pairs
             .next()
             .expect("grammar guarantees a port set")
@@ -95,7 +110,7 @@ fn connection_expr_from_local_connection_expr_pair(
 
 fn connection_expr_from_remote_connection_expr_pair(
     mut pairs: Pairs<Rule>,
-) -> Result<ConnectionExpr, ParseError> {
+) -> Result<RouteExpr, ParseError> {
     let addr = pairs
         .next()
         .expect("grammar guarantees an address")
@@ -113,7 +128,7 @@ fn connection_expr_from_remote_connection_expr_pair(
 
 fn connection_expr_from_tunneled_connection_expr_pair(
     pairs: Pairs<Rule>,
-) -> Result<ConnectionExpr, ParseError> {
+) -> Result<RouteExpr, ParseError> {
     let (tunnel, mut pairs) = tunnel_from_pairs(pairs)?;
     let mut connection_expr = connection_expr_from_remote_connection_expr_pair(
         pairs
@@ -214,11 +229,11 @@ mod test {
     #[test]
     fn local_connection_expr_parsing() {
         let mk = |ports| {
-            Ok(ConnectionExpr {
+            Ok(ConnectionExpr::RouteExpr(RouteExpr {
                 ports: ps(ports),
                 addr: None,
                 tunnel: None,
-            })
+            }))
         };
         assert_eq!("1".parse(), mk(&[1]));
         assert_eq!("1,2".parse(), mk(&[1, 2]));
@@ -229,11 +244,11 @@ mod test {
     #[test]
     fn remote_connection_expr_parsing() {
         let mk = |addr, ports| {
-            Ok(ConnectionExpr {
+            Ok(ConnectionExpr::RouteExpr(RouteExpr {
                 ports: ps(ports),
                 addr: Some(addr),
                 tunnel: None,
-            })
+            }))
         };
         assert_eq!("1.2.3.4:1,2-3".parse(), mk(ip4(1, 2, 3, 4), &[1, 2, 3]));
         assert_eq!(
@@ -250,7 +265,7 @@ mod test {
                   tunnel_ports: &[u16],
                   server_addr,
                   server_ports| {
-            Ok(ConnectionExpr {
+            Ok(ConnectionExpr::RouteExpr(RouteExpr {
                 ports: ps(server_ports),
                 addr: Some(server_addr),
                 tunnel: Some(TunnelExpr {
@@ -258,7 +273,7 @@ mod test {
                     addr: tunnel_addr,
                     ports: maybe_ps(tunnel_ports),
                 }),
-            })
+            }))
         };
         assert_eq!(
             "1.2.3.4:5.6.7.8:9".parse(),

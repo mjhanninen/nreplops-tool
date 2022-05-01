@@ -28,7 +28,7 @@ pub use self::{
         Addr, ConversionError as AddrConversionError,
         ParseError as AddrParseError,
     },
-    conn_expr::ConnectionExpr,
+    conn_expr::{ConnectionExpr, RouteExpr, TunnelExpr},
     port_set::{CannotConvertToPortSetError, Port, PortSet, PortSetParseError},
     resolution::ConnectionExprSource,
 };

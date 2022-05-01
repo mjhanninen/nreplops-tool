@@ -1,7 +1,7 @@
 use std::net;
 
 use crate::{
-    conn_expr::{Addr, ConnectionExpr, Port, PortSet},
+    conn_expr::{Addr, ConnectionExpr, Port, PortSet, RouteExpr},
     error::Error,
     host_options::HostOptionsTable,
 };
@@ -10,10 +10,14 @@ pub fn resolve_routes(
     conn_expr: &ConnectionExpr,
     _host_opts_table: &HostOptionsTable,
 ) -> Result<Routes, Error> {
-    Ok(Routes {
-        inner: RouteSet::try_from_conn_expr(conn_expr)?,
-        pos: 0,
-    })
+    if let ConnectionExpr::RouteExpr(ref route_expr) = *conn_expr {
+        Ok(Routes {
+            inner: RouteSet::try_from_conn_expr(route_expr)?,
+            pos: 0,
+        })
+    } else {
+        todo!("host key resolution")
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -71,7 +75,7 @@ enum RouteSet {
 }
 
 impl RouteSet {
-    fn try_from_conn_expr(conn_expr: &ConnectionExpr) -> Result<Self, Error> {
+    fn try_from_conn_expr(conn_expr: &RouteExpr) -> Result<Self, Error> {
         if let Some(ref tunnel) = conn_expr.tunnel {
             let host_addr = conn_expr
                 .addr
