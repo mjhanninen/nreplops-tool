@@ -25,6 +25,9 @@ pub fn resolve_routes(
     conn_expr: &ConnectionExpr,
     _host_opts_table: &HostOptionsTable,
 ) -> Result<Routes, Error> {
+    // XXX(soija) Next up, implement the route resolution. Note that the resolve
+    //            route needs to carry info from possible host options (e.g.
+    //            name, whether to ask confirmation, and so on).
     if let ConnectionExpr::RouteExpr(ref route_expr) = *conn_expr {
         Ok(Routes {
             inner: RouteSet::try_from_conn_expr(route_expr)?,
