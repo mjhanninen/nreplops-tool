@@ -17,8 +17,11 @@
 - Raku Advent Calendar (2020) ["Day 4: Parsing Clojure namespace forms using
   Raku grammars"][rac]
 - [`naomijub/edn-rs`][edn-rs]: A crate for parsing and emitting EDN. GitHub.
+- [`clojure-rs/ClojureRS`][clojure-rs]: a Clojure interpreter implemented in
+  Rust. GitHub.
 
 [clindex]: https://github.com/jpmonettas/clindex
+[clojure-rs]: https://github.com/clojure-rs/ClojureRS
 [edn-rs]: https://github.com/naomijub/edn-rs
 [feichtinger:2015]: https://epub.jku.at/obvulihs/download/pdf/501665
 [parinferish]: https://github.com/oakes/parinferish
