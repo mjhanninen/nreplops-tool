@@ -8,7 +8,10 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{host_options::{HostKey, HostOptions, HostOptionsTable}, conn_expr::ConnectionExpr};
+use crate::{
+    conn_expr::ConnectionExpr,
+    host_options::{HostKey, HostOptions, HostOptionsTable},
+};
 
 // XXX(soija) Use crate::errors instead of raw io::Error
 

@@ -3,9 +3,13 @@ use std::net;
 use crate::{
     conn_expr::{Addr, ConnectionExpr, Port, PortSet},
     error::Error,
+    host_options::HostOptionsTable,
 };
 
-pub fn resolve_routes(conn_expr: &ConnectionExpr) -> Result<Routes, Error> {
+pub fn resolve_routes(
+    conn_expr: &ConnectionExpr,
+    _host_opts_table: &HostOptionsTable,
+) -> Result<Routes, Error> {
     Ok(Routes {
         inner: RouteSet::try_from_conn_expr(conn_expr)?,
         pos: 0,

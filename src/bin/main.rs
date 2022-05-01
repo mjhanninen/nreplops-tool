@@ -37,6 +37,8 @@ fn main1() -> Result<(), anyhow::Error> {
 
     let conn_expr = args.conn_expr_src.resolve_expr()?;
 
+    let host_opts_table = hosts_files::load_default_hosts_files()?;
+
     let sources =
         sources::load_sources(&args.source_args[..], &args.template_args[..])?;
 
@@ -46,7 +48,7 @@ fn main1() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    let conn_routes = routes::resolve_routes(&conn_expr)?;
+    let conn_routes = routes::resolve_routes(&conn_expr, &host_opts_table)?;
 
     let outputs = outputs::Outputs::try_from_args(&args)?;
 
