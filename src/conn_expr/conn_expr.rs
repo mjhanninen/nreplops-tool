@@ -78,16 +78,11 @@ impl str::FromStr for ConnectionExpr {
                 .map(|e| e.into())
             }
             Rule::host_key_expr => {
-                todo!("host key expression parsing");
-                /*
-                connection_expr_from_host_key_expr_pair(
-                    top_pair.into_inner(),
-                )
-                */
+                Ok(ConnectionExpr::HostKey(top_pair.as_str().to_string()))
             }
             _ => unreachable!(
-                r#"grammar guarantees local, remote, or tunneled remote host \
-                   expression"#
+                r#"grammar guarantees a local, remote, or tunneled route
+                   expression to a remote host, or a host key reference"#
             ),
         }
     }
@@ -339,5 +334,12 @@ mod test {
             "a@b.c.d.:1:e.f.g.:2".parse(),
             mk(Some("a"), dom("b.c.d."), &[1], dom("e.f.g."), &[2])
         );
+    }
+
+    #[test]
+    fn host_key_expr_parsing() {
+        let mk = |key: &str| Ok(ConnectionExpr::HostKey(key.to_owned()));
+        assert_eq!("x".parse(), mk("x"));
+        assert_eq!("my_prod_host_1".parse(), mk("my_prod_host_1"));
     }
 }
