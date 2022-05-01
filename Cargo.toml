@@ -33,3 +33,7 @@ path = "src/bin/main.rs"
 [[bin]]
 name = "nr-test-conn-expr"
 path = "src/bin/test_conn_expr.rs"
+
+[[bin]]
+name = "nr-test-hosts-file"
+path = "src/bin/test_hosts_file.rs"
