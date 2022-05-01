@@ -26,6 +26,7 @@ pub mod conn_expr;
 pub mod hosts_files;
 pub mod nrepl;
 pub mod outputs;
+pub mod routes;
 pub mod socket;
 pub mod sources;
 

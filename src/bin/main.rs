@@ -46,7 +46,7 @@ fn main1() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    let conn_routes = conn_expr.resolve_routes()?;
+    let conn_routes = routes::resolve_routes(&conn_expr)?;
 
     let outputs = outputs::Outputs::try_from_args(&args)?;
 

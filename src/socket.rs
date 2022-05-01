@@ -1,4 +1,4 @@
-use super::conn_expr;
+use super::routes::{Route, Routes};
 
 use std::{
     io::{self, Read, Write},
@@ -56,7 +56,7 @@ impl Drop for Socket {
     }
 }
 
-pub fn connect(routes: conn_expr::Routes) -> Result<Socket, io::Error> {
+pub fn connect(routes: Routes) -> Result<Socket, io::Error> {
     let mut last_err = None;
     for route in routes {
         match connect_impl(&route) {
@@ -73,8 +73,8 @@ pub fn connect(routes: conn_expr::Routes) -> Result<Socket, io::Error> {
     Err(last_err.expect("at least one failed connection attempt"))
 }
 
-fn connect_impl(route: &conn_expr::Route) -> Result<Socket, io::Error> {
-    use conn_expr::Route::*;
+fn connect_impl(route: &Route) -> Result<Socket, io::Error> {
+    use Route::*;
     match *route {
         Direct(ip) => {
             let s = TcpStream::connect(ip)?;
