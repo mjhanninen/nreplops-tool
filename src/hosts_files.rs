@@ -8,12 +8,12 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::conn_expr::ConnectionExpr;
+use crate::{host_options::{HostKey, HostOptions, HostOptionsTable}, conn_expr::ConnectionExpr};
 
 // XXX(soija) Use crate::errors instead of raw io::Error
 
-pub fn load_default_hosts_files() -> Result<Hosts, io::Error> {
-    let mut hosts = HashMap::new();
+pub fn load_default_hosts_files() -> Result<HostOptionsTable, io::Error> {
+    let mut hosts = HostOptionsTable::default();
     // XXX(soija) ConfigFiles does not implement DoubledEndedIterator
     #[allow(clippy::needless_collect)]
     let ps = matching_config_files("nreplops-hosts.toml")
@@ -24,34 +24,30 @@ pub fn load_default_hosts_files() -> Result<Hosts, io::Error> {
         let mut s = String::new();
         let _ = f.read_to_string(&mut s)?;
         let new_hosts: Hosts = toml::from_str(&s).unwrap();
-        hosts.extend(new_hosts.into_iter());
+        hosts.extend(new_hosts.into_iter().map(|(k, v)| (k, v.into())));
     }
     Ok(hosts)
 }
 
-pub type HostKey = String;
-
-pub type Hosts = HashMap<HostKey, Host>;
+pub type Hosts = HashMap<HostKey, HostOptionsDe>;
 
 #[derive(Debug, Deserialize)]
-pub struct Host {
+pub struct HostOptionsDe {
     name: Option<String>,
     #[serde(with = "serde_with::rust::display_fromstr")]
     connection: ConnectionExpr,
     confirm: Option<bool>,
 }
 
-impl Host {
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    pub fn ask_confirmation(&self) -> bool {
-        self.confirm.unwrap_or(false)
-    }
-
-    pub fn conn_expr(&self) -> &ConnectionExpr {
-        &self.connection
+// XXX(soija) HostOptions is independent of HostOptionsDe
+#[allow(clippy::from_over_into)]
+impl Into<HostOptions> for HostOptionsDe {
+    fn into(self) -> HostOptions {
+        HostOptions {
+            name: self.name,
+            conn_expr: self.connection,
+            ask_confirmation: self.confirm,
+        }
     }
 }
 
