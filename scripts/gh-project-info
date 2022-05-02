@@ -16,7 +16,8 @@ PROJECT_NAME="$(
 )"
 
 MAYBE_BINARY_NAME="$(
-  $SED -n -e '/^\[\[bin\]\]/,/^\[/ { s/^name = "\(.*\)"$/\1/p }' Cargo.toml
+  $SED -n -e '/^\[\[bin\]\]/,/^\[/ { s/^name = "\(.*\)"$/\1/p }' Cargo.toml \
+    | head -n1
 )"
 
 cat <<EOF
