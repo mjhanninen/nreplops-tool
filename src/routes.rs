@@ -23,19 +23,24 @@ use crate::{
 
 pub fn resolve_routes(
     conn_expr: &ConnectionExpr,
-    _host_opts_table: &HostOptionsTable,
+    host_opts_table: &HostOptionsTable,
 ) -> Result<Routes, Error> {
-    // XXX(soija) Next up, implement the route resolution. Note that the resolve
-    //            route needs to carry info from possible host options (e.g.
-    //            name, whether to ask confirmation, and so on).
-    if let ConnectionExpr::RouteExpr(ref route_expr) = *conn_expr {
-        Ok(Routes {
-            inner: RouteSet::try_from_conn_expr(route_expr)?,
-            pos: 0,
-        })
-    } else {
-        todo!("host key resolution")
-    }
+    use ConnectionExpr::*;
+    let route_expr = match conn_expr {
+        RouteExpr(ref e) => e,
+        HostKey(ref k) => host_opts_table
+            .get(k)
+            .ok_or_else(|| Error::HostKeyNotFound(k.to_string()))?
+            .conn_expr
+            .try_as_route_expr()
+            .ok_or_else(|| {
+                Error::RecursiveHostKeysNotSupported(k.to_string())
+            })?,
+    };
+    Ok(Routes {
+        inner: RouteSet::try_from_route_expr(route_expr)?,
+        pos: 0,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -93,9 +98,9 @@ enum RouteSet {
 }
 
 impl RouteSet {
-    fn try_from_conn_expr(conn_expr: &RouteExpr) -> Result<Self, Error> {
-        if let Some(ref tunnel) = conn_expr.tunnel {
-            let host_addr = conn_expr
+    fn try_from_route_expr(route_expr: &RouteExpr) -> Result<Self, Error> {
+        if let Some(ref tunnel) = route_expr.tunnel {
+            let host_addr = route_expr
                 .addr
                 .as_ref()
                 .expect("tunneling should guarantee final host address")
@@ -105,10 +110,10 @@ impl RouteSet {
                 ssh_addr: tunnel.addr.clone(),
                 ssh_ports: tunnel.ports.clone(),
                 host_addr,
-                host_ports: conn_expr.ports.clone(),
+                host_ports: route_expr.ports.clone(),
             })
         } else {
-            let mut ips = match conn_expr.addr {
+            let mut ips = match route_expr.addr {
                 None => dns_lookup::lookup_host("localhost").map_err(|_| {
                     Error::DomainNotFound("localhost".to_owned())
                 })?,
@@ -121,7 +126,7 @@ impl RouteSet {
             ips.sort();
             Ok(RouteSet::Direct {
                 ips,
-                ports: conn_expr.ports.clone(),
+                ports: route_expr.ports.clone(),
             })
         }
     }

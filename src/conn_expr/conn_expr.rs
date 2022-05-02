@@ -27,6 +27,16 @@ pub enum ConnectionExpr {
     HostKey(String),
 }
 
+impl ConnectionExpr {
+    pub fn try_as_route_expr(&self) -> Option<&RouteExpr> {
+        if let ConnectionExpr::RouteExpr(ref e) = *self {
+            Some(e)
+        } else {
+            None
+        }
+    }
+}
+
 impl From<RouteExpr> for ConnectionExpr {
     fn from(route_expr: RouteExpr) -> Self {
         ConnectionExpr::RouteExpr(route_expr)

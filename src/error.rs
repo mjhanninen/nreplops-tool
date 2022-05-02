@@ -45,4 +45,8 @@ pub enum Error {
     UnnamedNonPositionalTemplateArgument,
     #[error("timeout while waiting for port file")]
     PortFileTimeout,
+    #[error("cannot find host definition for key \"{0}\"")]
+    HostKeyNotFound(String),
+    #[error("host key \"{0}\" refers recursively to another host key but this is not supported yet")]
+    RecursiveHostKeysNotSupported(String),
 }
