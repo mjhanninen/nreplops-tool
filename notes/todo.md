@@ -2,9 +2,13 @@
 
 ## Features
 
-- check the presence and version of the ssh client as needed (ssh)
-- don't let other things block the timeout watchdog
-- when a port expression resolves to multiple routes, cache the one that succeed
+- **Check SSH client**: Check that the SSH client is present and one that we
+  support.
+- **Timeout**: We already have the `--timeout` option for this. It just misses
+  the implementation.
+- **Cache successful route**: When a connection expression resolves to multiple
+  routes cache the one that succeed.  The point is to reduce unnecessary
+  knocking.
 - argument interpolation
   - string/number/keyword magic by default
   - `#nr[... :str]` and `#nr[... :clj]` directives
@@ -47,6 +51,13 @@
 - provide tagged literal function `#nr` for running the scripts directly on the
   host Clojure process (for testing purposes)
 - Windows support
+
+## Improving and fixing things
+
+- **Error handling**: So far the error handling has been more of an
+  afterthought.  Start using `error::Error` consistently everywhere except the
+  very few special places where the error value is meaningful for the control
+  flow (e.g. in the Bencode scanning).  Get rid of `anyhow::Error`.
 
 ## Documentation
 
