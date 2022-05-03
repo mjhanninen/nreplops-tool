@@ -61,7 +61,7 @@ impl Drop for Socket {
             }
             Socket::SshClient(ref mut p) => {
                 if let Ok(Some(_)) = p.try_wait() {
-                    // Already stopped
+                    // The child process has already stopped
                 } else {
                     // XXX(soija) Maybe use SIGTERM first?
                     let _ = p.kill();
@@ -96,9 +96,6 @@ fn connect_impl(route: &Route) -> Result<Socket, io::Error> {
             s.set_nodelay(true)?;
             Ok(Socket::from(s))
         }
-        // XXX(soija) Cool, this actually works!!! However, this leaves zombie
-        //            ssh clients behind.  Need to figure out how to kill them.
-        //            (Add Drop to Socket).
         Tunneled(ref opts) => {
             let mut cmd = Command::new("ssh");
             cmd.stdin(Stdio::piped())
