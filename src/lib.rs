@@ -1,4 +1,4 @@
-// main.rs
+// lib.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not

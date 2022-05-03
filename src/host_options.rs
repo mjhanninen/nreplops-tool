@@ -17,6 +17,7 @@ use std::collections::HashMap;
 
 use crate::conn_expr::ConnectionExpr;
 
+// FIXME: This is a bad name. Very easy to confuse with SSH host key.
 pub type HostKey = String;
 
 pub type HostOptionsTable = HashMap<HostKey, HostOptions>;

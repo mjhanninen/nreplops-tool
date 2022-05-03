@@ -57,7 +57,8 @@ pub struct HostOptionsDe {
     confirm: Option<bool>,
 }
 
-// XXX(soija) HostOptions is independent of HostOptionsDe
+// `HostOptions` is independent of `HostOptionsDe` and, hence, we prefer
+// implementing `Into`.
 #[allow(clippy::from_over_into)]
 impl Into<HostOptions> for HostOptionsDe {
     fn into(self) -> HostOptions {
@@ -128,6 +129,15 @@ enum ConfigFilesState {
 }
 
 fn config_dir() -> Option<PathBuf> {
+    // Consider getting rid of `dirs` and instead iterate over the following
+    // directories:
+    //
+    // - `${HOME}/Application Support/nr` (if on a macOS machine)
+    // - `${XDG_CONFIG_HOME:-${HOME}/.config}/nr`
+    // - `${HOME}/nr`
+    //
+    // We needn't to be so strict because we are just trying to find the file
+    // the user wrote.  Not placing the file ourselves.
     let mut dir = dirs::config_dir()?;
     dir.push("nr");
     Some(dir)
