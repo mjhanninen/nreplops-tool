@@ -17,7 +17,7 @@ use std::str;
 
 use super::{
     addr::Addr,
-    parser::{HostExprLanguage, Pairs, Parser, Rule},
+    parser::{ConnectionExprLanguage, Pairs, Parser, Rule},
     port_set::PortSet,
 };
 
@@ -61,7 +61,7 @@ impl str::FromStr for ConnectionExpr {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let top_pair = HostExprLanguage::parse(Rule::connection_expr, s)
+        let top_pair = ConnectionExprLanguage::parse(Rule::connection_expr, s)
             .map_err(|_| ParseError)?
             .next()
             .expect("grammar guarantees host expression")

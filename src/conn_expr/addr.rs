@@ -15,7 +15,7 @@
 
 use std::{fmt, net, str};
 
-use super::parser::{HostExprLanguage, Pair, Parser, Rule};
+use super::parser::{ConnectionExprLanguage, Pair, Parser, Rule};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Addr {
@@ -81,7 +81,7 @@ impl str::FromStr for Addr {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        HostExprLanguage::parse(Rule::addr_expr, s)
+        ConnectionExprLanguage::parse(Rule::addr_expr, s)
             .map_err(|_| ParseError)?
             .next()
             .expect("grammar guaranteed addr_expr")

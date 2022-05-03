@@ -38,7 +38,7 @@ pub fn resolve_routes(
             })?,
     };
     Ok(Routes {
-        inner: RouteSet::try_from_route_expr(route_expr)?,
+        inner: RoutesInner::try_from_route_expr(route_expr)?,
         pos: 0,
     })
 }
@@ -64,7 +64,7 @@ pub struct TunnelOptions {
 
 #[derive(Clone, Debug)]
 pub struct Routes {
-    inner: RouteSet,
+    inner: RoutesInner,
     pos: usize,
 }
 
@@ -83,7 +83,7 @@ impl Iterator for Routes {
 }
 
 #[derive(Clone, Debug)]
-enum RouteSet {
+enum RoutesInner {
     Direct {
         ips: Vec<net::IpAddr>,
         ports: PortSet,
@@ -97,7 +97,7 @@ enum RouteSet {
     },
 }
 
-impl RouteSet {
+impl RoutesInner {
     fn try_from_route_expr(route_expr: &RouteExpr) -> Result<Self, Error> {
         if let Some(ref tunnel) = route_expr.tunnel {
             let host_addr = route_expr
@@ -105,7 +105,7 @@ impl RouteSet {
                 .as_ref()
                 .expect("tunneling should guarantee final host address")
                 .clone();
-            Ok(RouteSet::Tunneled {
+            Ok(RoutesInner::Tunneled {
                 ssh_user: tunnel.user.clone(),
                 ssh_addr: tunnel.addr.clone(),
                 ssh_ports: tunnel.ports.clone(),
@@ -124,7 +124,7 @@ impl RouteSet {
                 Some(Addr::IP(ip)) => vec![ip],
             };
             ips.sort();
-            Ok(RouteSet::Direct {
+            Ok(RoutesInner::Direct {
                 ips,
                 ports: route_expr.ports.clone(),
             })
@@ -133,15 +133,15 @@ impl RouteSet {
 
     fn len(&self) -> usize {
         match self {
-            RouteSet::Direct { ips: addrs, ports } => {
+            RoutesInner::Direct { ips: addrs, ports } => {
                 addrs.len() * ports.as_slice().len()
             }
-            RouteSet::Tunneled {
+            RoutesInner::Tunneled {
                 ssh_ports: None,
                 host_ports,
                 ..
             } => host_ports.as_slice().len(),
-            RouteSet::Tunneled {
+            RoutesInner::Tunneled {
                 ssh_ports: Some(ssh_ports),
                 host_ports,
                 ..
@@ -152,7 +152,7 @@ impl RouteSet {
     fn produce(&self, ix: usize) -> Route {
         assert!(ix < self.len());
         match self {
-            RouteSet::Direct { ips: addrs, ports } => {
+            RoutesInner::Direct { ips: addrs, ports } => {
                 // Iterate resolved addresses first and given ports second
                 let ix_addr = ix % addrs.len();
                 let ix_port = ix / addrs.len();
@@ -161,7 +161,7 @@ impl RouteSet {
                     ports.as_slice()[ix_port],
                 ))
             }
-            RouteSet::Tunneled {
+            RoutesInner::Tunneled {
                 ssh_user,
                 ssh_addr,
                 ssh_ports: None,
@@ -174,7 +174,7 @@ impl RouteSet {
                 host_addr: host_addr.clone(),
                 host_port: host_ports.as_slice()[ix],
             }),
-            RouteSet::Tunneled {
+            RoutesInner::Tunneled {
                 ssh_user,
                 ssh_addr,
 
@@ -197,3 +197,5 @@ impl RouteSet {
         }
     }
 }
+
+// FIXME: Tests

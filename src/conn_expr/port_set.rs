@@ -102,7 +102,7 @@ impl str::FromStr for PortSet {
     type Err = PortSetParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parser::HostExprLanguage::parse(parser::Rule::port_set_expr, s)
+        parser::ConnectionExprLanguage::parse(parser::Rule::port_set_expr, s)
             .map_err(|_| PortSetParseError)?
             .next()
             .expect("grammar guaranteed post_set_expr")

@@ -21,7 +21,7 @@ fn main() {
     for arg in env::args().skip(1) {
         println!("INPUT: {}", arg);
         let result =
-            HostExprLanguage::parse(Rule::connection_expr, arg.as_str());
+            ConnectionExprLanguage::parse(Rule::connection_expr, arg.as_str());
         println!("RESULT:\n{:#?}", result);
     }
 }

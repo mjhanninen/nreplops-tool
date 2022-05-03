@@ -22,4 +22,4 @@ pub use pest::{
 
 #[derive(pest_derive::Parser)]
 #[grammar = "conn_expr/grammar.pest"]
-pub struct HostExprLanguage;
+pub struct ConnectionExprLanguage;
