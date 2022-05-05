@@ -122,34 +122,31 @@ unignored-form ← ???
 
 ### Symbols
 
-The regular expression that matches symbols is defined as:
+Clojure reads symbols (including keywords) as follows:
 
-```.java
-static Pattern symbolPat = Pattern.compile("[:]?([\\D&&[^/]].*/)?(/|[\\D&&[^/]][^/]*)");
-```
-
-- An optional `:` character signifying a keyword
-- An optional namespace part starting with a character that is neither a digit nor
-  `/` and terminating at the first `/` character.
-- A name part starting with a character that is neither a digit nor a `/` and
-  continuing with non-`/` characters
-
-There are some additional rules:
-
-- The pattern is matched on a "token" that is a string of non-whitespace (incl.
-  `,`) chars
-- The name part cannot end with `:`
-- The namespace part cannot end with `:` (or `:/` if you want to include the `/`
-  in it)
-- There cannot be `::` anywhere except at the very start of the symbol
+1. Take a contiguous string of characters that are neither whitespace nor any of
+   `,`, `;`, `!`, `"`, `^`, `` ` ``, `~`, `(`, `)`, `[`, `]`, `{`, `}`, or `\`
+2. Check that the string matches the following Java regular expression pattern:
+   ```.java
+   Pattern.compile("[:]?([\\D&&[^/]].*/)?(/|[\\D&&[^/]][^/]*)")
+   ```
+3. Check that the string does **not** satisfy any of the following conditions:
+   - The name part ends with `:`
+   - The (optional) namespace part (including the `/`) ends with `:/`
+   - There a `::` somewhere else than at the very start of the symbol
 
 Some legal symbols:
 
+- `:123/foo`: the `:` is captured by the first `\D`
 - `:/`
 - `:foo:bar`
 - `:foo//`
 - `'foo//`
-- `'foo//foo` (why is this is possible?!?)
+- `'foo//bar`: The **last** `/` matches the namespace separator in the pattern
+  and all `/`s leading to it belong to the namespace portion. Interestingly
+  later on when the symbol is being interned it is split into namespace and name
+  parts at the **first** `/`. As a result `(name 'foo//bar)` is `"/bar"`. Funky
+  stuff.
 
 Some **illegal** symbols:
 
@@ -165,14 +162,13 @@ Clojure parses a the division function is in `sym` because ["'/' by itself names
   function"][clj-reader]
 
 ```
-symbol ← first-symbol-char first sym-tail* | '/'
-       | '/'
-       | '.'
+symbol-char ← symbol-leading-char | dec-digit
 
-leading-symbol-char ← alpha | sym-extra
-
-sym-tail  ← alnum | sym-extra
-sym-extra ← '*' | '+' | '!' | '-' | '_' | '\'' | '?' | '<' | '>' | '='
+symbol-leading-char ← !( whitespace
+                       | control-char
+                       | dec-digit
+                       | ';' | '!' | '"' | '^' | '`' | '~' | '(' | ')'
+                       | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
 ```
 
 ### String literals
