@@ -23,7 +23,7 @@ for carrying out the following:
 **Note:** This is very far from ready. Quite sketchy.
 
 ```
-form ← lit | sym | list | vector | set | map
+form ← lit | sym | list | vector | set | map | ignore-form
 
 quot ← '\''
 
@@ -35,12 +35,9 @@ unquot ← '~'
 
 anon-fn ← '#(' ??? ')'
 
-ignore ← '#_'
-
 comment ← ';' ( ! eol ) *
 
 deref ← '@'
-
 
 meta ← '^' ( map | sym | keyword | string )
 
@@ -60,21 +57,11 @@ alias ← ???
 
 lit ← number-lit | string-lit | char-lit | nil-lit | bool-lit | symval-lit | kw-lit
 
-number-lit ← ???
-
 string-lit ← ???
 
 regex-lit ← '#"' regex-pat '"'
 regex-pat ← ???
 
-char-lit         ← named-char-lit
-                 | unicode-char-lit
-                 | octal-char-lit
-                 | simple-char-lit
-named-char-lit   ← '\' ( "newline" | "space" | "tab" | "formfeed" | "backspace" )
-unicode-char-lit ← "\u" hex{4}
-octal-char-lit   ← "\o" oct{3}
-simple-char-lit  ← '\' ???
 
 nil-lit ← "nil"
 
@@ -117,6 +104,65 @@ Notes:
 - can metadata map be a `#:{}` or `#::{}`
 - should we be accurate about the arguments of an anonymous functions (`%` and
   friends); or can we get away by being sloppy?
+
+### Ignore macro
+
+It is notable that the ignore macro does not ignore itself but instead
+"accumulates":
+
+```.clj
+[#_ #_ 1 2 3]
+;; [3]
+```
+
+The grammar is:
+
+```
+form ← ignored-form* unignored-form
+
+ignored-form ← '#_' ignored-form? unignored-form
+
+unignored-form ← ???
+```
+
+### Numeric literal
+
+```
+number-lit ← ???
+```
+
+### Character literal
+
+```
+char-lit ← named-char-lit
+         | utf16-char-lit
+         | octal-char-lit
+         | simple-char-lit
+
+named-char-lit ← '\' ( 'newline' | 'space' | 'tab' | 'formfeed' | 'backspace' )
+
+utf16-char-lit ← '\u' hex-digit{4}
+
+octal-char-lit ← '\o' oct-digit{3}
+
+simple-char-lit ← '\' ( ! control-char | LF | CR )
+```
+
+### Helpers
+
+```
+oct-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7'
+
+dec-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+hex-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+          | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
+          | 'f' | 'F'
+
+control-char ← NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS | HT | LF | VT
+             | FF | CR | SO | SI | DLE | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB
+             | CAN | EM | SUB | ESC | FS | GS | RS | US  | DEL
+```
 
 ## Related resources (uncurated)
 
