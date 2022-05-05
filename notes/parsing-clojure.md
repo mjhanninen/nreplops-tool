@@ -132,13 +132,19 @@ Clojure reads symbols (including keywords) as follows:
    ```
 3. Check that the string does **not** satisfy any of the following conditions:
    - The name part ends with `:`
-   - The (optional) namespace part (including the `/`) ends with `:/`
+   - The string matching the namespace part of the pattern (including also the
+     `/`) ends with `:/`.
    - There a `::` somewhere else than at the very start of the symbol
+4. After this the symbol is interned.  It is notable that at this stage the
+   symbol may be split into a namespace and name in a way that is in
+   disagreement with the way the pattern in the step 2 divides them.  This is
+   probably a bug in the reader code.
 
 Some legal symbols:
 
 - `:123/foo`: the `:` is captured by the first `\D`
 - `:/`
+- `://foo`
 - `:foo:bar`
 - `:foo//`
 - `'foo//`
@@ -147,6 +153,11 @@ Some legal symbols:
   later on when the symbol is being interned it is split into namespace and name
   parts at the **first** `/`. As a result `(name 'foo//bar)` is `"/bar"`. Funky
   stuff.
+- `'foo://bar`: At first sight this seems to be in conflict with the checks in
+  the step 3. However the namespace portion of the pattern matches `foo://` and,
+  hence, it is perfectly okay.  On the other hand `'foo:/bar` does not pass the
+  checks.
+- `'foo/123/bar`: `(name 'foo/123/bar)` is `123/bar`, lol
 
 Some **illegal** symbols:
 
@@ -157,18 +168,32 @@ Some **illegal** symbols:
 - `:/foo`
 - `foo:`
 - `//foo`
+- `'foo:/bar`
 
-Clojure parses a the division function is in `sym` because ["'/' by itself names the division
-  function"][clj-reader]
+The following grammar does not replicate all the corner cases of the Clojure
+reader.  But you probably won't notice the difference in normal use.
 
 ```
-symbol-char ← symbol-leading-char | dec-digit
+symbol ← symbol-namespace '/' symbol-name
+       | symbol-name
 
-symbol-leading-char ← !( whitespace
-                       | control-char
-                       | dec-digit
-                       | ';' | '!' | '"' | '^' | '`' | '~' | '(' | ')'
-                       | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
+symbol-namespace ← ':'{0,2} namespace-char+ ( ':' namespace-char+ )*
+
+namespace-char ← symbol-safe-char | dec-digit
+
+symbol-name ← ( first-name-char name-char* )? ( ':' name-char+ )*
+
+name-char ← first-name-char | dec-digit
+
+first-name-char ← symbol-safe-char | '/'
+
+symbol-safe-char ← !( whitespace
+                    | control-char
+                    | dec-digit
+                    | ';' | '!' | '"' | '^' | '`' | '~' | '(' | ')'
+                    | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
+
+whitespace ← HT | LF | VT | FF | CR | ' ' | ','
 ```
 
 ### String literals
