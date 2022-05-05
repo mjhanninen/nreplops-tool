@@ -55,13 +55,12 @@ map-entry ← form form
 
 alias ← ???
 
-lit ← number-lit | string-lit | char-lit | nil-lit | bool-lit | symval-lit | kw-lit
+lit ← number | string-lit | char-lit | nil-lit | bool-lit | symval-lit | kw-lit
 
 string-lit ← ???
 
 regex-lit ← '#"' regex-pat '"'
 regex-pat ← ???
-
 
 nil-lit ← "nil"
 
@@ -91,10 +90,6 @@ sym       ← sym-first sym-tail* | '/'
 sym-first ← alpha | sym-extra
 sym-tail  ← alnum | sym-extra
 sym-extra ← '*' | '+' | '!' | '-' | '_' | '\'' | '?' | '<' | '>' | '='
-
-alnum ← alpha | num
-num   ← '0' | … | '9'
-alpha ← 'a' | … | 'z' | 'A' | … | 'Z'
 ```
 
 Notes:
@@ -112,7 +107,7 @@ It is notable that the ignore macro does not ignore itself but instead
 
 ```.clj
 [#_ #_ 1 2 3]
-;; [3]
+;; ↳ [3]
 ```
 
 The grammar is:
@@ -125,11 +120,167 @@ ignored-form ← '#_' ignored-form? unignored-form
 unignored-form ← ???
 ```
 
-### Numeric literal
+### Symbols
+
+The regular expression that matches symbols is defined as:
+
+```.java
+static Pattern symbolPat = Pattern.compile("[:]?([\\D&&[^/]].*/)?(/|[\\D&&[^/]][^/]*)");
+```
+
+- An optional `:` character signifying a keyword
+- An optional namespace part starting with a character that is neither a digit nor
+  `/` and terminating at the first `/` character.
+- A name part starting with a character that is neither a digit nor a `/` and
+  continuing with non-`/` characters
+
+There are some additional rules:
+
+- The pattern is matched on a "token" that is a string of non-whitespace (incl.
+  `,`) chars
+- The name part cannot end with `:`
+- The namespace part cannot end with `:` (or `:/` if you want to include the `/`
+  in it)
+- There cannot be `::` anywhere except at the very start of the symbol
+
+Some legal symbols:
+
+- `:/`
+- `:foo:bar`
+- `:foo//`
+- `'foo//`
+- `'foo//foo` (why is this is possible?!?)
+
+Some **illegal** symbols:
+
+- `::/`
+- `::/foo`
+- `:foo:/`
+- `:foo::bar`
+- `:/foo`
+- `foo:`
+- `//foo`
+
+Clojure parses a the division function is in `sym` because ["'/' by itself names the division
+  function"][clj-reader]
 
 ```
-number-lit ← ???
+symbol ← first-symbol-char first sym-tail* | '/'
+       | '/'
+       | '.'
+
+leading-symbol-char ← alpha | sym-extra
+
+sym-tail  ← alnum | sym-extra
+sym-extra ← '*' | '+' | '!' | '-' | '_' | '\'' | '?' | '<' | '>' | '='
 ```
+
+### String literals
+
+```
+string ← '"' ( unescaped-string-content | escape-seq )* '"'
+
+unescaped-string-content ← string-char+
+
+escape-seq ← '\' ( 'b' | 't' | 'n' | 'f' | 'r' | '"' | "'" | '\'
+                 | oct-octet
+                 | 'u' hex-digit{4}
+                 )
+
+string-char ← ! ( '\' | '"' | control-char ) | whitespace-control-char
+```
+
+### Numeric literal
+
+Clojure recognizes the following numeric literal types:
+
+| Literal                    | Clojure type           | Examples                  | Counterexamples |
+|:---------------------------|:-----------------------|:--------------------------|:----------------|
+| Integer                    | `java.lang.Long`       | `123`                     | `0123`          |
+| Octal integer              | `java.lang.Long`       | `0123`                    |                 |
+| Hexadecimal integer        | `java.lang.Long`       | `0x123`                   |                 |
+| Radix integer              | `java.lang.Long`       | `4r123`, `-36r123N`       |                 |
+| Big integer                | `clojure.lang.BigIng`  | `123N`                    |                 |
+| Big octal integer          | `clojure.lang.BigIng`  | `0123N`                   |                 |
+| Big hexadecimal integer    | `clojure.lang.BigIng`  | `0x123N`                  |                 |
+| Rational                   | `clojure.lang.Ratio`   | `1/2`, `0123/02`          |                 |
+| Floating point             | `java.lang.Double`     | `1.`, `1.2e3`             | `.1`            |
+| Big decimals               | `java.math.BigDecimal` | `123M`, `0123M`, `1.2e3M` |                 |
+
+There seems to be few sharp corners that might come as a surprise.  Some of
+these are due to keeping up with old conventions (e.g. octals) and others just
+by-products of, hmm, the GSD style of the Clojure codebase.
+
+As an example the leading zero of an integer signifies an octal number:
+
+```.clj
+0123
+;; ↳ 83
+
+08
+;; summons syntax error
+```
+
+However, the numerator and denominator of a rational may also begin with a
+leading zero but both are still regarded as decimal (base) numbers:
+
+```.clj
+0123/02
+;; ↳ 123/2
+```
+
+Also a floating point number must have a whole part:
+
+```
+.123
+;; summons a syntax error
+```
+
+The grammar for parsing a number is:
+
+```
+number ← sign? unsigned-number
+
+unsigned-number ← unsigned-big-decimal
+                | unsigned-floating-point
+                | unsigned-rational
+                | unsigned-radix-integer
+                | unsigned-big-integer
+                | unsigned-integer
+
+unsigned-big-decimal ← ( whole | unsigned-floating-point ) 'M'
+
+unsigned-floating-point ← whole ( fractional base10-exp? | base10-exp )
+
+whole ← dec-digit+
+
+fractional ← '.' dec-digit*
+
+base10-exp ← ( 'e' | 'E' ) sign? dec-digit+
+
+unsigned-rational ← dec-digit+ '/' dec-digit+
+
+unsigned-radix-integer ← radix ( 'r' | 'R' ) ascii-alnum+
+
+radix ← '3' ( '0' | '1' | '2' | '3' | '4' | '5' | '6' )
+      | ( '1' | '2' ) dec-digit
+      | dec-non-zero
+
+unsigned-big-integer ← unsigned-integer 'N'
+
+unsigned-integer ← unsigned-oct
+                 | unsigned-hex
+                 | unsigned-dec
+
+unsigned-oct ← '0' oct-digit+
+
+unsigned-hex ← '0' ( 'x' | 'X' ) hex-digit+
+
+sign ← '+' | '-'
+```
+
+Again, the ordered choice in `unsigned-number` needs to be ordered with some
+care.
 
 ### Character literal
 
@@ -143,7 +294,7 @@ named-char-lit ← '\' ( 'newline' | 'space' | 'tab' | 'formfeed' | 'backspace' 
 
 utf16-char-lit ← '\u' hex-digit{4}
 
-octal-char-lit ← '\o' oct-digit{3}
+octal-char-lit ← '\o' oct-octet
 
 simple-char-lit ← '\' ( ! control-char | LF | CR )
 ```
@@ -151,22 +302,43 @@ simple-char-lit ← '\' ( ! control-char | LF | CR )
 ### Helpers
 
 ```
+bin-digit ← '0' | '1'
+
 oct-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7'
 
+oct-octet ← ( '0' | '1' | '2' | '3' ) oct-digit oct-digit
+          | oct-digit oct-digit?
+
 dec-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+dec-non-zero ← '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 
 hex-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
           | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
           | 'f' | 'F'
 
+ascii-alnum ← ascii-alpha | dec-digit
+
+ascii-alpha ← 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
+            | 'f' | 'F' | 'g' | 'G' | 'h' | 'H' | 'i' | 'I' | 'j' | 'J'
+            | 'k' | 'K' | 'l' | 'L' | 'm' | 'M' | 'n' | 'N' | 'o' | 'O'
+            | 'p' | 'P' | 'q' | 'Q' | 'r' | 'R' | 's' | 'S' | 't' | 'T'
+            | 'u' | 'U' | 'v' | 'V' | 'w' | 'W' | 'x' | 'X' | 'y' | 'Y'
+            | 'z' | 'Z'
+
 control-char ← NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS | HT | LF | VT
              | FF | CR | SO | SI | DLE | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB
-             | CAN | EM | SUB | ESC | FS | GS | RS | US  | DEL
+             | CAN | EM | SUB | ESC | FS | GS | RS | US | DEL
+
+whitespace-control-char ← HT | LF | VT | FF | CR
 ```
 
 ## Related resources (uncurated)
 
 - ["The Reader"][clj-reader]. Clojure.org.
+- the [LispReader.java][clojure:lisp-reader] source in the Clojure codebase
+
+[clojure:lisp-reader]: https://github.com/clojure/clojure/blob/35bd89f05f8dc4aec47001ca10fe9163abc02ea6/src/jvm/clojure/lang/LispReader.java
 
 ## Related resources (uncurated)
 
