@@ -250,14 +250,14 @@ impl TryFrom<&ffi::OsString> for IoArg {
 pub struct IoParseError(String);
 
 #[derive(Debug, clap::Parser)]
-#[clap(
+#[command(
     about = "Non-interactive nREPL client for scripts and command-line",
     version,
     max_term_width = 80
 )]
 struct Cli {
     /// Connect to server on [HOST:]PORT
-    #[clap(
+    #[arg(
         long,
         short,
         visible_alias = "host",
@@ -266,15 +266,15 @@ struct Cli {
     port: Option<ConnectionExpr>,
 
     /// Read server port from FILE
-    #[clap(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE")]
     port_file: Option<path::PathBuf>,
 
     /// Evaluate within NAMESPACE
-    #[clap(long, visible_alias = "namespace", value_name = "NAMESPACE")]
+    #[arg(long, visible_alias = "namespace", value_name = "NAMESPACE")]
     ns: Option<String>,
 
     /// Evaluate EXPRESSION
-    #[clap(
+    #[arg(
         long = "expr",
         short,
         value_name = "EXPRESSION",
@@ -283,7 +283,7 @@ struct Cli {
     exprs: Vec<String>,
 
     /// Evaluate FILE
-    #[clap(
+    #[arg(
         long = "file",
         short = 'f',
         value_name = "FILE",
@@ -292,15 +292,15 @@ struct Cli {
     files: Vec<ffi::OsString>,
 
     /// Send FILE to server's stdin
-    #[clap(long, visible_aliases = &["in", "input"], value_name = "FILE")]
+    #[arg(long, visible_aliases = &["in", "input"], value_name = "FILE")]
     stdin: Option<ffi::OsString>,
 
     /// Write server's stdout to FILE
-    #[clap(long, visible_aliases = &["out", "output"], value_name = "FILE")]
+    #[arg(long, visible_aliases = &["out", "output"], value_name = "FILE")]
     stdout: Option<path::PathBuf>,
 
     /// Discard server's stdout
-    #[clap(
+    #[arg(
         long,
         visible_aliases = &["no-out", "no-output"],
         conflicts_with = "stdout",
@@ -308,11 +308,11 @@ struct Cli {
     no_stdout: bool,
 
     /// Write server's stderr to FILE
-    #[clap(long, visible_alias = "err", value_name = "FILE")]
+    #[arg(long, visible_alias = "err", value_name = "FILE")]
     stderr: Option<path::PathBuf>,
 
     /// Discard server's stderr
-    #[clap(
+    #[arg(
         long,
         visible_aliases = &["no-err"],
         conflicts_with = "stderr",
@@ -320,11 +320,11 @@ struct Cli {
     no_stderr: bool,
 
     /// Write evaluation results to FILE
-    #[clap(long, visible_aliases = &["res", "values"], value_name = "FILE")]
+    #[arg(long, visible_aliases = &["res", "values"], value_name = "FILE")]
     results: Option<path::PathBuf>,
 
     /// Discard evaluation results
-    #[clap(
+    #[arg(
         long,
         visible_aliases = &["no-res", "no-values"],
         conflicts_with = "results",
@@ -332,28 +332,28 @@ struct Cli {
     no_results: bool,
 
     /// Set template argument NAME to VALUE
-    #[clap(long = "arg", short = 'a', value_name = "NAME=VALUE")]
+    #[arg(long = "arg", short = 'a', value_name = "NAME=VALUE")]
     args: Vec<String>,
 
-    #[clap(value_name = "ARG")]
+    #[arg(value_name = "ARG")]
     pos_args: Vec<ffi::OsString>,
 
     /// Run in shebang (#!) mode
-    #[clap(
+    #[arg(
         short = '!',
         conflicts_with_all = &["exprs", "files"],
     )]
     _shebang_guard: bool,
 
     /// Wait .nrepl-port file to appear for SECONDS
-    #[clap(long = "wait-port-file", value_name = "SECONDS")]
+    #[arg(long = "wait-port-file", value_name = "SECONDS")]
     wait_port_file: Option<u64>,
 
     /// Set timeout for program execution
-    #[clap(
+    #[arg(
         long = "timeout",
         value_name = "SECONDS",
-        parse(try_from_str = not_implemented),
+        value_parser = not_implemented::<u32>,
     )]
     _timeout: Option<u32>,
 }
