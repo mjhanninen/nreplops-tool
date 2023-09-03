@@ -15,10 +15,9 @@
 
 use std::{
     collections::HashMap,
-    ffi::OsString,
-    fs,
+    env, fs,
     io::{self, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use serde::Deserialize;
@@ -33,11 +32,7 @@ use crate::{
 
 pub fn load_default_hosts_files() -> Result<HostOptionsTable, io::Error> {
     let mut hosts = HostOptionsTable::default();
-    // XXX(soija) ConfigFiles does not implement DoubledEndedIterator
-    #[allow(clippy::needless_collect)]
-    let ps = matching_config_files("nreplops-hosts.toml")
-        .unwrap()
-        .collect::<Vec<_>>();
+    let ps = matching_config_files("nreplops-hosts.toml")?;
     for p in ps.into_iter().rev() {
         let mut f = fs::File::open(p)?;
         let mut s = String::new();
@@ -72,75 +67,58 @@ impl Into<HostOptions> for HostOptionsDe {
     }
 }
 
-fn matching_config_files<S>(file_name: S) -> Result<ConfigFiles, io::Error>
+fn matching_config_files<P>(file_name: P) -> Result<Vec<PathBuf>, io::Error>
 where
-    S: Into<OsString>,
+    P: AsRef<Path>,
 {
-    let dir = PathBuf::from(".").canonicalize()?;
-    Ok(ConfigFiles {
-        file_name: file_name.into(),
-        dir,
-        state: ConfigFilesState::User,
-    })
-}
+    let mut found = Vec::new();
 
-impl Iterator for ConfigFiles {
-    type Item = PathBuf;
+    let mut current = PathBuf::from(".").canonicalize()?;
+    loop {
+        let mut p = current.clone();
+        p.push(file_name.as_ref());
+        if p.is_file() {
+            found.push(p);
+        }
+        if !current.pop() {
+            break;
+        }
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        use ConfigFilesState::*;
-        loop {
-            match self.state {
-                User => {
-                    self.state = Ancestors;
-                    if let Some(mut item) = config_dir() {
-                        item.push(&self.file_name);
-                        if item.is_file() {
-                            return Some(item);
-                        }
-                    }
-                }
-                Ancestors => {
-                    let mut item = self.dir.clone();
-                    if !self.dir.pop() {
-                        self.state = Done
-                    }
-                    item.push(&self.file_name);
-                    if item.is_file() {
-                        return Some(item);
-                    }
-                }
-                Done => return None,
+    if let Some(dir) = env::var_os("HOME") {
+        let mut p = PathBuf::from(dir);
+        if p.is_absolute() {
+            p.push("Library");
+            p.push("Application Support");
+            p.push("nreplops");
+            p.push(file_name.as_ref());
+            if p.is_file() {
+                found.push(p);
             }
         }
     }
-}
 
-#[derive(Debug)]
-struct ConfigFiles {
-    file_name: OsString,
-    dir: PathBuf,
-    state: ConfigFilesState,
-}
+    if let Some(dir) = env::var_os("XDG_CONFIG_HOME") {
+        let mut p = PathBuf::from(dir);
+        if p.is_absolute() {
+            p.push("nreplops");
+            p.push(file_name.as_ref());
+            if p.is_file() {
+                found.push(p);
+            }
+        }
+    }
 
-#[derive(Debug)]
-enum ConfigFilesState {
-    User,
-    Ancestors,
-    Done,
-}
+    if let Some(dir) = env::var_os("HOME") {
+        let mut p = PathBuf::from(dir);
+        if p.is_absolute() {
+            p.push(".nreplops");
+            p.push(file_name.as_ref());
+            if p.is_file() {
+                found.push(p);
+            }
+        }
+    }
 
-fn config_dir() -> Option<PathBuf> {
-    // Consider getting rid of `dirs` and instead iterate over the following
-    // directories:
-    //
-    // - `${HOME}/Application Support/nr` (if on a macOS machine)
-    // - `${XDG_CONFIG_HOME:-${HOME}/.config}/nr`
-    // - `${HOME}/nr`
-    //
-    // We needn't to be so strict because we are just trying to find the file
-    // the user wrote.  Not placing the file ourselves.
-    let mut dir = dirs::config_dir()?;
-    dir.push("nr");
-    Some(dir)
+    Ok(found)
 }

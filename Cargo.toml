@@ -8,23 +8,29 @@ categories = ["command-line-utilities", "development-tools"]
 repository = "https://github.com/mjhanninen/nreplops-tool"
 license = "Apache-2.0"
 readme = "README.md"
-
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0" # get rid of
 clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
-dirs = "^5.0"
 dns-lookup = "^2.0"
 is-terminal = "^0.4"
 pest = "^2.7"
 pest_derive = "^2.7"
 regex = "^1.9"
 serde = { version = "1.0", features = ["derive"] }
-serde_bencode = "0.2"
 serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
 thiserror = "1.0"
 toml = "^0.7"
+
+# XXX: This library is stale and we use in a single place. Consider
+#
+#      (1) replacing it with, for example, bendy
+#
+#      (2) rolling our own; we already do a bit our own deserialization
+#          in order to be able to handle a *stream* of bencoded objects.
+#
+serde_bencode = "0.2"
 
 [[bin]]
 name = "nr"
