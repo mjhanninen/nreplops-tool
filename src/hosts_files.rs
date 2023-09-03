@@ -22,6 +22,7 @@ use std::{
 };
 
 use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::{
     conn_expr::ConnectionExpr,
@@ -49,10 +50,11 @@ pub fn load_default_hosts_files() -> Result<HostOptionsTable, io::Error> {
 
 pub type Hosts = HashMap<HostKey, HostOptionsDe>;
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 pub struct HostOptionsDe {
     name: Option<String>,
-    #[serde(with = "serde_with::rust::display_fromstr")]
+    #[serde_as(as = "DisplayFromStr")]
     connection: ConnectionExpr,
     confirm: Option<bool>,
 }

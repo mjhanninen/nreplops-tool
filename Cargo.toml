@@ -22,7 +22,7 @@ pest_derive = "^2.7"
 regex = "^1.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bencode = "0.2"
-serde_with = { version = "1.13", default_features = false }
+serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
 thiserror = "1.0"
 toml = "0.5"
 
