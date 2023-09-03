@@ -24,7 +24,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_bencode = "0.2"
 serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
 thiserror = "1.0"
-toml = "0.5"
+toml = "^0.7"
 
 [[bin]]
 name = "nr"
