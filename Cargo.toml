@@ -14,7 +14,6 @@ edition = "2021"
 anyhow = "1.0" # get rid of
 clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
 dns-lookup = "^2.0"
-is-terminal = "^0.4"
 pest = "^2.7"
 pest_derive = "^2.7"
 regex = "^1.9"

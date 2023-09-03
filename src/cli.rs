@@ -13,10 +13,13 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{ffi, io, path, time};
+use std::{
+    ffi,
+    io::{self, IsTerminal},
+    path, time,
+};
 
 use clap::Parser;
-use is_terminal::IsTerminal;
 
 use crate::{
     conn_expr::{ConnectionExpr, ConnectionExprSource},
