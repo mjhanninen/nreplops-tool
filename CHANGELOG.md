@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Updgraded dependencies
+
 ## Version 0.0.10
 
 - Added a capability to define connection info in a host configuration file (`nreplops-hosts.toml`)
