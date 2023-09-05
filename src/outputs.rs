@@ -92,42 +92,61 @@ pub struct Outputs {
 }
 
 impl Outputs {
-    pub fn try_from_args<'b>(args: &'b cli::Args) -> Result<Self, Error> {
-        let mut logical_connections = HashMap::<Dst<'b>, Vec<Src>>::new();
-        let mut connect = |source: Src, sink: Dst<'b>| {
+    pub fn try_from_args(args: &cli::Args) -> Result<Self, Error> {
+        fn err_cannot_write_file(path: &path::Path) -> Error {
+            Error::CannotWriteFile(path.to_string_lossy().to_string())
+        }
+
+        fn file_dst_from_path(path: &path::Path) -> Result<Dst, Error> {
+            path.canonicalize()
+                .map(|p| Dst::File(p.into()))
+                .map_err(|_| err_cannot_write_file(path))
+        }
+
+        let mut logical_connections = HashMap::<Dst, Vec<Src>>::new();
+
+        let mut connect = |source: Src, sink: Dst| {
             logical_connections
                 .entry(sink)
                 .or_insert_with(Vec::new)
                 .push(source);
         };
+
         match args.stdout_to {
             Some(IoArg::Pipe) => connect(Src::StdOut, Dst::StdOut),
-            Some(IoArg::File(ref p)) => connect(Src::StdOut, Dst::File(p)),
+            Some(IoArg::File(ref p)) => {
+                connect(Src::StdOut, file_dst_from_path(p)?)
+            }
             None => (),
         }
         match args.stderr_to {
             Some(IoArg::Pipe) => connect(Src::StdErr, Dst::StdErr),
-            Some(IoArg::File(ref p)) => connect(Src::StdErr, Dst::File(p)),
+            Some(IoArg::File(ref p)) => {
+                connect(Src::StdErr, file_dst_from_path(p)?)
+            }
             None => (),
         }
         match args.results_to {
             Some(IoArg::Pipe) => connect(Src::Results, Dst::StdOut),
-            Some(IoArg::File(ref p)) => connect(Src::Results, Dst::File(p)),
+            Some(IoArg::File(ref p)) => {
+                connect(Src::Results, file_dst_from_path(p)?)
+            }
             None => (),
         }
+
         let stdout = Output::StdOut;
         let stderr = Output::StdErr;
         let mut nrepl_stdout = None;
         let mut nrepl_stderr = None;
         let mut nrepl_results = None;
+
         for (sink, sources) in logical_connections.into_iter() {
             let output = match sink {
                 Dst::StdOut => stdout.clone(),
                 Dst::StdErr => stderr.clone(),
                 Dst::File(ref p) => {
-                    let f = fs::File::create(p).map_err(|_| {
-                        Error::CannotWriteFile(p.to_string_lossy().to_string())
-                    })?;
+                    let f = fs::File::create(p)
+                        .map_err(|_| err_cannot_write_file(p))?;
                     let w = io::BufWriter::new(f);
                     Output::File(Rc::new(RefCell::new(w)))
                 }
@@ -140,6 +159,7 @@ impl Outputs {
                 }
             }
         }
+
         Ok(Self {
             stdout,
             stderr,
@@ -160,8 +180,8 @@ enum Src {
 
 // Local destinations for output
 #[derive(Debug, PartialEq, Eq, Hash)]
-enum Dst<'a> {
+enum Dst {
     StdOut,
     StdErr,
-    File(&'a path::Path),
+    File(Box<path::Path>),
 }
