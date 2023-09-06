@@ -57,7 +57,7 @@ fn main1() -> Result<(), anyhow::Error> {
     let mut con = nrepl::Connection::new(socket);
 
     con.send(&nrepl::WireRequest {
-        op: nrepl::Op::Clone.as_str(),
+        op: nrepl::Op::Clone,
         id: "1".into(),
         session: None,
         ns: None,
@@ -74,7 +74,7 @@ fn main1() -> Result<(), anyhow::Error> {
     for (ix, input) in sources.into_iter().enumerate() {
         let id = format!("eval-{}", ix + 1);
         con.send(&nrepl::WireRequest {
-            op: nrepl::Op::Eval.as_str(),
+            op: nrepl::Op::Eval,
             id: &id,
             session: Some(&session),
             ns: None,

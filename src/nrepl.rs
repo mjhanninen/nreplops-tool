@@ -37,10 +37,18 @@ impl Op {
     }
 }
 
+fn serialize_op<S: serde::Serializer>(
+    op: &Op,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(op.as_str())
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct WireRequest<'a> {
-    pub op: &'a str,
+    #[serde(serialize_with = "serialize_op")]
+    pub op: Op,
     pub id: &'a str,
     pub session: Option<&'a str>,
     pub ns: Option<&'a str>,
