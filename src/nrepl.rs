@@ -37,25 +37,6 @@ impl Op {
     }
 }
 
-impl std::str::FromStr for Op {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "clone" => Ok(Op::Clone),
-            "close" => Ok(Op::Close),
-            "eval" => Ok(Op::Eval),
-            _ => Err("invalid operation"),
-        }
-    }
-}
-
-impl std::fmt::Display for Op {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(fmt, "{}", self.as_str())
-    }
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct WireRequest<'a> {
