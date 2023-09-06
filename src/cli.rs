@@ -16,7 +16,9 @@
 use std::{
     ffi,
     io::{self, IsTerminal},
-    path, time,
+    path,
+    rc::Rc,
+    time,
 };
 
 use clap::Parser;
@@ -74,8 +76,8 @@ impl From<IoArg> for SourceArg {
 #[derive(Debug)]
 pub struct TemplateArg {
     pub pos: Option<usize>,
-    pub name: Option<String>,
-    pub value: String,
+    pub name: Option<Rc<str>>,
+    pub value: Rc<str>,
 }
 
 impl TryFrom<Cli> for Args {
@@ -195,14 +197,14 @@ impl TemplateArg {
             if let Some((name, value)) = s.split_once('=') {
                 Ok(Self {
                     pos,
-                    name: Some(name.to_owned()),
-                    value: value.to_owned(),
+                    name: Some(name.to_string().into()),
+                    value: value.to_string().into(),
                 })
             } else if pos.is_some() {
                 Ok(Self {
                     pos,
                     name: None,
-                    value: s.to_owned(),
+                    value: s.to_string().into(),
                 })
             } else {
                 // non-positional arg must have a name

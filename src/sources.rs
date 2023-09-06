@@ -18,6 +18,7 @@ use std::{
     collections::HashMap,
     fs,
     io::{self, Read},
+    rc::Rc,
 };
 
 use crate::{cli, error::Error};
@@ -87,13 +88,13 @@ fn render_source(context: &Context, source: &str) -> String {
     }
     .trim();
     if let Some(ref regex) = context.regex {
-        let mut fragments = Vec::<String>::new();
+        let mut fragments = Vec::<Rc<str>>::new();
         let mut remaining = after_shebang;
         while let Some(captures) = regex.captures(remaining) {
             let full_match = captures.get(0).unwrap();
             let (upto, after) = remaining.split_at(full_match.end());
             let (before, _) = upto.split_at(full_match.start());
-            fragments.push(before.to_string());
+            fragments.push(before.to_string().into());
             let value = context
                 .table
                 .get(captures.get(1).unwrap().as_str())
@@ -101,7 +102,7 @@ fn render_source(context: &Context, source: &str) -> String {
             fragments.push(value.clone());
             remaining = after;
         }
-        fragments.push(remaining.to_string());
+        fragments.push(remaining.to_string().into());
         fragments.join("")
     } else {
         after_shebang.into()
@@ -110,7 +111,7 @@ fn render_source(context: &Context, source: &str) -> String {
 
 #[derive(Debug)]
 struct Context {
-    table: HashMap<String, String>,
+    table: HashMap<Rc<str>, Rc<str>>,
     regex: Option<regex::Regex>,
 }
 
@@ -121,7 +122,7 @@ impl From<&[cli::TemplateArg]> for Context {
                 m.insert(n.clone(), a.value.clone());
             }
             if let Some(i) = a.pos {
-                m.insert((i + 1).to_string(), a.value.clone());
+                m.insert((i + 1).to_string().into(), a.value.clone());
             }
             m
         });
