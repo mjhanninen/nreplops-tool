@@ -27,6 +27,16 @@ pub enum Op {
     Eval,
 }
 
+impl Op {
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            Op::Clone => "clone",
+            Op::Close => "close",
+            Op::Eval => "eval",
+        }
+    }
+}
+
 impl std::str::FromStr for Op {
     type Err = &'static str;
 
@@ -42,29 +52,21 @@ impl std::str::FromStr for Op {
 
 impl std::fmt::Display for Op {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            fmt,
-            "{}",
-            match *self {
-                Op::Clone => "clone",
-                Op::Close => "close",
-                Op::Eval => "eval",
-            }
-        )
+        write!(fmt, "{}", self.as_str())
     }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct WireRequest {
-    pub op: String,
-    pub id: String,
-    pub session: Option<String>,
-    pub ns: Option<String>,
-    pub code: Option<String>,
+pub struct WireRequest<'a> {
+    pub op: &'a str,
+    pub id: &'a str,
+    pub session: Option<&'a str>,
+    pub ns: Option<&'a str>,
+    pub code: Option<&'a str>,
     pub line: Option<i32>,
     pub column: Option<i32>,
-    pub file: Option<String>,
+    pub file: Option<&'a str>,
 }
 
 #[derive(Debug, Deserialize)]
