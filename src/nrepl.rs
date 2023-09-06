@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::io;
+use std::io::{self, ErrorKind};
 
 use serde::{Deserialize, Serialize};
 
@@ -120,26 +120,24 @@ impl Connection {
         loop {
             match bencode::scan_next(&self.buffer) {
                 Ok((_, len)) => {
-                    let response = {
-                        let input = &self.buffer[0..len];
-                        let response: Response =
-                            serde_bencode::from_bytes(input).unwrap();
-                        response
-                    };
+                    let response =
+                        serde_bencode::from_bytes(&self.buffer[0..len])
+                            .map_err(|_| RecvError::CorruptedResponse);
                     self.buffer.copy_within(len.., 0);
                     self.buffer.truncate(self.buffer.len() - len);
-                    return Ok(response);
+                    return response;
                 }
-                Err(bencode::Error::UnexpectedEnd) => (),
                 Err(bencode::Error::BadInput) => {
-                    return Err(RecvError::BadInput);
+                    return Err(RecvError::CorruptedResponse);
                 }
+                Err(bencode::Error::UnexpectedEnd) => {}
             }
-            let bytes_read = self.socket.borrow_mut_read().read(&mut buffer)?;
-            if bytes_read == 0 {
-                return Err(RecvError::HostDisconnected);
+            match self.socket.borrow_mut_read().read(&mut buffer) {
+                Ok(0) => return Err(RecvError::HostDisconnected),
+                Ok(len) => self.buffer.extend_from_slice(&buffer[0..len]),
+                Err(e) if e.kind() == ErrorKind::Interrupted => {}
+                Err(e) => return Err(RecvError::Io(e)),
             }
-            self.buffer.extend_from_slice(&buffer[0..bytes_read]);
         }
     }
 }
@@ -148,8 +146,8 @@ impl Connection {
 pub enum RecvError {
     #[error("IO error")]
     Io(#[from] io::Error),
-    #[error("bad input")]
-    BadInput,
+    #[error("corrupted response")]
+    CorruptedResponse,
     #[error("unexpected disconnection by host")]
     HostDisconnected,
 }
