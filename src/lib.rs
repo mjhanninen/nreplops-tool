@@ -23,6 +23,7 @@
 
 pub mod cli;
 pub mod conn_expr;
+pub mod error;
 pub mod host_options;
 pub mod hosts_files;
 pub mod nrepl;
@@ -32,4 +33,3 @@ pub mod socket;
 pub mod sources;
 
 mod bencode;
-mod error;

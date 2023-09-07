@@ -21,9 +21,12 @@
     unused
 )]
 
-use std::{io::Write, process};
+use std::{
+    io::{self, Write},
+    process,
+};
 
-use nreplops_tool::{self, *};
+use nreplops_tool::{self, error::Error, outputs::OutputTarget, *};
 
 fn main() {
     if let Err(e) = main1() {
@@ -54,59 +57,45 @@ fn main1() -> Result<(), anyhow::Error> {
 
     let socket = socket::connect(conn_routes)?;
 
-    let mut con = nrepl::Connection::new(socket);
+    let con = nrepl::Connection::new(socket);
 
-    con.send(&nrepl::WireRequest {
-        op: nrepl::Op::Clone,
-        id: "1".into(),
-        session: None,
-        ns: None,
-        code: None,
-        line: None,
-        column: None,
-        file: None,
-    })?;
+    let mut session = con.session()?;
 
-    let first_resp = con.try_recv()?;
-
-    let session = first_resp.new_session.unwrap();
-
-    for (ix, input) in sources.into_iter().enumerate() {
-        let id = format!("eval-{}", ix + 1);
-        con.send(&nrepl::WireRequest {
-            op: nrepl::Op::Eval,
-            id: &id,
-            session: Some(&session),
-            ns: None,
-            code: Some(&input.content),
-            line: Some(1),
-            column: Some(1),
-            file: input.file.as_deref(),
-        })?;
-        loop {
-            let resp = con.try_recv()?;
-            if resp.id.as_deref().unwrap_or("") != id {
-                continue;
-            }
-            if let Some(ref s) = resp.value {
-                if let Some(ref w) = outputs.nrepl_results {
-                    writeln!(w.writer(), "{}", s)?;
-                }
-            }
-            if let Some(ref s) = resp.out {
-                if let Some(ref w) = outputs.nrepl_stdout {
-                    write!(w.writer(), "{}", s)?;
-                }
-            }
-            if let Some(ref s) = resp.err {
-                if let Some(ref w) = outputs.nrepl_stderr {
-                    write!(w.writer(), "{}", s)?;
-                }
-            }
-            if resp.has_status("done") {
-                break;
+    fn xform_err(output: &outputs::Output, _: io::Error) -> Error {
+        match output.target() {
+            OutputTarget::StdOut => panic!("cannot write to stdout"),
+            OutputTarget::StdErr => panic!("cannot write to stderr"),
+            OutputTarget::File(path) => {
+                Error::CannotWriteFile(path.to_string_lossy().to_string())
             }
         }
     }
+
+    for input in sources.into_iter() {
+        session.eval(&input.content, None, Some(1), Some(1), |response| {
+            if let Some(ref s) = response.value {
+                if let Some(ref output) = outputs.nrepl_results {
+                    writeln!(output.writer(), "{}", s)
+                        .map_err(|e| xform_err(output, e))?;
+                }
+            }
+            if let Some(ref s) = response.out {
+                if let Some(ref output) = outputs.nrepl_stdout {
+                    write!(output.writer(), "{}", s)
+                        .map_err(|e| xform_err(output, e))?;
+                }
+            }
+            if let Some(ref s) = response.err {
+                if let Some(ref output) = outputs.nrepl_stderr {
+                    write!(output.writer(), "{}", s)
+                        .map_err(|e| xform_err(output, e))?;
+                }
+            }
+            Ok(())
+        })?;
+    }
+
+    let _con = session.close()?;
+
     Ok(())
 }

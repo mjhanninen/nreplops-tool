@@ -13,6 +13,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+use std::io;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("No input")]
@@ -33,11 +35,11 @@ pub enum Error {
     NotSpecified,
     #[error("unknown error")]
     Unknown,
-    #[error("")]
+    #[error("stdin conflict")]
     StdInConflict,
-    #[error("")]
+    #[error("bad stdin")]
     BadStdIn,
-    #[error("")]
+    #[error("bad source file")]
     BadSourceFile,
     #[error("template arguments must be utf-8")]
     NonUtf8TemplateArgument,
@@ -49,4 +51,16 @@ pub enum Error {
     HostKeyNotFound(String),
     #[error("host key \"{0}\" refers recursively to another host key but this is not supported yet")]
     RecursiveHostKeysNotSupported(String),
+
+    // Related to nREPL connection
+    #[error("unexpected error while receiving from host: {0}")]
+    CannotReceiveFromHost(io::Error),
+    #[error("unexpected error while sending to host: {0}")]
+    CannotSendToHost(io::Error),
+    #[error("host sent corrupted response")]
+    CorruptedResponse,
+    #[error("host disconnected unexpectedle")]
+    HostDisconnected,
+    #[error("host sent unexptected response")]
+    UnexptectedResponse,
 }

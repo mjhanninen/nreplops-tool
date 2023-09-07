@@ -18,7 +18,7 @@ use std::{
     collections::HashMap,
     fmt, fs,
     io::{self, Write},
-    path,
+    path::{self, Path},
     rc::Rc,
 };
 
@@ -31,7 +31,10 @@ use crate::{
 pub enum Output {
     StdOut,
     StdErr,
-    File(Rc<RefCell<io::BufWriter<fs::File>>>),
+    File {
+        file: Rc<RefCell<io::BufWriter<fs::File>>>,
+        path: Box<Path>,
+    },
 }
 
 impl Output {
@@ -39,7 +42,10 @@ impl Output {
         match *self {
             Output::StdOut => OutputWriter::StdOut,
             Output::StdErr => OutputWriter::StdErr,
-            Output::File(ref f) => OutputWriter::File(f.borrow_mut()),
+            Output::File { ref file, ref path } => OutputWriter::File {
+                file: file.borrow_mut(),
+                path,
+            },
         }
     }
 }
@@ -48,7 +54,20 @@ impl Output {
 pub enum OutputWriter<'a> {
     StdOut,
     StdErr,
-    File(RefMut<'a, io::BufWriter<fs::File>>),
+    File {
+        file: RefMut<'a, io::BufWriter<fs::File>>,
+        path: &'a Path,
+    },
+}
+
+impl Output {
+    pub fn target(&self) -> OutputTarget {
+        match self {
+            Output::StdOut => OutputTarget::StdOut,
+            Output::StdErr => OutputTarget::StdErr,
+            Output::File { ref path, .. } => OutputTarget::File(path),
+        }
+    }
 }
 
 impl<'a> Write for OutputWriter<'a> {
@@ -56,7 +75,7 @@ impl<'a> Write for OutputWriter<'a> {
         match *self {
             OutputWriter::StdOut => io::stdout().lock().write(buf),
             OutputWriter::StdErr => io::stderr().lock().write(buf),
-            OutputWriter::File(ref mut f) => f.write(buf),
+            OutputWriter::File { ref mut file, .. } => file.write(buf),
         }
     }
 
@@ -64,7 +83,7 @@ impl<'a> Write for OutputWriter<'a> {
         match *self {
             OutputWriter::StdOut => io::stdout().lock().write_fmt(fmt),
             OutputWriter::StdErr => io::stderr().lock().write_fmt(fmt),
-            OutputWriter::File(ref mut f) => f.write_fmt(fmt),
+            OutputWriter::File { ref mut file, .. } => file.write_fmt(fmt),
         }
     }
 
@@ -72,9 +91,16 @@ impl<'a> Write for OutputWriter<'a> {
         match *self {
             OutputWriter::StdOut => io::stdout().lock().flush(),
             OutputWriter::StdErr => io::stderr().lock().flush(),
-            OutputWriter::File(ref mut f) => f.flush(),
+            OutputWriter::File { ref mut file, .. } => file.flush(),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum OutputTarget<'a> {
+    StdOut,
+    StdErr,
+    File(&'a Path),
 }
 
 #[derive(Debug)]
@@ -144,11 +170,14 @@ impl Outputs {
             let output = match sink {
                 Dst::StdOut => stdout.clone(),
                 Dst::StdErr => stderr.clone(),
-                Dst::File(ref p) => {
-                    let f = fs::File::create(p)
-                        .map_err(|_| err_cannot_write_file(p))?;
+                Dst::File(path) => {
+                    let f = fs::File::create(&path)
+                        .map_err(|_| err_cannot_write_file(&path))?;
                     let w = io::BufWriter::new(f);
-                    Output::File(Rc::new(RefCell::new(w)))
+                    Output::File {
+                        file: Rc::new(RefCell::new(w)),
+                        path,
+                    }
                 }
             };
             for source in sources.into_iter() {
@@ -183,5 +212,5 @@ enum Src {
 enum Dst {
     StdOut,
     StdErr,
-    File(Box<path::Path>),
+    File(Box<Path>),
 }

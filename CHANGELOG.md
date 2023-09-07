@@ -2,12 +2,17 @@
 
 ## [Unreleased][unreleased]
 
-- **Changes hosts file search:** The `nreplops-hosts.toml` files are now
-  searched from the following directories in the given order:
+- Fixes a thread leakage on the nREPL host.  This was caused by `nr` by not
+  closing the session as the last thing.
+
+- Changes where the hosts files are searched from (**breaking**)
+
+  The `nreplops-hosts.toml` files are now searched from the following
+  directories in the given order:
 
   - the current directory
   - its parent directories
-  - `${HOME}/Library/Application Support/nreplops` (on macOS)
+  - `${HOME}/Library/Application Support/nreplops`
   - `${XDG_CONFIG_HOME}/nreplops`
   - `${HOME}/.nreplops`
 
