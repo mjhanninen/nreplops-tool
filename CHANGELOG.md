@@ -2,6 +2,10 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.0...main
+
+## [Version 0.1.0][v0.1.0]
+
 - Fixes a thread leakage on the nREPL host.  This was caused by `nr` by not
   closing the session as the last thing.
 
@@ -23,7 +27,7 @@
 - Upgrades dependencies.  The current Minimum Supported Rust Version (MSRV)
   for this crate is 1.70.0.
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.0.10...main
+[v0.1.0]: https://github.com/mjhanninen/nreplops-tool/compare/v0.0.10...v0.1.0}
 
 ## [Version 0.0.10][v0.0.10]
 
