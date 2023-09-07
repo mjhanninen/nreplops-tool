@@ -9,7 +9,7 @@ jobs:
 
   pre-release:
     name: Pre-release checks
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
 
       - name: Detect version
@@ -23,36 +23,24 @@ jobs:
           fi
 
       - name: Shallow checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Check version bump
         run: scripts/gh-run-version-checks
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@1.70.0
         with:
-          toolchain: stable
-          default: true
-          profile: minimal
           components:  rustfmt, clippy
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --locked
+        run: cargo test --locked
 
       - name: Check rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Check clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --locked --all-targets --all-features -- --no-deps
+        run: cargo clippy --locked --all-targets --all-features -- --no-deps
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -71,20 +59,16 @@ jobs:
         job:
 
           - name: linux-x86_64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
-            use-cross: false
 
           - name: macos-x86_64
-            os: macos-11
+            os: macos-12
             target: x86_64-apple-darwin
-            use-cross: false
 
           - name: macos-aarch64
-            os: macos-11
+            os: macos-12
             target: aarch64-apple-darwin
-            # Cross has no Docker image for Apple aarch64
-            use-cross: false
 
     steps:
 
@@ -97,25 +81,18 @@ jobs:
         run: sudo apt-get install -y pandoc
 
       - name: Shallow checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Extract project info
         run: scripts/gh-project-info | tee -a "$GITHUB_ENV"
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.job.target }}
-          override: true
-          profile: minimal
+          targets: ${{ matrix.job.target }}
 
       - name: Build binary
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: ${{ matrix.job.use-cross }}
-          command: build
-          args: --locked --release --target ${{ matrix.job.target }}
+        run: cargo build --locked --release --target ${{ matrix.job.target }}
 
       - name: Build manual page
         run: scripts/build-manual-page
@@ -138,23 +115,16 @@ jobs:
     name: Publish to crates.io
     needs:
       - release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
 
       - name: Shallow checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Publish
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --locked
+        run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
