@@ -50,7 +50,8 @@ sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "'"$VERSION"'"/' Ca
   || die "failed to update Cargo.toml"
 
 # Bump CHANGELOG.md
-sed -i -Ee 's/^## Unreleased$/## Unreleased\n\n## Version '"$VERSION"'/' CHANGELOG.md \
+sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION"'}/' CHANGELOG.md \
+  && sed -i -Ee 's/^## \[Unreleased\]\[unreleased\]$/## [Unreleased][unreleased]\n\n[unreleased]: https:\/\/github.com\/mjhanninen\/nreplops-tool\/compare\/v'"$VERSION"'...main\n\n## [Version '"$VERSION"'][v'"$VERSION"']/' CHANGELOG.md \
   && git status --porcelain | grep -q '^ M CHANGELOG.md$' \
   || die "failed to update CHANGELOG.md"
 
