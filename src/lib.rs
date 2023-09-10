@@ -14,11 +14,11 @@
 // the License.
 
 #![warn(
-    future_incompatible,
-    missing_debug_implementations,
-    nonstandard_style,
-    rust_2021_compatibility,
-    unused
+  future_incompatible,
+  missing_debug_implementations,
+  nonstandard_style,
+  rust_2021_compatibility,
+  unused
 )]
 
 pub mod cli;

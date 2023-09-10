@@ -18,10 +18,10 @@ use std::env;
 use nreplops_tool::conn_expr::parser::*;
 
 fn main() {
-    for arg in env::args().skip(1) {
-        println!("INPUT: {}", arg);
-        let result =
-            ConnectionExprLanguage::parse(Rule::connection_expr, arg.as_str());
-        println!("RESULT:\n{:#?}", result);
-    }
+  for arg in env::args().skip(1) {
+    println!("INPUT: {}", arg);
+    let result =
+      ConnectionExprLanguage::parse(Rule::connection_expr, arg.as_str());
+    println!("RESULT:\n{:#?}", result);
+  }
 }

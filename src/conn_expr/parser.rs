@@ -16,8 +16,8 @@
 #![allow(missing_debug_implementations)]
 
 pub use pest::{
-    iterators::{Pair, Pairs},
-    Parser,
+  iterators::{Pair, Pairs},
+  Parser,
 };
 
 #[derive(pest_derive::Parser)]

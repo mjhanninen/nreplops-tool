@@ -24,7 +24,7 @@ pub type HostOptionsTable = HashMap<HostKey, HostOptions>;
 
 #[derive(Debug)]
 pub struct HostOptions {
-    pub name: Option<String>,
-    pub conn_expr: ConnectionExpr,
-    pub ask_confirmation: Option<bool>,
+  pub name: Option<String>,
+  pub conn_expr: ConnectionExpr,
+  pub ask_confirmation: Option<bool>,
 }

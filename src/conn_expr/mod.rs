@@ -24,11 +24,10 @@ mod resolution;
 mod conn_expr;
 
 pub use self::{
-    addr::{
-        Addr, ConversionError as AddrConversionError,
-        ParseError as AddrParseError,
-    },
-    conn_expr::{ConnectionExpr, RouteExpr, TunnelExpr},
-    port_set::{CannotConvertToPortSetError, Port, PortSet, PortSetParseError},
-    resolution::ConnectionExprSource,
+  addr::{
+    Addr, ConversionError as AddrConversionError, ParseError as AddrParseError,
+  },
+  conn_expr::{ConnectionExpr, RouteExpr, TunnelExpr},
+  port_set::{CannotConvertToPortSetError, Port, PortSet, PortSetParseError},
+  resolution::ConnectionExprSource,
 };
