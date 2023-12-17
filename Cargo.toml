@@ -20,7 +20,7 @@ regex = "^1.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
 thiserror = "1.0"
-toml = "^0.7"
+toml = "^0.8"
 
 # XXX: This library is stale and we use in a single place. Consider
 #
