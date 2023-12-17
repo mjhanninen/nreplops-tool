@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#![warn(
+#![deny(
   future_incompatible,
   missing_debug_implementations,
   nonstandard_style,
