@@ -13,7 +13,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use super::routes::{Route, Routes};
+use super::{
+  error::Error,
+  routes::{Route, Routes},
+};
 
 use std::{
   io::{self, Read, Write},
@@ -71,21 +74,26 @@ impl Drop for Socket {
   }
 }
 
-pub fn connect(routes: Routes) -> Result<Socket, io::Error> {
-  let mut last_err = None;
-  for route in routes {
-    match connect_impl(&route) {
-      Ok(s) => {
-        return Ok(s);
+pub fn connect(mut routes: Routes) -> Result<Socket, Error> {
+  let first_route = routes.next().expect("there is at least one route");
+  match connect_impl(&first_route) {
+    Ok(socket) => Ok(socket),
+    Err(first_err) if first_err.kind() == io::ErrorKind::ConnectionRefused => {
+      for route in routes {
+        match connect_impl(&route) {
+          Ok(socket) => {
+            return Ok(socket);
+          }
+          Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
+            continue;
+          }
+          Err(err) => return Err(Error::FailedToConnectToHost(err)),
+        }
       }
-      Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
-        last_err = Some(e);
-        continue;
-      }
-      Err(e) => return Err(e),
+      Err(Error::FailedToConnectToHost(first_err))
     }
+    Err(err) => Err(Error::FailedToConnectToHost(err)),
   }
-  Err(last_err.expect("at least one failed connection attempt"))
 }
 
 fn connect_impl(route: &Route) -> Result<Socket, io::Error> {

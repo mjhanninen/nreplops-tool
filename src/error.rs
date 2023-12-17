@@ -31,7 +31,11 @@ pub enum Error {
   CannotParsePortFile(String),
   #[error("cannot resolve the IP address for the domain {0}")]
   DomainNotFound(String),
-  #[error("the nREPL server address not specified; try using the --port or --port-file option or ensure that there is a port file .nrepl-port in the current working directory or its ancestors")]
+  #[error(
+    "the nREPL server address not specified; try using the --port or \
+    --port-file option or ensure that there is a port file .nrepl-port \
+    in the current working directory or its ancestors"
+  )]
   NotSpecified,
   #[error("unknown error")]
   Unknown,
@@ -49,10 +53,19 @@ pub enum Error {
   PortFileTimeout,
   #[error("cannot find host definition for key \"{0}\"")]
   HostKeyNotFound(String),
-  #[error("host key \"{0}\" refers recursively to another host key but this is not supported yet")]
+  #[error(
+    "host key \"{0}\" refers recursively to another host key but this is \
+    not supported yet"
+  )]
   RecursiveHostKeysNotSupported(String),
+  #[error(
+    "unexpected error while loading for default host configuration: {0}"
+  )]
+  FailedToLoadDefaultHostConfig(io::Error),
 
   // Related to nREPL connection
+  #[error("failed to connect to host: {0}")]
+  FailedToConnectToHost(io::Error),
   #[error("unexpected error while receiving from host: {0}")]
   CannotReceiveFromHost(io::Error),
   #[error("unexpected error while sending to host: {0}")]

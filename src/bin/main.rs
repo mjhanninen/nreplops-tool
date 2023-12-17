@@ -28,41 +28,58 @@ use std::{
 
 use nreplops_tool::{self, error::Error, outputs::OutputTarget, *};
 
-fn main() {
-  if let Err(e) = main1() {
-    eprintln!("Error: {}", e);
-    process::exit(1);
-  }
+fn die<T>(e: Error) -> T {
+  eprintln!("Error: {}", e);
+  process::exit(1);
 }
 
-fn main1() -> Result<(), anyhow::Error> {
-  let args = cli::Args::from_command_line()?;
-
-  let conn_expr = args.conn_expr_src.resolve_expr()?;
-
-  let host_opts_table = hosts_files::load_default_hosts_files()?;
-
+fn main() {
+  let args = cli::Args::from_command_line().unwrap_or_else(die);
+  let conn_expr = args.conn_expr_src.resolve_expr().unwrap_or_else(die);
+  let host_opts_table =
+    hosts_files::load_default_hosts_files().unwrap_or_else(die);
   let sources =
-    sources::load_sources(&args.source_args[..], &args.template_args[..])?;
+    sources::load_sources(&args.source_args[..], &args.template_args[..])
+      .unwrap_or_else(die);
 
   // Short-circuit if there is nothing to evaluate; effectively this happens
   // when the program is used only as a latch for the port file.
   if sources.is_empty() {
-    return Ok(());
+    return;
   }
 
-  let conn_routes = routes::resolve_routes(&conn_expr, &host_opts_table)?;
-
-  let outputs = outputs::Outputs::try_from_args(&args)?;
-
-  let socket = socket::connect(conn_routes)?;
-
+  let conn_routes =
+    routes::resolve_routes(&conn_expr, &host_opts_table).unwrap_or_else(die);
+  let outputs = outputs::Outputs::try_from_args(&args).unwrap_or_else(die);
+  let socket = socket::connect(conn_routes).unwrap_or_else(die);
   let con = nrepl::Connection::new(socket);
+  let mut session = con.session().unwrap_or_else(die);
 
-  let mut session = con.session()?;
+  let eval_ok = match eval_sources(&mut session, &sources, &outputs) {
+    Ok(_) => true,
+    Err(err) => {
+      eprintln!("Error: {}", err);
+      false
+    }
+  };
 
+  session.close().unwrap_or_else(die);
+
+  if !eval_ok {
+    process::exit(1);
+  }
+}
+
+fn eval_sources(
+  session: &mut nrepl::Session,
+  sources: &[sources::Source],
+  outputs: &outputs::Outputs,
+) -> Result<(), Error> {
   fn xform_err(output: &outputs::Output, _: io::Error) -> Error {
     match output.target() {
+      // XXX(soija) These panics would make us leak sessions.  On the other hand
+      //            a situation in which we cannot write stdout/err is already
+      //            pretty exotic.
       OutputTarget::StdOut => panic!("cannot write to stdout"),
       OutputTarget::StdErr => panic!("cannot write to stderr"),
       OutputTarget::File(path) => {
@@ -71,7 +88,7 @@ fn main1() -> Result<(), anyhow::Error> {
     }
   }
 
-  for input in sources.into_iter() {
+  for input in sources.iter() {
     session.eval(&input.content, None, Some(1), Some(1), |response| {
       if let Some(ref s) = response.value {
         if let Some(ref output) = outputs.nrepl_results {
@@ -92,8 +109,6 @@ fn main1() -> Result<(), anyhow::Error> {
       Ok(())
     })?;
   }
-
-  let _con = session.close()?;
 
   Ok(())
 }

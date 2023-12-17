@@ -25,18 +25,21 @@ use serde_with::{serde_as, DisplayFromStr};
 
 use crate::{
   conn_expr::ConnectionExpr,
+  error::Error,
   host_options::{HostKey, HostOptions, HostOptionsTable},
 };
 
-// XXX(soija) Use crate::errors instead of raw io::Error
-
-pub fn load_default_hosts_files() -> Result<HostOptionsTable, io::Error> {
+pub fn load_default_hosts_files() -> Result<HostOptionsTable, Error> {
   let mut hosts = HostOptionsTable::default();
-  let ps = matching_config_files("nreplops-hosts.toml")?;
+  let ps = matching_config_files("nreplops-hosts.toml")
+    .map_err(Error::FailedToLoadDefaultHostConfig)?;
   for p in ps.into_iter().rev() {
-    let mut f = fs::File::open(p)?;
+    let mut f =
+      fs::File::open(p).map_err(Error::FailedToLoadDefaultHostConfig)?;
     let mut s = String::new();
-    let _ = f.read_to_string(&mut s)?;
+    let _ = f
+      .read_to_string(&mut s)
+      .map_err(Error::FailedToLoadDefaultHostConfig)?;
     let new_hosts: Hosts = toml::from_str(&s).unwrap();
     hosts.extend(new_hosts.into_iter().map(|(k, v)| (k, v.into())));
   }

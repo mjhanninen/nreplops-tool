@@ -11,7 +11,6 @@ readme = "README.md"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0" # get rid of
 clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
 dns-lookup = "^2.0"
 pest = "^2.7"
