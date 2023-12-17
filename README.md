@@ -63,12 +63,12 @@ $ nr plus.clj
 Create an executable nREPL scripts:
 
 ```
-$ cat <<EOF > plus.nrepl
-+ #!/usr/bin/env nr -!
+$ cat <<EOF > plus.nr.clj
++ #!/usr/bin/env -S nr -!
 + (+ 1 2)
 + EOF
-$ chmod +x plus.nrepl
-$ ./plus.nrepl
+$ chmod +x plus.nr.clj
+$ ./plus.nr.clj
 3
 ```
 
@@ -77,13 +77,13 @@ in retrieved users from the application database by email.  A script exposing
 that functionality to the command line could look something like this:
 
 ```
-$ cat <<EOF > get-user-by-email.nrepl
-+ #!/usr/bin/env nr -! --no-results
+$ cat <<EOF > get-user-by-email.nr.clj
++ #!/usr/bin/env -S nr -! --no-results
 + (clojure.pprint/pprint
 +   (get-user-by-email db "#nr[1]"))
 $ EOF
-$ chmod +x get-user-by-email.nrepl
-$ ./get-user-by-email.nrepl wile.e.coyote@example.com
+$ chmod +x get-user-by-email.nr.clj
+$ ./get-user-by-email.nr.clj wile.e.coyote@example.com
 {:name "Wile E. Coyote"
  :email "wile.e.coyote@example.com"
  :phone "555-555 555"}
