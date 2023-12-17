@@ -4,10 +4,15 @@
 
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.0...main
 
+- Fixes the thread leakage issue on the nREPL host further: attempts to close
+  the session in failure cases too.
+
+- Upgrades dependecies. MSRV is 1.70.0.
+
 ## [Version 0.1.0][v0.1.0]
 
-- Fixes a thread leakage on the nREPL host.  This was caused by `nr` by not
-  closing the session as the last thing.
+- Fixes a thread leakage on the nREPL host.  This was caused by `nr` not
+  closing the nREPL session at exit.
 
 - Changes where the hosts files are searched from (**breaking**)
 
