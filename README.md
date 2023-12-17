@@ -3,10 +3,11 @@
 nreplops-tool (`nr`) is a non-interactive nREPL client designed to be used in
 shell scripts and on the command-line.
 
-> **Early α warning:**  This project is still at a very early development
-> phase.  While the tool is probably reasonably usable (and the author uses it
-> daily) the current development focus is not on quality, stability, or
-> documentation.
+## Project status
+
+**Inactively developed:** This is project is under development (i.e. not feature
+complete yet, big changes may happen) but receives only limited attention.  The
+tool itself is used daily in production environmnets by the author.
 
 ## Try it out in 1 minute
 
@@ -98,11 +99,15 @@ brew install mjhanninen/sour/nreplops-tool
 
 ### Cargo
 
+The Minimum Supported Rust Version (MSRV) is 1.70.0.
+
 ```
 cargo install nreplops-tool
 ```
 
 ### Building from sources
+
+The Minimum Supported Rust Version (MSRV) is 1.70.0.
 
 ```
 git clone https://github.com/mjhanninen/nreplops-tool.git
