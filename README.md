@@ -5,9 +5,10 @@ shell scripts and on the command-line.
 
 ## Project status
 
-**Inactively developed:** This is project is under development (i.e. not feature
-complete yet, big changes may happen) but receives only limited attention.  The
-tool itself is used daily in production environmnets by the author.
+**Inactively developed:** This is project is under development (i.e. not dead,
+not feature complete yet, big changes may happen) but receives only limited
+attention.  The tool itself is used daily in production environments by the
+author.
 
 ## Try it out in 1 minute
 
