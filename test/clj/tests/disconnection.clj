@@ -58,7 +58,7 @@
                  :hung)))
           "... nr aborts as the server is stopped")
       (is (= {:out ""
-              :err "Error: unexpected disconnection by host\n"
+              :err "Error: host disconnected unexpectedly\n"
               :exit 1}
              @nr)
           "... nr process outcome reflects disconnection"))))

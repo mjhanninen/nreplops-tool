@@ -28,11 +28,6 @@ use std::{
 
 use nreplops_tool::{self, error::Error, outputs::OutputTarget, *};
 
-fn die<T>(e: Error) -> T {
-  eprintln!("Error: {}", e);
-  process::exit(1);
-}
-
 fn main() {
   let args = cli::Args::from_command_line().unwrap_or_else(die);
   let conn_expr = args.conn_expr_src.resolve_expr().unwrap_or_else(die);
@@ -55,19 +50,22 @@ fn main() {
   let con = nrepl::Connection::new(socket);
   let mut session = con.session().unwrap_or_else(die);
 
-  let eval_ok = match eval_sources(&mut session, &sources, &outputs) {
-    Ok(_) => true,
+  match eval_sources(&mut session, &sources, &outputs) {
+    Ok(_) => {
+      session.close().unwrap_or_else(die);
+    }
+    Err(Error::HostDisconnected) => die(Error::HostDisconnected),
     Err(err) => {
-      eprintln!("Error: {}", err);
-      false
+      eprintln!("Error: {:?}", err);
+      session.close().unwrap_or_else(die);
+      process::exit(1);
     }
   };
+}
 
-  session.close().unwrap_or_else(die);
-
-  if !eval_ok {
-    process::exit(1);
-  }
+fn die<T>(e: Error) -> T {
+  eprintln!("Error: {}", e);
+  process::exit(1);
 }
 
 fn eval_sources(

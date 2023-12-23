@@ -72,7 +72,7 @@ pub enum Error {
   CannotSendToHost(io::Error),
   #[error("host sent corrupted response")]
   CorruptedResponse,
-  #[error("host disconnected unexpectedle")]
+  #[error("host disconnected unexpectedly")]
   HostDisconnected,
   #[error("host sent unexptected response")]
   UnexptectedResponse,
