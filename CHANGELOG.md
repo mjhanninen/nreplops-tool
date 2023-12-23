@@ -2,16 +2,19 @@
 
 ## [Unreleased][unreleased]
 
+- Fixes spurious double error caused by trying to close the session when the
+  connection has already failed.
+
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.1...main
 
 ## [Version 0.1.1][v0.1.1]
-
-[v0.1.1]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.0...v0.1.1}
 
 - Fixes the thread leakage issue on the nREPL host further: attempts to close
   the session in failure cases too.
 
 - Upgrades dependecies. MSRV is 1.70.0.
+
+[v0.1.1]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.0...v0.1.1}
 
 ## [Version 0.1.0][v0.1.0]
 
