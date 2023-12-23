@@ -6,5 +6,5 @@
                               "--middleware" "[cider.nrepl/cider-middleware]"
                               "--interactive" "--color"]}
            :style {:extra-deps {mvxcvi/cljstyle #:git{:url "https://github.com/greglook/cljstyle.git"
-                                                      :sha "14c18e5b593c39bc59f10df1b894c31a0020dc49"}}
+                                                      :sha "e625c17619236949c0f899c66503c408f943fa8f"}}
                    :main-opts ["-m" "cljstyle.main"]}}}
