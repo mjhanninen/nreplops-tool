@@ -2,10 +2,14 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...main
+
+## [Version 0.1.2][v0.1.2]
+
 - Fixes spurious double error caused by trying to close the session when the
   connection has already failed.
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.1...main
+[v0.1.2]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.1...v0.1.2}
 
 ## [Version 0.1.1][v0.1.1]
 
