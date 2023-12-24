@@ -60,6 +60,6 @@ TARBALL_SHA256=${TARBALL_SHA256}
 EOF
 
 if "${GITHUB_OUTPUTS:-false}"; then
-  echo "::set-output name=tarball-path::${TARBALL_PATH}"
-  echo "::set-output name=tarball-sha256::${TARBALL_SHA256}"
+  echo "tarball-path=${TARBALL_PATH}" >> "$GITHUB_OUTPUT"
+  echo "tarball-sha256=${TARBALL_SHA256}" >> "$GITHUB_OUTPUT"
 fi
