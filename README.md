@@ -10,6 +10,8 @@ not feature complete yet, big changes may happen) but receives only limited
 attention.  The tool itself is used daily in production environments by the
 author.
 
+Please see [PLAN.md](./PLAN.md) for project goals and planned features.
+
 ## Try it out in 1 minute
 
 This example assumes you are able to install packages with Homebrew.  See the
@@ -17,84 +19,27 @@ This example assumes you are able to install packages with Homebrew.  See the
 
 Start by installing nreplops-tool (`nr`) and Babashka (`bb`):
 
-```
+```sh
 brew install mjhanninen/sour/nreplops-tool borkdude/brew/babashka
 ```
 
 Launch a Babashka nREPL server (that listens on the port 1667 by default):
 
-```
+```sh
 bb nrepl-server
 ```
 
 Open another terminal and evaluate an expression with `nr`:
 
-```
+```sh
 nr -p 1667 -e '(println "Hello, world!")'
-```
-
-## Quick examples
-
-Before starting make sure that you have a Clojure nREPL server running in the
-background and there is a corresponding `.nrepl-port` file in either the current
-working directory or any of its ancestor.
-
-Evaluate the expression `(+ 1 2)` on a nREPL server:
-
-```
-$ nr -e '(+ 1 2)'
-3
-```
-
-Pass the expressions through a pipe:
-
-```
-$ echo '(+ 1 2)' | nr
-3
-```
-
-Evaluate the content of a file:
-
-```
-$ echo '(+ 1 2)' > plus.clj
-$ nr plus.clj
-3
-```
-
-Create an executable nREPL scripts:
-
-```
-$ cat <<EOF > plus.nr.clj
-+ #!/usr/bin/env -S nr -!
-+ (+ 1 2)
-+ EOF
-$ chmod +x plus.nr.clj
-$ ./plus.nr.clj
-3
-```
-
-Suppose the nREPL server had a function called `get-user-by-email` that searched
-in retrieved users from the application database by email.  A script exposing
-that functionality to the command line could look something like this:
-
-```
-$ cat <<EOF > get-user-by-email.nr.clj
-+ #!/usr/bin/env -S nr -! --no-results
-+ (clojure.pprint/pprint
-+   (get-user-by-email db "#nr[1]"))
-$ EOF
-$ chmod +x get-user-by-email.nr.clj
-$ ./get-user-by-email.nr.clj wile.e.coyote@example.com
-{:name "Wile E. Coyote"
- :email "wile.e.coyote@example.com"
- :phone "555-555 555"}
 ```
 
 ## Installation
 
 ### Homebrew
 
-```
+```sh
 brew install mjhanninen/sour/nreplops-tool
 ```
 
@@ -102,7 +47,7 @@ brew install mjhanninen/sour/nreplops-tool
 
 The Minimum Supported Rust Version (MSRV) is 1.70.0.
 
-```
+```sh
 cargo install nreplops-tool
 ```
 
@@ -110,20 +55,17 @@ cargo install nreplops-tool
 
 The Minimum Supported Rust Version (MSRV) is 1.70.0.
 
-```
+Clone the repository:
+
+```sh
 git clone https://github.com/mjhanninen/nreplops-tool.git
-cargo install --path .
 ```
 
-## Goals
+Use `cargo` to build and install the tool:
 
-- Easy of use in shell scripts
-- Consistency and interoperability with selected CLI tools:
-  [Babashka][babashka], [Jet][jet], and [jq][jq]
-
-[babashka]: https://github.com/babashka/babashka
-[jet]: https://github.com/borkdude/jet
-[jq]: https://github.com/stedolan/jq
+```sh
+cargo install --path nreplops-tool
+```
 
 ## License
 
