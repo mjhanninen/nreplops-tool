@@ -34,10 +34,14 @@ serde_bencode = "0.2"
 name = "nr"
 path = "src/bin/main.rs"
 
-[[bin]]
-name = "nr-test-conn-expr"
-path = "src/bin/test_conn_expr.rs"
+# XXX: Convert into a proper test; or into main binary behind some debug flag
+#
+# [[bin]]
+# name = "nr-test-conn-expr"
+# path = "src/bin/test_conn_expr.rs"
 
-[[bin]]
-name = "nr-test-hosts-file"
-path = "src/bin/test_hosts_file.rs"
+# XXX: Convert into a proper test; or into main binary behind some debug flag
+#
+# [[bin]]
+# name = "nr-test-hosts-file"
+# path = "src/bin/test_hosts_file.rs"
