@@ -18,7 +18,6 @@ sufficient for carrying out the following:
 
 ## Note from reading Clojure parser code
 
-
 ### Symbols
 
 Clojure reads symbols (including keywords) as follows:
@@ -69,7 +68,7 @@ Some **illegal** symbols:
 - `//foo`
 - `'foo:/bar`
 
-### Metadata and namespacesd maps
+### Metadata and namespaced maps
 
 - Metadata "accumulates". For example, `(def ^:foo ^:bar hello "world")` sets
   both metadata entries `:foo` `:bar` for `#'hello`.
@@ -91,6 +90,95 @@ It is notable that the discard macro does not ignore itself but instead
 [#_ #_ 1 2 3]
 ;; ↳ [3]
 ```
+
+### Metadata and disard macro
+
+The discard macro `#^` tosses the next form as well as all metas between it and
+that form:
+
+```.clj
+(map (fn [x] {:value x :meta (meta x)}) [#^:foo #^:bar [1] [2]])
+;; => ({:value [1], :meta {:bar true, :foo true}} {:value [2], :meta nil})
+(map (fn [x] {:value x :meta (meta x)}) [#^:foo #^:bar #_ [1] [2]])
+;; => ({:value [2], :meta {:bar true, :foo true}})
+(map (fn [x] {:value x :meta (meta x)}) [#^:foo #_ #^:bar [1] [2]])
+;; => ({:value [2], :meta {:foo true}})
+(map (fn [x] {:value x :meta (meta x)}) [#_ #^:foo #^:bar [1] [2]])
+;; => ({:value [2], :meta nil})
+```
+
+### Quoting
+
+Some examples:
+
+```clojure
+' ^:foo ()                          ; => ()
+(meta ' ^:foo ())                   ; => {:foo true}
+' ^:foo ' ^:bar ()                  ; => (quote ())
+(meta ' ^:foo ' ^:bar ())           ; => {:foo true}
+(meta (unquote ' ^:foo ' ^:bar ())) ; => {:bar true}
+```
+
+Also:
+
+```clojure
+' #_ () (bar)                       ; => (bar)
+#_ ' () (bar)                       ; => syntax error: unresolvable symbol bar
+```
+
+Implications:
+
+- We need to distinguish between the meta data expressions somehow
+
+### Reader conditionals
+
+```clojure
+#?(:clj 1 :cljs 2)
+[#?()]                    ; => [] i.e. conditional produces nothing, not even `nil`
+#?(:clj               1
+   :foo               2
+   {:anything "goes"} 3)  ; keys can be anything
+
+#? , , , , , , ,(:clj 1)  ; horizonal whitespace allowed prefix and opening `(`
+
+#?(:clj #?(:clj 1))       ; => 1 i.e. can be nested
+#?(:clj 'foo)             ; => foo i.e. reader quotes before replacement
+(meta #?(:clj ^:bar {}))  ; => {:bar true}
+
+[#?@(:clj (range 3))]     ; => [#object[range] 3], not [0 1 2]
+```
+
+Notable:
+
+- Keys can be anything
+- Value forms are not evaluated by reader conditional
+
+Simplifications:
+
+- Clojure permits horizontal whitespace between the prefix and the opening `(`
+  but not vertical whitespace or comments.  We allow general whitespace and
+  comments also.
+- Clojure does not permit splicing at the top level; we do.
+- Clojure does not permit non-sequential values the form to splice; we do.
+
+### Tagged literals
+
+```
+#inst"2022-01-01"                       ; => #inst "2022-01-01T00:00:00.000-00:00"
+
+#
+;; comments …
+inst
+;; … welcomed
+"2022-01-01"                            ; => #inst "2022-01-01T00:00:00.000-00:00"
+
+# ^:foo #_ ^:bar [] inst "2022-01-01"   ; => #inst "2022-01-01T00:00:00.000-00:00"
+```
+
+Notes:
+
+- `deftype`, `defrecord`, and object constructor calls can be understood as
+  special case of tagged literals
 
 ### Numeric literals
 
@@ -177,34 +265,339 @@ Simplifications:
 - the arguments to anonymous are not treated specially; they are just symbols
 - meta-data is applicable to all forms (e.g. to `42`)
 
-**Note:** The order is meaningful in a PEG grammar.
+Other assumptions:
 
-### Comments and implicit whitespace
+- no need to track the line or column position nor facilitate it
 
-The grammar contains **comments** and **implicit whitespace** that are allowed
-between the terms of any **non-atomic** expressions.
+Few notes about PEG grammar used:
+
+- The order is meaningful in (any) PEG grammar
+- Parenthesis `( ... )` group terms
+- Compound rule: `my-rule = [ ... ]`; implicits are suppressed
+- Atomic rule: `my-rule = { ... }`; inner rules produduce no tokens, implicits are suppressed
+- Forced token rule: `my-rule = < ... >`; produces tokens even within an outer atomic rule
+- Negative lookaehd: `! my-rule`; does not consume
+
+### Comments, whitespace, and end of line
+
+The grammar contains **implicit** rules for comments and whitespace meaning that
+they are **implicitly** permitted between the terms of any non-atomic rule.
 
 ```
-COMMENT        = comment-prefix ( ! end-of-line )* end-of-line?
+COMMENT        = { comment-prefix comment-char* }
+
 comment-prefix = ';' | '#!'
+
+comment-char   = ! ( CR | LF ) ANY
+```
+
+Note how the line-end comment does not consume the actual end of the line.  That
+will be consumed by the whitespace rule:
+
+```
+WHITESPACE       = { ( ascii-whitespace | ',' )+ }
+
+ascii-whitespace = { ( HT | LF | VT | FF | CR | ' ' )+ }
+```
+
+### Top-level, forms, meta data, and discarding
+
+```
+top-level              = start-of-input form* discarded-form? end-of-input
+
+form                   = expr
+                       | quoted-form
+                       | synquoted-form
+                       | splicing-unquoted-form
+                       | unquoted-form
+                       | preform+ form
+
+preform                = meta-expr | discarded-form
+discarded-form         = '#_' preform* form
+meta-expr              = ( '^' | '#^' ) form
+
+quoted-form            = '\'' preform* form
+synquoted-form         = '`'  preform* form
+splicing-unquoted-form = '~@' preform* form
+unquoted-form          = '~'  preform* form
+```
+
+Note that in Clojure the meta data expression can be either a map or one of a
+keyword, symbol, or string in which case promoted into a map.
+
+Here the meta data expression is allowed to contain any Clojure form.  This
+simplifies the grammar, although constraining the value should not add very
+much compelxity.
+
+Simplifications:
+
+- We allow unquoted forms outside a synquoted form. Clojure parser rejects
+  these.  Obviously, these are not valid Clojure but from the point of view of
+  **lexical** analysis this is a practical simplification.
+
+- Likewise we allow nested unquoted forms with a synquoted form between them on
+  similar ground.
+
+### Expressions
+
+Expression is either a value or a program that evaluates into a value (even if
+the result is a nil value).
+
+```
+expr = nil
+     | booleam
+     | number
+     | string
+     | symbolic-value
+     | symbol
+     | var-quoted-symbol
+     | keyword
+     | list
+     | vector
+     | map
+     | set
+     | reader-conditional
+```
+
+### Nil
+
+```
+nil = { "nil" ! symbol-char }
+```
+
+### Boolean
+
+```
+boolean = { ( "true" | "false" ) ! symbol-char }
+```
+
+### Numeric literal
+
+```
+number             = [ sign? unsigned-number ! ( ascii-alpha | dec-digit )]
+
+sign               = '+' | '-'
+
+unsigned-number    = unsigned-bigfloat
+                   | unsigned-float
+                   | unsigned-rational
+                   | unsigned-radix-int
+                   | unsigned-bigint
+                   | unsigned-int
+
+unsigned-bigfloat  = [ ( dec-digits | unsigned-float ) 'M' ]
+
+unsigned-float     = [ dec-digits ( fractional base10-exp? | base10-exp ) ]
+fractional         = { '.' dec-digit* }
+base10-exp         = [ ( 'e' | 'E' ) sign? dec-digits ]
+
+unsigned-rational  = [ dec-digits '/' dec-digits ]
+
+unsigned-radix-int = [ radix ( 'r' | 'R' ) radix-arg ]
+radix              = { unsigned-dec }
+radix-arg          = { ( ascii-alpha | dec-digit )+ }
+
+unsigned-bigint    = [ unsigned-int 'N' ]
+
+unsigned-int       = unsigned-oct
+                   | unsigned-hex
+                   | unsigned-dec
+unsigned-oct       = [ oct-prefix oct-digits ]
+unsigned-hex       = [ hex-prefix hex-digits ]
+unsigned-dec       = { dec-non-zero dec-digit* | '0' }
+
+oct-prefix         = '0'
+oct-digits         = { '0'..'7'+ }
+
+hex-prefix         = '0x' | '0X'
+hex-digits         = { ( '0'..'9' | 'a'..'f' | 'A..F' )+ }
+
+dec-digits         = { dec-digit+ }
+dec-non-zero       = '1'..'9'
+dec-digit          = '0'..'9'
+```
+
+- The order of the choice is very important inside both `unsigned-number` and
+  `unsigned-int`.
+
+Simplifications:
+
+- Radix is permitted to be any non-negative integer.  This should be constrained
+  to the range 2…36 at some later stage.  Clojure reads only two digits of the
+  radix. (Try `36r1`, `99r1`, and `100r1` to see the difference.)
+
+### Character literals
+
+```
+char         = [ '\\'
+                 ( char-name
+                 | 'o' char-octal
+                 | 'u' char-unicode
+                 | char-simple
+                 )
+                 ! symbol-char
+               ]
+char-name    = 'newline' | 'space' | 'tab' | 'formfeed' | 'backspace'
+char-octal   = { oct-digit oct-digit? oct-digit? }
+char-unicode = { hex-digit hex-digit hex-digit hex-digit }
+char-simple  = ! ( control-char | ' ' ) ANY
+```
+
+### String literals
+
+```
+string      = [ '"' ( unescaped | escape-seq )* '"' ]
+
+unescaped   = { string-char+ }
+
+string-char = ascii-whitespace
+            | ! ( '\\' | '"' | control-char ) ANY
+
+escape-seq  = { '\\' ( 'b' | 't' | 'n' | 'f' | 'r' | '"' | '\\'
+                     | oct-octet
+                     | 'u' hex-word
+                     )
+              }
+```
+
+Simplifications:
+
+- Clojure does not permit octal octets shorter than 3 chars unless immediately
+  followed by a `\` or `"` char.
+
+### Symbolic value
+
+```
+symbolic-value = "##" symbol
+```
+
+Note:
+
+- that only the three symbols `Inf`, `-Inf`, and `NaN` are recognized.  But
+  as far as lexical analysis is concerned lexing it the way described above
+  is accuracte.
+- Both Clojure and this grammar permit whitespace (incl. comma) between `##` and
+  the symbol.
+
+### Symbols
+
+The symbol reading code in the Clojure parser is particularly messy (and, dare I
+say, broken).  The following grammar does not even try replicate all the corner
+cases. As an example the following is legal Clojure but rejected by our grammar:
+
+```.clj
+'foo//bar
+```
+
+However, in practice you should not notice any difference if your code is
+reasonably sane:
+
+```
+symbol             = [ namespace '/' qualified-symbol
+                     | unqualified-symbol
+                     ]
+
+namespace          = { symbol-first-char symbol-char* ( ':' symbol-char+ )* }
+
+unqualified-symbol = { namespace
+                     | '/' ! ( symbol-char | '/' | ':' )
+                     }
+
+qualified-symbol   = { ( '/'* ':'? symbol-char+ )+
+                     | '/'+ ! ':'
+                     }
+
+symbol-char        = { symbol-first-char | dec-digit }
+
+symbol-first-char  = ! ( WHITESPACE
+                       | control-char
+                       | dec-digit
+                       | ';' | '"' | '^' | '`' |  '~' | '(' | ')'
+                       | '[' | ']' | '{' | '}' | '\\' | ':' | '/'
+                       )
+                     ANY
 ```
 
 ```
-WHITESPACE            = ( comma | horizontal-whitespace | end-of-line )+
-comma                 = ','
-horizontal-whitespace = ( ' ' | HT )+
+continuation-char  = ! ( WHITESPACE
+                       | control-char
+                       | ';' | '"' | '^' | '`' |  '~' | '(' | ')'
+                       | '[' | ']' | '{' | '}' | '\\'
+                       )
+                     ANY
 ```
 
-Note how the whitespace distinguishes between comma, horizontal whitespace, and
-the end of line.
-
-### Top-level
-
-The top-level program consists of zero or more forms:
+Keywords build directly on symbols:
 
 ```
-top-level = START-OF-INPUT form* END-OF-INPUT
+keyword               = [ keyword-prefix ( namespace '/' qualified-symbol
+                                         | unqualified-keyword
+                                         )
+                        ]
+
+keyword-prefix        = ':'   ; namespaced
+                      | '::'  ; alias
+
+unqualified-keyword = { symbol-char+ ( ':' symbol-char+ )*
+                      | '/' ! ( symbol-char | '\' | ':' )
+                      }
 ```
+
+Some observations from Clojure:
+
+- `:456` is a valid keyword
+- `456` is a number
+- `:456abc` is a valid keyword
+- `456abc` is an invalid number
+- `:123/456` is an invalid keyword
+- `:123/def` is a valid keyword
+- `:abc/456` is an invalid keyword
+- `#:123{:def "foo"}` is an invalid namespaced map
+- `#:abs{:123 "foo"}` is a valid namespaced map
+- likewise for `::`
+
+Go figure.  In any case we make the following simplifications (or clarifications):
+
+- Permit unqualified keywords (but not symbols) starting with a digit
+- Always reject namespaces (and aliases) starting with a digit
+
+### Lists
+
+```
+list = '(' form* discarded-form? ')'
+```
+
+### Vectors
+
+```
+vector = '[' form* discarded-form? ']'
+```
+
+### Sets
+
+```
+set = '#{' form* discarded-form? '}'
+```
+
+### Maps
+
+```
+map             = map-qualifier? unqualified-map
+
+map-qualifier   = [ '#:' namespace   ; namespaced
+                  | '#::' namespace  ; alias
+                  ]
+
+unqualified-map = '{' map-entry* discarded-form? '}'
+
+map-entry       = form form
+```
+
+Simplifications:
+
+- the non-atomic "binding" between the qualification and the
+  unqualified map permits comments (through implicit comment rule) while Clojure
+  does not.
 
 ### Grammar
 
@@ -223,19 +616,12 @@ comment ← ';' ( ! eol ) *
 
 deref ← '@'
 
-meta ← '^' ( map | sym | keyword | string )
 
 list ← '(' form* ')'
 
 vector ← '[' form* ']'
 
 set ← "#{" form* '}'
-
-map       ← ns-map | alias-map | plain-map
-ns-map    ← '#:' ns '{' map-entry* '}'
-alias-map ← '#::' alias '{' map-entry* '}'
-plain-map ← '{' map-entry* '}'
-map-entry ← form form
 
 alias ← ???
 
@@ -292,115 +678,6 @@ anon-fn-body ← (* TODO *)
 anon-arg     ← `%&` | `%` pos-dec-int | `%`
 ```
 
-### Discard macro
-
-The grammar is:
-
-```
-form ← ignored-form* unignored-form
-
-ignored-form ← '#_' ignored-form? unignored-form
-
-unignored-form ← ???
-```
-
-### Symbols
-
-The following grammar does not replicate all the corner cases of the Clojure
-reader.  But you probably won't notice the difference in normal use.
-
-```
-keyword ← ':'{1,2} symbol
-
-symbol ← symbol-namespace '/' symbol-name
-       | symbol-name
-
-symbol-namespace ← symbol-safe-char namespace-char* ( ':' namespace-char* )*
-namespace-char   ← symbol-safe-char | dec-digit
-
-symbol-name        ← '/'
-                   | symbol-safe-char syllable-tail-char* ( ':' syllable-lead-char syllable-tail-char* )*
-syllable-lead-char ← symbol-safe-char | dec-digit
-syllable-tail-char ← symbol-safe-char | dec-digit | '/'
-
-symbol-safe-char ← !( whitespace
-                    | control-char
-                    | dec-digit
-                    | ';' | '"' | '^' | '`' | '~' | '(' | ')'
-                    | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
-
-whitespace ← HT | LF | VT | FF | CR | ' ' | ','
-```
-
-### String literals
-
-```
-string ← '"' ( unescaped-string-content | escape-seq )* '"'
-
-unescaped-string-content ← string-char+
-
-escape-seq ← '\' ( 'b' | 't' | 'n' | 'f' | 'r' | '"' | "'" | '\'
-                 | oct-octet
-                 | 'u' hex-digit{4}
-                 )
-
-string-char ← ! ( '\' | '"' | control-char )
-            | whitespace-control-char
-```
-
-### Numeric literal
-
-The grammar for parsing a number is:
-
-```
-number ← sign? unsigned-number
-
-unsigned-number ← unsigned-big-decimal
-                | unsigned-floating-point
-                | unsigned-rational
-                | unsigned-radix-integer
-                | unsigned-big-integer
-                | unsigned-integer
-
-unsigned-big-decimal ← ( whole | unsigned-floating-point ) 'M'
-
-unsigned-floating-point ← whole ( fractional base10-exp? | base10-exp )
-
-whole ← dec-digit+
-
-fractional ← '.' dec-digit*
-
-base10-exp ← ( 'e' | 'E' ) sign? dec-digit+
-
-unsigned-rational ← dec-digit+ '/' dec-digit+
-
-unsigned-radix-integer ← radix ( 'r' | 'R' ) ascii-alnum+
-
-radix ← '3' ( '0' | '1' | '2' | '3' | '4' | '5' | '6' )
-      | ( '1' | '2' ) dec-digit
-      | dec-non-zero
-
-unsigned-big-integer ← unsigned-integer 'N'
-
-unsigned-integer ← unsigned-oct
-                 | unsigned-hex
-                 | unsigned-dec
-
-unsigned-oct ← '0' oct-digit+
-
-unsigned-hex ← '0' ( 'x' | 'X' ) hex-digit+
-
-sign ← '+' | '-'
-```
-
-
-Notes and todos:
-
-- Again, the ordered choice in `unsigned-number` needs to be ordered with some
-  care.
-- Make `radix` a non-zero integer with values outside 2…36 yielding "radix out
-  of range"
-
 ### Character literal
 
 ```
@@ -418,46 +695,45 @@ octal-char-lit ← '\o' oct-octet
 simple-char-lit ← '\' ( ! control-char )
 ```
 
-### End of line
-
-```
-eol         ← end-of-line  (* abbreviation *)
-end-of-line ← LF           (* Unix *)
-            | CR LF        (* Windows *)
-```
-
 ### Helpers
 
 ```
-bin-digit ← '0' | '1'
+bin-digit = '0' | '1'
 
-oct-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7'
+oct-digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7'
 
-oct-octet ← ( '0' | '1' | '2' | '3' ) oct-digit oct-digit
-          | oct-digit oct-digit?
+oct-octet = { ( '0' | '1' | '2' | '3' ) oct-digit oct-digit
+            | oct-digit oct-digit?
+            }
 
-dec-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+dec-digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 
-dec-non-zero ← '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+dec-non-zero = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 
-hex-digit ← '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+hex-digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
           | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
           | 'f' | 'F'
 
-ascii-alnum ← ascii-alpha | dec-digit
+hex-octet = { hex-digit hex-digit }
 
-ascii-alpha ← 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
+hew-word  = { hex-octet hex-octet }
+
+ascii-alnum = ascii-alpha | dec-digit
+
+ascii-alpha = 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E'
             | 'f' | 'F' | 'g' | 'G' | 'h' | 'H' | 'i' | 'I' | 'j' | 'J'
             | 'k' | 'K' | 'l' | 'L' | 'm' | 'M' | 'n' | 'N' | 'o' | 'O'
             | 'p' | 'P' | 'q' | 'Q' | 'r' | 'R' | 's' | 'S' | 't' | 'T'
             | 'u' | 'U' | 'v' | 'V' | 'w' | 'W' | 'x' | 'X' | 'y' | 'Y'
             | 'z' | 'Z'
 
-control-char ← NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS | HT | LF | VT
+control-char = NUL | SOH | STX | ETX | EOT | ENQ | ACK | BEL | BS | HT | LF | VT
              | FF | CR | SO | SI | DLE | DC1 | DC2 | DC3 | DC4 | NAK | SYN | ETB
              | CAN | EM | SUB | ESC | FS | GS | RS | US | DEL
 
-whitespace-control-char ← HT | LF | VT | FF | CR
+whitespace-control-char = HT | LF | VT | FF | CR
+
+whitespace = whitespace-control-char | ' ' | ','
 ```
 
 ## Related resources (uncurated)
