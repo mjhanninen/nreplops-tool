@@ -1,8 +1,8 @@
 # Parsing Clojure
 
-Firstly, our goal is not to fully parse Clojure; you would need a Clojure to do
-that.  Instead we want to perform a [lexical analysis][wp:lexan] that sufficient
-for carrying out the following:
+Firstly, our goal is not to fully parse Clojure; you would need a Clojure to
+do that.  Instead we want to perform a [lexical analysis][wp:lexan] that is
+sufficient for carrying out the following:
 
 - Locate and parse the "template" arguments in the source and allow them to have
   relatively rich features set (e.g. descriptions, default values, splicing
@@ -16,109 +16,8 @@ for carrying out the following:
 
 [wp:lexan]: https://en.wikipedia.org/wiki/Lexical_analysis
 
-## Parsing expresssion grammar
+## Note from reading Clojure parser code
 
-**Note:** The order is meaningful in a PEG grammar.
-
-**Note:** This is very far from ready. Quite sketchy.
-
-```
-form ← lit | sym | list | vector | set | map | ignore-form
-
-quot ← '\''
-
-varquot ← '#\''
-
-synquot ← '`'
-unquot-splicing ← '~@'
-unquot ← '~'
-
-anon-fn ← '#(' ??? ')'
-
-comment ← ';' ( ! eol ) *
-
-deref ← '@'
-
-meta ← '^' ( map | sym | keyword | string )
-
-list ← '(' form* ')'
-
-vector ← '[' form* ']'
-
-set ← "#{" form* '}'
-
-map       ← ns-map | alias-map | plain-map
-ns-map    ← ':' ns '{' map-entry* '}'
-alias-map ← '::' alias '{' map-entry* '}'
-plain-map ← '{' map-entry* '}'
-map-entry ← form form
-
-alias ← ???
-
-lit ← number | string-lit | char-lit | nil-lit | bool-lit | symval-lit | kw-lit
-
-string-lit ← ???
-
-regex-lit ← '#"' regex-pat '"'
-regex-pat ← ???
-
-nil-lit ← "nil"
-
-bool-lit ← "true" | "false"
-
-symval-lit ← "##Inf" | "##-Inf" | "##NaN"
-
-kw-lit ← ???
-
-reader-cond       ← rc-direct | rc-splicing
-rc-direct         ← '#?(' rc-entry* ')'
-rc-splicing       ← '#@?(' rc-entry-splicing* ')'
-rc-key            ← simple-keyword (* or ':clj' and so on *)
-rc-entry          ← rc-key form
-rc-entry-splicing ← rc-key coll
-
-tagged-lit ← '#' alpha-sym form
-alpha-sym  ← (* like sym but starts with alpha; could be called "tag" *)
-
-qualified-sym ← ns '/' sym
-
-ns ← ns-part ( '.' ns-part )*
-ns-part ← ns-char+
-ns-char ← ???
-
-sym       ← sym-first sym-tail* | '/'
-sym-first ← alpha | sym-extra
-sym-tail  ← alnum | sym-extra
-sym-extra ← '*' | '+' | '!' | '-' | '_' | '\'' | '?' | '<' | '>' | '='
-```
-
-Notes:
-
-- `'/'` is in `sym` because ["'/' by itself names the division
-  function"][clj-reader]
-- can metadata map be a `#:{}` or `#::{}`
-- should we be accurate about the arguments of an anonymous functions (`%` and
-  friends); or can we get away by being sloppy?
-
-### Ignore macro
-
-It is notable that the ignore macro does not ignore itself but instead
-"accumulates":
-
-```.clj
-[#_ #_ 1 2 3]
-;; ↳ [3]
-```
-
-The grammar is:
-
-```
-form ← ignored-form* unignored-form
-
-ignored-form ← '#_' ignored-form? unignored-form
-
-unignored-form ← ???
-```
 
 ### Symbols
 
@@ -170,48 +69,30 @@ Some **illegal** symbols:
 - `//foo`
 - `'foo:/bar`
 
-The following grammar does not replicate all the corner cases of the Clojure
-reader.  But you probably won't notice the difference in normal use.
+### Metadata and namespacesd maps
 
-```
-symbol ← symbol-namespace '/' symbol-name
-       | symbol-name
+- Metadata "accumulates". For example, `(def ^:foo ^:bar hello "world")` sets
+  both metadata entries `:foo` `:bar` for `#'hello`.
 
-symbol-namespace ← ':'{0,2} namespace-char+ ( ':' namespace-char+ )*
+Can metadata map be a `#:{}` or `#::{}`?  Yes, it can.  Try, for example
 
-namespace-char ← symbol-safe-char | dec-digit
-
-symbol-name ← ( first-name-char name-char* )? ( ':' name-char+ )*
-
-name-char ← first-name-char | dec-digit
-
-first-name-char ← symbol-safe-char | '/'
-
-symbol-safe-char ← !( whitespace
-                    | control-char
-                    | dec-digit
-                    | ';' | '!' | '"' | '^' | '`' | '~' | '(' | ')'
-                    | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
-
-whitespace ← HT | LF | VT | FF | CR | ' ' | ','
+```.clj
+(def ^#:foo{:bar 42} hello "world")
 ```
 
-### String literals
+It works just fine and, `(meta #'hello)` contains an entry for `:foo/bar`.
 
-```
-string ← '"' ( unescaped-string-content | escape-seq )* '"'
+### Discard macro
 
-unescaped-string-content ← string-char+
+It is notable that the discard macro does not ignore itself but instead
+"accumulates" like so:
 
-escape-seq ← '\' ( 'b' | 't' | 'n' | 'f' | 'r' | '"' | "'" | '\'
-                 | oct-octet
-                 | 'u' hex-digit{4}
-                 )
-
-string-char ← ! ( '\' | '"' | control-char ) | whitespace-control-char
+```.clj
+[#_ #_ 1 2 3]
+;; ↳ [3]
 ```
 
-### Numeric literal
+### Numeric literals
 
 Clojure recognizes the following numeric literal types:
 
@@ -221,9 +102,9 @@ Clojure recognizes the following numeric literal types:
 | Octal integer              | `java.lang.Long`       | `0123`                    |                 |
 | Hexadecimal integer        | `java.lang.Long`       | `0x123`                   |                 |
 | Radix integer              | `java.lang.Long`       | `4r123`, `-36r123N`       |                 |
-| Big integer                | `clojure.lang.BigIng`  | `123N`                    |                 |
-| Big octal integer          | `clojure.lang.BigIng`  | `0123N`                   |                 |
-| Big hexadecimal integer    | `clojure.lang.BigIng`  | `0x123N`                  |                 |
+| Big integer                | `clojure.lang.BigInt`  | `123N`                    |                 |
+| Big octal integer          | `clojure.lang.BigInt`  | `0123N`                   |                 |
+| Big hexadecimal integer    | `clojure.lang.BigInt`  | `0x123N`                  |                 |
 | Rational                   | `clojure.lang.Ratio`   | `1/2`, `0123/02`          |                 |
 | Floating point             | `java.lang.Double`     | `1.`, `1.2e3`             | `.1`            |
 | Big decimals               | `java.math.BigDecimal` | `123M`, `0123M`, `1.2e3M` |                 |
@@ -250,12 +131,224 @@ leading zero but both are still regarded as decimal (base) numbers:
 ;; ↳ 123/2
 ```
 
-Also a floating point number must have a whole part:
+Also a floating point number **must** have a whole part:
 
 ```
 .123
 ;; summons a syntax error
 ```
+
+### Dispatch macros, constructors, and tagged literals
+
+Upon hitting a `#` character the reader peeks the following character and
+dispatches according to the following dispatch macro table:
+
+```.java
+dispatchMacros['^'] = new MetaReader();
+dispatchMacros['#'] = new SymbolicValueReader();
+dispatchMacros['\''] = new VarReader();
+dispatchMacros['"'] = new RegexReader();
+dispatchMacros['('] = new FnReader();
+dispatchMacros['{'] = new SetReader();
+dispatchMacros['='] = new EvalReader();
+dispatchMacros['!'] = new CommentReader();
+dispatchMacros['<'] = new UnreadableReader();
+dispatchMacros['_'] = new DiscardReader();
+dispatchMacros['?'] = new ConditionalReader();
+dispatchMacros[':'] = new NamespaceMapReader();
+```
+
+Most of the dispatch macros are probably quite familiar.  The comment reader
+acts just like an end-of-line comment.
+
+If the following character does not match any of the above macro then the
+following **symbol** and the **form** following that are interpreted either as
+a **tagged literal** or, if the symbol contains a `.` character, as a type or
+record constructor.
+
+## Parsing expresssion grammar
+
+**Note:** Work in progress. This is very far from ready.
+
+Simplifications:
+
+- the parsing of symbols (qualified by namespace or otherwise) is simplified
+- anonymous functions are allowed to nest
+- the arguments to anonymous are not treated specially; they are just symbols
+- meta-data is applicable to all forms (e.g. to `42`)
+
+**Note:** The order is meaningful in a PEG grammar.
+
+### Comments and implicit whitespace
+
+The grammar contains **comments** and **implicit whitespace** that are allowed
+between the terms of any **non-atomic** expressions.
+
+```
+COMMENT        = comment-prefix ( ! end-of-line )* end-of-line?
+comment-prefix = ';' | '#!'
+```
+
+```
+WHITESPACE            = ( comma | horizontal-whitespace | end-of-line )+
+comma                 = ','
+horizontal-whitespace = ( ' ' | HT )+
+```
+
+Note how the whitespace distinguishes between comma, horizontal whitespace, and
+the end of line.
+
+### Top-level
+
+The top-level program consists of zero or more forms:
+
+```
+top-level = START-OF-INPUT form* END-OF-INPUT
+```
+
+### Grammar
+
+```
+form ← lit | sym | list | vector | set | map | ignore-form
+
+quot ← '\''
+
+varquot ← '#\''
+
+synquot         ← '`'
+unquot-splicing ← '~@'
+unquot          ← '~'
+
+comment ← ';' ( ! eol ) *
+
+deref ← '@'
+
+meta ← '^' ( map | sym | keyword | string )
+
+list ← '(' form* ')'
+
+vector ← '[' form* ']'
+
+set ← "#{" form* '}'
+
+map       ← ns-map | alias-map | plain-map
+ns-map    ← '#:' ns '{' map-entry* '}'
+alias-map ← '#::' alias '{' map-entry* '}'
+plain-map ← '{' map-entry* '}'
+map-entry ← form form
+
+alias ← ???
+
+lit ← number | string-lit | char-lit | nil-lit | bool-lit | symval-lit | kw-lit
+
+string-lit ← ???
+
+regex-lit ← '#"' regex-pat '"'
+regex-pat ← ???
+
+nil-lit ← "nil"
+
+bool-lit ← "true" | "false"
+
+symval-lit ← "##Inf" | "##-Inf" | "##NaN"
+
+kw-lit ← ???
+
+reader-cond       ← rc-direct | rc-splicing
+rc-direct         ← '#?(' rc-entry* ')'
+rc-splicing       ← '#@?(' rc-entry-splicing* ')'
+rc-key            ← simple-keyword (* or ':clj' and so on *)
+rc-entry          ← rc-key form
+rc-entry-splicing ← rc-key coll
+
+tagged-lit ← '#' alpha-sym form
+alpha-sym  ← (* like sym but starts with alpha; could be called "tag" *)
+
+```
+
+Notes:
+
+- `'/'` is in `sym` because ["'/' by itself names the division function"][clj-reader]
+
+- Should we be accurate about the arguments of an anonymous functions (`%` and
+  friends); or can we get away by being sloppy?
+
+### Anonymous function
+
+- Nested `#(...)` are not allowed
+- `%` is alias for `%1`
+- `%n` where `n` is positive integer
+- `%&` is remaining args
+- but since `%`, `%1`, and `%&` are normal symbols outside function reader we
+  could get away by treating an anonymous function like a list form
+- as far as lexical analysis is concerned this is would be the right thing to do
+  anyway ...
+- ... although Clojure is not able to parse `(let [%foo 42] #(+ %foo %1))` while
+  our simplified version would happily accept it
+
+```
+anon-fn      ← '#(' anon-fn-body ')'
+anon-fn-body ← (* TODO *)
+anon-arg     ← `%&` | `%` pos-dec-int | `%`
+```
+
+### Discard macro
+
+The grammar is:
+
+```
+form ← ignored-form* unignored-form
+
+ignored-form ← '#_' ignored-form? unignored-form
+
+unignored-form ← ???
+```
+
+### Symbols
+
+The following grammar does not replicate all the corner cases of the Clojure
+reader.  But you probably won't notice the difference in normal use.
+
+```
+keyword ← ':'{1,2} symbol
+
+symbol ← symbol-namespace '/' symbol-name
+       | symbol-name
+
+symbol-namespace ← symbol-safe-char namespace-char* ( ':' namespace-char* )*
+namespace-char   ← symbol-safe-char | dec-digit
+
+symbol-name        ← '/'
+                   | symbol-safe-char syllable-tail-char* ( ':' syllable-lead-char syllable-tail-char* )*
+syllable-lead-char ← symbol-safe-char | dec-digit
+syllable-tail-char ← symbol-safe-char | dec-digit | '/'
+
+symbol-safe-char ← !( whitespace
+                    | control-char
+                    | dec-digit
+                    | ';' | '"' | '^' | '`' | '~' | '(' | ')'
+                    | '[' | ']' | '{' | '}' | '\' | ':' | '/' )
+
+whitespace ← HT | LF | VT | FF | CR | ' ' | ','
+```
+
+### String literals
+
+```
+string ← '"' ( unescaped-string-content | escape-seq )* '"'
+
+unescaped-string-content ← string-char+
+
+escape-seq ← '\' ( 'b' | 't' | 'n' | 'f' | 'r' | '"' | "'" | '\'
+                 | oct-octet
+                 | 'u' hex-digit{4}
+                 )
+
+string-char ← ! ( '\' | '"' | control-char )
+            | whitespace-control-char
+```
+
+### Numeric literal
 
 The grammar for parsing a number is:
 
@@ -300,8 +393,13 @@ unsigned-hex ← '0' ( 'x' | 'X' ) hex-digit+
 sign ← '+' | '-'
 ```
 
-Again, the ordered choice in `unsigned-number` needs to be ordered with some
-care.
+
+Notes and todos:
+
+- Again, the ordered choice in `unsigned-number` needs to be ordered with some
+  care.
+- Make `radix` a non-zero integer with values outside 2…36 yielding "radix out
+  of range"
 
 ### Character literal
 
@@ -317,7 +415,15 @@ utf16-char-lit ← '\u' hex-digit{4}
 
 octal-char-lit ← '\o' oct-octet
 
-simple-char-lit ← '\' ( ! control-char | LF | CR )
+simple-char-lit ← '\' ( ! control-char )
+```
+
+### End of line
+
+```
+eol         ← end-of-line  (* abbreviation *)
+end-of-line ← LF           (* Unix *)
+            | CR LF        (* Windows *)
 ```
 
 ### Helpers
