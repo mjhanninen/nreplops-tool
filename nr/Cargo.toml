@@ -1,0 +1,47 @@
+[package]
+name = "nreplops-tool"
+version = "0.1.2"
+authors = ["Matti Hänninen <matti@mjhanninen.com>"]
+description = "Non-interactive nREPL client for shell scripting and command-line"
+keywords = ["nrepl", "repl", "clojure"]
+categories = ["command-line-utilities", "development-tools"]
+repository = "https://github.com/mjhanninen/nreplops-tool"
+license = "Apache-2.0"
+readme = "README.md"
+edition = "2021"
+
+[dependencies]
+clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
+dns-lookup = "^2.0"
+pest = "^2.7"
+pest_derive = "^2.7"
+regex = "^1.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
+thiserror = "1.0"
+toml = "^0.8"
+
+# XXX: This library is stale and we use in a single place. Consider
+#
+#      (1) replacing it with, for example, bendy
+#
+#      (2) rolling our own; we already do a bit our own deserialization
+#          in order to be able to handle a *stream* of bencoded objects.
+#
+serde_bencode = "0.2"
+
+[[bin]]
+name = "nr"
+path = "src/bin/main.rs"
+
+# XXX: Convert into a proper test; or into main binary behind some debug flag
+#
+# [[bin]]
+# name = "nr-test-conn-expr"
+# path = "src/bin/test_conn_expr.rs"
+
+# XXX: Convert into a proper test; or into main binary behind some debug flag
+#
+# [[bin]]
+# name = "nr-test-hosts-file"
+# path = "src/bin/test_hosts_file.rs"

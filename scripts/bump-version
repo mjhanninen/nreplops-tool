@@ -44,10 +44,10 @@ cargo audit --deny warnings --deny unmaintained --deny unsound --deny yanked \
   || die "audit failed; fix libs"
 
 # Bump Cargo.{toml,lock}
-sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "'"$VERSION"'"/' Cargo.toml \
-  && git status --porcelain | grep -q '^ M Cargo.toml$' \
+sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "'"$VERSION"'"/' nr/Cargo.toml \
+  && git status --porcelain | grep -q '^ M nr/Cargo.toml$' \
   && cargo check \
-  || die "failed to update Cargo.toml"
+  || die "failed to update nr/Cargo.toml"
 
 # Bump CHANGELOG.md
 sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION"'}/' CHANGELOG.md \
@@ -56,7 +56,7 @@ sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION
   || die "failed to update CHANGELOG.md"
 
 # Commit and release tag
-git add Cargo.toml Cargo.lock CHANGELOG.md
+git add nr/Cargo.toml Cargo.lock CHANGELOG.md
 git commit -m "Bump version to ${VERSION}"
 git tag -a -m "Release ${VERSION}" "v${VERSION}"
 git show HEAD
