@@ -44,13 +44,25 @@ type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 pub enum Lexeme<'a> {
   Whitespace,
   Comment,
+  Expr {
+    expr_ix: usize,
+    value: &'a str,
+  },
+  Meta {
+    expr_ix: usize,
+    meta_ix: usize,
+    prefix: &'a str,
+  },
+  Discard {
+    expr_ix: usize,
+  },
   Residual(Pair<'a>),
 }
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
 
 pub fn lex(input: &str) -> Result<Lexemes, Error> {
-  let mut lexemes = Vec::new();
+  let mut helper = Helper::default();
   let mut pairs = ClojurePest::parse(Rule::top_level, input)?;
   let Some(top_level_pair) = pairs.next() else {
     panic!("at least one top-level");
@@ -58,18 +70,106 @@ pub fn lex(input: &str) -> Result<Lexemes, Error> {
   if pairs.next().is_some() {
     panic!("at most one top-level");
   }
-  top_level(top_level_pair, &mut lexemes);
-  lexemes.shrink_to_fit();
-  Ok(lexemes)
+  helper.top_level(top_level_pair);
+  Ok(helper.into_lexemes())
 }
 
-fn top_level<'a>(parent: Pair<'a>, lexemes: &mut Lexemes<'a>) {
-  for child in parent.into_inner() {
-    match child.as_rule() {
-      Rule::COMMENT => lexemes.push(Lexeme::Comment),
-      Rule::WHITESPACE => lexemes.push(Lexeme::Whitespace),
-      Rule::EOI => (),
-      _ => lexemes.push(Lexeme::Residual(child)),
+#[derive(Debug, Default)]
+struct Helper<'a> {
+  expr_count: usize,
+  lexemes: Lexemes<'a>,
+}
+
+impl<'a> Helper<'a> {
+  fn push(&mut self, lexeme: Lexeme<'a>) {
+    self.lexemes.push(lexeme)
+  }
+
+  fn into_lexemes(mut self) -> Lexemes<'a> {
+    self.lexemes.shrink_to_fit();
+    self.lexemes
+  }
+
+  fn next_expr_ix(&mut self) -> usize {
+    self.expr_count += 1;
+    self.expr_count
+  }
+
+  fn top_level(&mut self, parent: Pair<'a>) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::form => {
+          let current = self.next_expr_ix();
+          self.form(child, current);
+        }
+        Rule::EOI => (),
+        _ => self.push(Lexeme::Residual(child)),
+      }
     }
+  }
+
+  fn form(&mut self, parent: Pair<'a>, current: usize) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::preform => self.preforms(child, current),
+        Rule::expr => self.expr(child, current),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn preforms(&mut self, parent: Pair<'a>, current: usize) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::discard_expr => self.discard_expr(child),
+        Rule::meta_expr => self.meta_expr(child, current),
+        Rule::expr => self.expr(child, current),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn discard_expr(&mut self, parent: Pair<'a>) {
+    let expr_ix = self.next_expr_ix();
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::discard_prefix => self.push(Lexeme::Discard { expr_ix }),
+        Rule::preform => self.preforms(child, expr_ix),
+        Rule::expr => self.expr(child, expr_ix),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn meta_expr(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let meta_ix = self.next_expr_ix();
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::meta_prefix => self.push(Lexeme::Meta {
+          expr_ix,
+          meta_ix,
+          prefix: child.as_str(),
+        }),
+        Rule::form => self.form(child, meta_ix),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn expr(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    self.push(Lexeme::Expr {
+      expr_ix,
+      value: parent.as_str(),
+    });
   }
 }

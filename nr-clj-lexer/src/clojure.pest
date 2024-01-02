@@ -34,7 +34,7 @@ form = { preform* ~ expr }
 preform = { meta_expr | discard_expr }
 
 discard_expr = { discard_prefix ~ preform* ~ expr }
-discard_prefix = _{ "#_" }
+discard_prefix = { "#_" }
 
 meta_expr = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
