@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["nr"]
+members = [ "nr", "nr-clj-lexer", "nr-clj-lexing-tester" ]

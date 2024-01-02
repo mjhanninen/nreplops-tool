@@ -1,0 +1,8 @@
+[package]
+name = "nr-clj-lexing-tester"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+atty = "0.2.14"
+nr-clj-lexer = { path = "../nr-clj-lexer"}
