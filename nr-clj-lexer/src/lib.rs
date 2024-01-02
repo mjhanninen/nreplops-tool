@@ -38,13 +38,38 @@ pub enum Error {
 }
 
 type Pairs<'a> = pest::iterators::Pairs<'a, Rule>;
+type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 
 #[derive(Debug)]
 pub enum Lexeme<'a> {
-  Residual(Pairs<'a>),
+  Whitespace,
+  Comment,
+  Residual(Pair<'a>),
 }
 
-pub fn lex(input: &str) -> Result<Vec<Lexeme<'_>>, Error> {
-  let pairs = ClojurePest::parse(Rule::top_level, input)?;
-  Ok(vec![Lexeme::Residual(pairs)])
+type Lexemes<'a> = Vec<Lexeme<'a>>;
+
+pub fn lex(input: &str) -> Result<Lexemes, Error> {
+  let mut lexemes = Vec::new();
+  let mut pairs = ClojurePest::parse(Rule::top_level, input)?;
+  let Some(top_level_pair) = pairs.next() else {
+    panic!("at least one top-level");
+  };
+  if pairs.next().is_some() {
+    panic!("at most one top-level");
+  }
+  top_level(top_level_pair, &mut lexemes);
+  lexemes.shrink_to_fit();
+  Ok(lexemes)
+}
+
+fn top_level<'a>(parent: Pair<'a>, lexemes: &mut Lexemes<'a>) {
+  for child in parent.into_inner() {
+    match child.as_rule() {
+      Rule::COMMENT => lexemes.push(Lexeme::Comment),
+      Rule::WHITESPACE => lexemes.push(Lexeme::Whitespace),
+      Rule::EOI => (),
+      _ => lexemes.push(Lexeme::Residual(child)),
+    }
+  }
 }
