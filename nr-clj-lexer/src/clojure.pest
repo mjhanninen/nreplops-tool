@@ -1,4 +1,4 @@
-// grammar.pest
+// clojure.pest
 // Copyright 2024 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -22,7 +22,7 @@ WHITESPACE = @{
   | "\u{09}"  // HT horizontal tab
   | "\u{0B}"  // VT vertical tab
   | "\u{0C}"  // FF form feed
-  | " " 
+  | " "
   | ","
   )+
 }
@@ -39,6 +39,38 @@ discard_prefix = { "#_" }
 meta_expr = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
 
+expr = {
+    bogus_map
+  | string
+}
+
+string = ${
+    "\""
+  ~ ( unescaped
+    | esc_char
+    | esc_octet
+    | esc_code_point
+    )*
+  ~ "\""
+}
+unescaped = @{ unescaped_char+ }
+unescaped_char = {
+  ! ( '\u{00}'..'\u{08}'
+    | '\u{0E}'..'\u{1F}'
+    | "\u{7F}"
+    | "\\"
+    | "\""
+    )
+  ~ ANY
+}
+esc_char = @{ "\\" ~ ( "b" | "t" | "n" | "f" | "r" | "\"" | "\\" ) }
+esc_octet = @{
+  "\\" ~ ( '0'..'3' ~ '0'..'7'{2}
+         | '0'..'7' {1,2} ~ & ( "\"" | "\\" )
+         )
+}
+esc_code_point = @{ "\\u" ~ ASCII_HEX_DIGIT{4} }
+
 // Stubs
 
-expr = { "{}" }
+bogus_map = { "{}" }

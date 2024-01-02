@@ -44,10 +44,6 @@ type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 pub enum Lexeme<'a> {
   Whitespace,
   Comment,
-  Expr {
-    expr_ix: usize,
-    value: &'a str,
-  },
   Meta {
     expr_ix: usize,
     meta_ix: usize,
@@ -56,7 +52,24 @@ pub enum Lexeme<'a> {
   Discard {
     expr_ix: usize,
   },
+  BogusMap {
+    expr_ix: usize,
+  },
   Residual(Pair<'a>),
+  StringOpen {
+    expr_ix: usize,
+  },
+  StringClose {
+    expr_ix: usize,
+  },
+  Unescaped {
+    expr_ix: usize,
+    value: &'a str,
+  },
+  Escaped {
+    expr_ix: usize,
+    code: u32,
+  },
 }
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
@@ -167,9 +180,52 @@ impl<'a> Helper<'a> {
   }
 
   fn expr(&mut self, parent: Pair<'a>, expr_ix: usize) {
-    self.push(Lexeme::Expr {
-      expr_ix,
-      value: parent.as_str(),
-    });
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
+        Rule::string => self.string(child, expr_ix),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn string(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    self.push(Lexeme::StringOpen { expr_ix });
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::unescaped => self.push(Lexeme::Unescaped {
+          expr_ix,
+          value: child.as_str(),
+        }),
+        Rule::esc_char => {
+          let value = &child.as_str()[1..];
+          let code = match value {
+            "b" => 0x08,
+            "t" => 0x09,
+            "n" => 0x0A,
+            "f" => 0x0C,
+            "r" => 0x0D,
+            "\"" => 0x22,
+            "\\" => 0x5C,
+            e => unreachable!("inexhaustive: {}", e),
+          };
+          self.push(Lexeme::Escaped { expr_ix, code })
+        }
+        Rule::esc_octet => {
+          let value = &child.as_str()[1..];
+          let code = u32::from_str_radix(value, 8).unwrap();
+          self.push(Lexeme::Escaped { expr_ix, code })
+        }
+        Rule::esc_code_point => {
+          let value = &child.as_str()[2..];
+          let code = u32::from_str_radix(value, 16).unwrap();
+          self.push(Lexeme::Escaped { expr_ix, code })
+        }
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+    self.push(Lexeme::StringClose { expr_ix });
   }
 }
