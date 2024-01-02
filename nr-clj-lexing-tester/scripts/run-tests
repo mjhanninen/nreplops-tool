@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+
+run_tests() {
+  for input in $(ls nr-clj-lexing-tester/input/*.clj); do
+    cargo run --quiet --bin nr-clj-lexing-tester < "$input" || exit 1
+  done
+}
+
+export -f run_tests
+
+cargo watch --watch nr-clj-lexer --watch nr-clj-lexing-tester --shell run_tests

@@ -44,7 +44,9 @@ fn main() {
 
   match lexer::lex(&input) {
     Ok(lexemes) => {
-      println!("Lexemes: {:?}", lexemes);
+      for (ix, lexeme) in lexemes.iter().enumerate() {
+        println!("{}: {:?}", ix, lexeme);
+      }
     }
     Err(e) => {
       eprintln!("ERROR: Failed to parse: {:?}", e);

@@ -37,8 +37,14 @@ pub enum Error {
   Pest(#[from] pest::error::Error<Rule>),
 }
 
-type Lexemes<'a> = pest::iterators::Pairs<'a, Rule>;
+type Pairs<'a> = pest::iterators::Pairs<'a, Rule>;
 
-pub fn lex(input: &str) -> Result<Lexemes<'_>, Error> {
-  ClojurePest::parse(Rule::top_level, input).map_err(Error::from)
+#[derive(Debug)]
+pub enum Lexeme<'a> {
+  Residual(Pairs<'a>),
+}
+
+pub fn lex(input: &str) -> Result<Vec<Lexeme<'_>>, Error> {
+  let pairs = ClojurePest::parse(Rule::top_level, input)?;
+  Ok(vec![Lexeme::Residual(pairs)])
 }
