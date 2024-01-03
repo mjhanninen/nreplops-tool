@@ -18,10 +18,7 @@ comment_prefix = { ";" | "#!" }
 comment_char = { ! NEWLINE ~ ANY}
 
 WHITESPACE = @{
-  ( NEWLINE
-  | "\u{09}"  // HT horizontal tab
-  | "\u{0B}"  // VT vertical tab
-  | "\u{0C}"  // FF form feed
+  ( '\u{09}'..'\u{0D}'  // whitespace control chars
   | " "
   | ","
   )+
