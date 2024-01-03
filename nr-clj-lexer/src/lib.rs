@@ -52,10 +52,17 @@ pub enum Lexeme<'a> {
   Discard {
     expr_ix: usize,
   },
-  BogusMap {
+  Symbol {
     expr_ix: usize,
+    namespace: Option<&'a str>,
+    name: &'a str,
   },
-  Residual(Pair<'a>),
+  Keyword {
+    expr_ix: usize,
+    alias: bool,
+    namespace: Option<&'a str>,
+    name: &'a str,
+  },
   StringOpen {
     expr_ix: usize,
   },
@@ -70,6 +77,10 @@ pub enum Lexeme<'a> {
     expr_ix: usize,
     code: u32,
   },
+  BogusMap {
+    expr_ix: usize,
+  },
+  Residual(Pair<'a>),
 }
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
@@ -184,8 +195,47 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::COMMENT => self.push(Lexeme::Comment),
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
-        Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
+        Rule::symbol => self.symbol(child, expr_ix),
+        Rule::keyword => self.keyword(child, expr_ix),
         Rule::string => self.string(child, expr_ix),
+        Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn symbol(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let mut namespace = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::namespace => namespace = Some(child.as_str()),
+        Rule::qualified_symbol | Rule::unqualified_symbol => {
+          self.push(Lexeme::Symbol {
+            expr_ix,
+            namespace,
+            name: child.as_str(),
+          })
+        }
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn keyword(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let mut namespace = None;
+    let mut alias = false;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::keyword_prefix => alias = child.as_str() == "::",
+        Rule::namespace => namespace = Some(child.as_str()),
+        Rule::qualified_symbol | Rule::unqualified_symbol => {
+          self.push(Lexeme::Keyword {
+            expr_ix,
+            alias,
+            namespace,
+            name: child.as_str(),
+          })
+        }
         _ => self.push(Lexeme::Residual(child)),
       }
     }

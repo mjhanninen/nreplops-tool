@@ -27,6 +27,10 @@ WHITESPACE = @{
   )+
 }
 
+//
+// Top-level, forms, and expressions
+//
+
 top_level = { SOI ~ form* ~ discard_expr? ~ EOI }
 
 form = { preform* ~ expr }
@@ -40,9 +44,15 @@ meta_expr = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
 
 expr = {
-    bogus_map
+    symbol
+  | keyword
   | string
+  | bogus_map
 }
+
+//
+// String literals
+//
 
 string = ${
     "\""
@@ -70,6 +80,51 @@ esc_octet = @{
          )
 }
 esc_code_point = @{ "\\u" ~ ASCII_HEX_DIGIT{4} }
+
+//
+// Symbols
+//
+
+symbol = ${
+    namespace ~ "/" ~ qualified_symbol
+  | unqualified_symbol
+}
+namespace = @{
+    symbol_first_char
+  ~ symbol_char*
+  ~ ( ":" ~ symbol_char+ )*
+}
+unqualified_symbol = @{
+    namespace
+  | "/" ~ ! ( symbol_char | "/" | ":" )
+}
+qualified_symbol = @{
+    ( "/"* ~ ":"? ~ symbol_char+ )+
+  | "/" ~ ! ":"
+}
+symbol_char = @{ symbol_first_char | ASCII_DIGIT }
+symbol_first_char = @{
+    ! ( '\u{00}'..'\u{1F}'
+      | " " | ","
+      | ASCII_DIGIT
+      | ":" | "^" | "`" | "~" | "/"
+      | "(" | ")" | "[" | "]" | "{" | "}"
+      | "\"" | "\\"
+      )
+  ~ ANY
+}
+
+//
+// Keywords
+//
+
+keyword = ${
+    keyword_prefix
+  ~ ( namespace ~ "/" ~ qualified_symbol
+    | unqualified_symbol
+    )
+}
+keyword_prefix = @{ "::" | ":" }
 
 // Stubs
 
