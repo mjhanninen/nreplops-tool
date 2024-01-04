@@ -52,16 +52,11 @@ pub enum Lexeme<'a> {
   Discard {
     expr_ix: usize,
   },
-  Symbol {
+  Numeric {
     expr_ix: usize,
-    namespace: Option<&'a str>,
-    name: &'a str,
-  },
-  Keyword {
-    expr_ix: usize,
-    alias: bool,
-    namespace: Option<&'a str>,
-    name: &'a str,
+    literal: &'a str,
+    class: NumberClass,
+    value: NumericValue<'a>,
   },
   StringOpen {
     expr_ix: usize,
@@ -77,10 +72,48 @@ pub enum Lexeme<'a> {
     expr_ix: usize,
     code: u32,
   },
+  Symbol {
+    expr_ix: usize,
+    namespace: Option<&'a str>,
+    name: &'a str,
+  },
+  Keyword {
+    expr_ix: usize,
+    alias: bool,
+    namespace: Option<&'a str>,
+    name: &'a str,
+  },
   BogusMap {
     expr_ix: usize,
   },
   Residual(Pair<'a>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum NumericValue<'a> {
+  Int {
+    positive: bool,
+    radix: u32,
+    value: &'a str,
+  },
+  Float {
+    value: &'a str,
+  },
+  Fraction {
+    positive: bool,
+    numerator: &'a str,
+    denominator: &'a str,
+  },
+}
+
+/// Number class as recognized by Clojure
+#[derive(Clone, Copy, Debug)]
+pub enum NumberClass {
+  Long,
+  Double,
+  BigInt,
+  BigDecimal,
+  Ratio,
 }
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
@@ -195,47 +228,171 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::COMMENT => self.push(Lexeme::Comment),
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::number => self.number(child, expr_ix),
+        Rule::string => self.string(child, expr_ix),
         Rule::symbol => self.symbol(child, expr_ix),
         Rule::keyword => self.keyword(child, expr_ix),
-        Rule::string => self.string(child, expr_ix),
         Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
   }
 
-  fn symbol(&mut self, parent: Pair<'a>, expr_ix: usize) {
-    let mut namespace = None;
+  fn number(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let mut positive = true;
+    let literal = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::namespace => namespace = Some(child.as_str()),
-        Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(Lexeme::Symbol {
-            expr_ix,
-            namespace,
-            name: child.as_str(),
-          })
+        Rule::sign => positive = child.as_str() == "+",
+        Rule::unsigned_bigfloat => {
+          self.unsigned_floats(child, expr_ix, literal, true)
+        }
+        Rule::unsigned_float => {
+          self.unsigned_floats(child, expr_ix, literal, false)
+        }
+        Rule::unsigned_ratio => {
+          self.unsigned_ratio(child, expr_ix, literal, positive)
+        }
+        Rule::unsigned_radix_int => {
+          self.unsigned_radix_int(child, expr_ix, literal, positive)
+        }
+        Rule::unsigned_bigint => {
+          self.unsigned_ints(child, expr_ix, literal, true, positive)
+        }
+        Rule::unsigned_int => {
+          self.unsigned_ints(child, expr_ix, literal, false, positive)
         }
         _ => self.push(Lexeme::Residual(child)),
       }
     }
   }
 
-  fn keyword(&mut self, parent: Pair<'a>, expr_ix: usize) {
-    let mut namespace = None;
-    let mut alias = false;
+  fn unsigned_floats(
+    &mut self,
+    parent: Pair<'a>,
+    expr_ix: usize,
+    literal: &'a str,
+    big: bool,
+  ) {
+    self.push(if big {
+      Lexeme::Numeric {
+        expr_ix,
+        literal,
+        class: NumberClass::BigDecimal,
+        value: NumericValue::Float {
+          value: &literal[..literal.len() - 1],
+        },
+      }
+    } else {
+      Lexeme::Numeric {
+        expr_ix,
+        literal,
+        class: NumberClass::Double,
+        value: NumericValue::Float { value: literal },
+      }
+    })
+  }
+
+  fn unsigned_ratio(
+    &mut self,
+    parent: Pair<'a>,
+    expr_ix: usize,
+    literal: &'a str,
+    positive: bool,
+  ) {
+    let mut numerator = None;
+    let mut denominator = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::keyword_prefix => alias = child.as_str() == "::",
-        Rule::namespace => namespace = Some(child.as_str()),
-        Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(Lexeme::Keyword {
-            expr_ix,
-            alias,
-            namespace,
-            name: child.as_str(),
-          })
-        }
+        Rule::numerator => numerator = Some(child.as_str()),
+        Rule::denominator => denominator = Some(child.as_str()),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+    self.push(Lexeme::Numeric {
+      expr_ix,
+      literal,
+      class: NumberClass::Ratio,
+      value: NumericValue::Fraction {
+        positive,
+        numerator: numerator.unwrap(),
+        denominator: denominator.unwrap(),
+      },
+    })
+  }
+  fn unsigned_radix_int(
+    &mut self,
+    parent: Pair<'a>,
+    expr_ix: usize,
+    literal: &'a str,
+    positive: bool,
+  ) {
+    let mut radix = None;
+    let mut digits = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::radix => radix = Some(child.as_str()),
+        Rule::radix_digits => digits = Some(child.as_str()),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+    self.push(Lexeme::Numeric {
+      expr_ix,
+      literal,
+      class: NumberClass::Long,
+      value: NumericValue::Int {
+        positive,
+        radix: radix.unwrap().parse::<u32>().unwrap(),
+        value: digits.unwrap(),
+      },
+    })
+  }
+
+  fn unsigned_ints(
+    &mut self,
+    parent: Pair<'a>,
+    expr_ix: usize,
+    literal: &'a str,
+    big: bool,
+    positive: bool,
+  ) {
+    let class = if big {
+      NumberClass::BigInt
+    } else {
+      NumberClass::Long
+    };
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::oct_digits => self.push(Lexeme::Numeric {
+          expr_ix,
+          literal,
+          class,
+          value: NumericValue::Int {
+            positive,
+            radix: 8,
+            value: child.as_str(),
+          },
+        }),
+        Rule::hex_digits => self.push(Lexeme::Numeric {
+          expr_ix,
+          literal,
+          class,
+          value: NumericValue::Int {
+            positive,
+            radix: 16,
+            value: child.as_str(),
+          },
+        }),
+        Rule::unsigned_dec => self.push(Lexeme::Numeric {
+          expr_ix,
+          literal,
+          class,
+          value: NumericValue::Int {
+            positive,
+            radix: 10,
+            value: child.as_str(),
+          },
+        }),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
@@ -277,5 +434,42 @@ impl<'a> Helper<'a> {
       }
     }
     self.push(Lexeme::StringClose { expr_ix });
+  }
+
+  fn symbol(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let mut namespace = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::namespace => namespace = Some(child.as_str()),
+        Rule::qualified_symbol | Rule::unqualified_symbol => {
+          self.push(Lexeme::Symbol {
+            expr_ix,
+            namespace,
+            name: child.as_str(),
+          })
+        }
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn keyword(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    let mut namespace = None;
+    let mut alias = false;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::keyword_prefix => alias = child.as_str() == "::",
+        Rule::namespace => namespace = Some(child.as_str()),
+        Rule::qualified_symbol | Rule::unqualified_symbol => {
+          self.push(Lexeme::Keyword {
+            expr_ix,
+            alias,
+            namespace,
+            name: child.as_str(),
+          })
+        }
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
   }
 }

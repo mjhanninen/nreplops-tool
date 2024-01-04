@@ -1,0 +1,96 @@
+;; simple05.clj -- numbers
+
+;; decimal integers
+
+0
+1
+9
+1234567890123456789
+-0
++0
+-123
++123
+
+;; octal integers
+
+01
+017
+0123456701234567
+-00
++00
+-0123
++0123
+
+;; hexadecimal integers
+
+0x0
+0X0
+0x1
+0x19
+0x123456789abcdefABCDEF
+-0x0
++0x0
+-0x123
++0x123
+
+;; radix integers
+
+2r0
+2R0
+2r1
+2r01
++2r1
+-2r1
+8r0
+8r7
+10r9
+16rfF
+36rzZ
+36r123456789abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ
+
+;; big integers
+
+0N
+1N
+-1N
++1N
+1234567890123456789N
+0123456701234567N
+0x123456789abcdef0123456789ABCDEFN
+
+;; ratio
+
+0/0
+1/1
+-1/1
++1/1
+01/01
+1234567890/123567890
+
+;; floats
+
+1.1
+1.
+1.0
+1E1
+1e1
+1.E1
+1.0E1
+1E+1
+1E-1
+1E1000
+
+;; big decimals
+
+1M
+-1M
+1.1M
+1.M
+1.0M
+1E1M
+1e1M
+1.E1M
+1.0E1M
+1E+1M
+1E-1M
+1E1000M
