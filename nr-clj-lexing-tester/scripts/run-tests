@@ -2,12 +2,32 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
+die() {
+  cat >&2
+  exit 1
+}
+
 run_tests() {
+  cat <<EOF
+===============================================================================
+BUILD TESTER
+-------------------------------------------------------------------------------
+EOF
+  cargo build --package nr-clj-lexing-tester || die <<EOF
+ERROR: Failed to build the tester
+EOF
   for input in $(ls nr-clj-lexing-tester/input/*.clj); do
-    cargo run --quiet --bin nr-clj-lexing-tester < "$input" || exit 1
+    cat <<EOF
+===============================================================================
+TEST: $input
+-------------------------------------------------------------------------------
+EOF
+    target/debug/nr-clj-lexing-tester < "$input" || die <<EOF
+ERROR: Test run failed
+EOF
   done
 }
 
-export -f run_tests
+export -f run_tests die
 
 cargo watch --watch nr-clj-lexer --watch nr-clj-lexing-tester --shell run_tests
