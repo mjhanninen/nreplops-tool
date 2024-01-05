@@ -65,6 +65,11 @@ pub enum Lexeme<'a> {
     class: NumberClass,
     value: NumericValue<'a>,
   },
+  Char {
+    expr_ix: usize,
+    syntax: CharSyntax,
+    value: char,
+  },
   StringOpen {
     expr_ix: usize,
   },
@@ -98,6 +103,14 @@ pub enum Lexeme<'a> {
     expr_ix: usize,
   },
   Residual(Pair<'a>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum CharSyntax {
+  Name,
+  Octal,
+  CodePoint,
+  Simple,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -253,11 +266,48 @@ impl<'a> Helper<'a> {
           value: child.as_str() == "true",
         }),
         Rule::number => self.number(child, expr_ix),
+        Rule::char => self.char(child, expr_ix),
         Rule::string => self.string(child, expr_ix),
         Rule::symbolic_value => self.symbolic_value(child, expr_ix),
         Rule::symbol => self.symbol(child, expr_ix),
         Rule::keyword => self.keyword(child, expr_ix),
         Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn char(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::char_name => self.push(Lexeme::Char {
+          expr_ix,
+          syntax: CharSyntax::Name,
+          value: match child.as_str() {
+            "newline" => '\n',
+            "space" => ' ',
+            "tab" => '\t',
+            "formfeed" => '\u{0C}',
+            "backspace" => '\u{08}',
+            _ => unreachable!("char name case analysis"),
+          },
+        }),
+        Rule::char_octal => self.push(Lexeme::Char {
+          expr_ix,
+          syntax: CharSyntax::Octal,
+          value: char::from_u32(
+            u32::from_str_radix(child.as_str(), 8).unwrap(),
+          )
+          .unwrap(),
+        }),
+        Rule::char_code_point => self.push(Lexeme::Char {
+          expr_ix,
+          syntax: CharSyntax::CodePoint,
+          value: char::from_u32(
+            u32::from_str_radix(child.as_str(), 16).unwrap(),
+          )
+          .unwrap(),
+        }),
         _ => self.push(Lexeme::Residual(child)),
       }
     }

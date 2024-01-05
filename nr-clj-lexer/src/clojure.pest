@@ -44,6 +44,7 @@ expr = {
     nil
   | boolean
   | number
+  | char
   | string
   | symbolic_value
   | symbol
@@ -110,6 +111,41 @@ oct_prefix = _{ "0" }
 oct_digits = @{ ASCII_OCT_DIGIT + }
 
 unsigned_dec = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* | "0" }
+
+//
+// Character literals
+//
+
+char = ${
+    "\\"
+  ~ ( char_name
+    | "o" ~ char_octal
+    | "u" ~ char_code_point
+    | char_simple
+    )
+  ~ ! continuation_char
+}
+char_name = {
+    "newline"
+  | "space"
+  | "tab"
+  | "formfeed"
+  | "backspace"
+}
+char_octal = @{ ASCII_OCT_DIGIT{1,3} }
+char_code_point = @{ ASCII_HEX_DIGIT{4} }
+char_simple = @{ ! ( '\u{00}'..'\u{1F}' | " " ) ~ ANY }
+
+// XXX(soija) TODO: consolidate with `symbol_char` and `symbol_first_char`
+continuation_char = @{
+    ! ( '\u{00}'..'\u{1F}'
+      | " " | ","
+      | "^" | "`" | "~"
+      | "(" | ")" | "[" | "]" | "{" | "}"
+      | "\"" | "\\"
+      )
+  ~ ANY
+}
 
 //
 // String literals
