@@ -59,7 +59,6 @@ unsigned_number = _{
   | unsigned_float
   | unsigned_ratio
   | unsigned_radix_int
-  | unsigned_bigint
   | unsigned_int
 }
 
@@ -79,15 +78,13 @@ unsigned_radix_int = ${ radix ~ ^"r" ~ radix_digits }
 radix = @{ unsigned_dec }
 radix_digits = @{ ASCII_ALPHANUMERIC+ }
 
-unsigned_bigint = ${ unsigned_proto_int ~ "N" }
-
-unsigned_int = ${ unsigned_proto_int }
-
-unsigned_proto_int = _{
-    unsigned_oct
-  | unsigned_hex
-  | unsigned_dec
-}
+unsigned_int = ${
+    ( unsigned_oct
+    | unsigned_hex
+    | unsigned_dec
+    )
+  ~ bigint_suffix? }
+bigint_suffix = { "N" }
 
 unsigned_hex = _{ hex_prefix ~ hex_digits }
 hex_prefix = _{ ^"0x" }

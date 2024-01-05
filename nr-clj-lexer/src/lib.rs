@@ -256,11 +256,8 @@ impl<'a> Helper<'a> {
         Rule::unsigned_radix_int => {
           self.unsigned_radix_int(child, expr_ix, literal, positive)
         }
-        Rule::unsigned_bigint => {
-          self.unsigned_ints(child, expr_ix, literal, true, positive)
-        }
         Rule::unsigned_int => {
-          self.unsigned_ints(child, expr_ix, literal, false, positive)
+          self.unsigned_int(child, expr_ix, literal, positive)
         }
         _ => self.push(Lexeme::Residual(child)),
       }
@@ -328,74 +325,66 @@ impl<'a> Helper<'a> {
     positive: bool,
   ) {
     let mut radix = None;
-    let mut digits = None;
     for child in parent.into_inner() {
       match child.as_rule() {
         Rule::radix => radix = Some(child.as_str()),
-        Rule::radix_digits => digits = Some(child.as_str()),
+        Rule::radix_digits => self.push(Lexeme::Numeric {
+          expr_ix,
+          literal,
+          class: NumberClass::Long,
+          value: NumericValue::Int {
+            positive,
+            radix: radix.unwrap().parse::<u32>().unwrap(),
+            value: child.as_str(),
+          },
+        }),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn unsigned_int(
+    &mut self,
+    parent: Pair<'a>,
+    expr_ix: usize,
+    literal: &'a str,
+    positive: bool,
+  ) {
+    let mut class = NumberClass::Long;
+    let mut value = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::oct_digits => {
+          value = Some(NumericValue::Int {
+            positive,
+            radix: 8,
+            value: child.as_str(),
+          })
+        }
+        Rule::hex_digits => {
+          value = Some(NumericValue::Int {
+            positive,
+            radix: 16,
+            value: child.as_str(),
+          })
+        }
+        Rule::unsigned_dec => {
+          value = Some(NumericValue::Int {
+            positive,
+            radix: 10,
+            value: child.as_str(),
+          })
+        }
+        Rule::bigint_suffix => class = NumberClass::BigInt,
         _ => self.push(Lexeme::Residual(child)),
       }
     }
     self.push(Lexeme::Numeric {
       expr_ix,
       literal,
-      class: NumberClass::Long,
-      value: NumericValue::Int {
-        positive,
-        radix: radix.unwrap().parse::<u32>().unwrap(),
-        value: digits.unwrap(),
-      },
+      class,
+      value: value.unwrap(),
     })
-  }
-
-  fn unsigned_ints(
-    &mut self,
-    parent: Pair<'a>,
-    expr_ix: usize,
-    literal: &'a str,
-    big: bool,
-    positive: bool,
-  ) {
-    let class = if big {
-      NumberClass::BigInt
-    } else {
-      NumberClass::Long
-    };
-    for child in parent.into_inner() {
-      match child.as_rule() {
-        Rule::oct_digits => self.push(Lexeme::Numeric {
-          expr_ix,
-          literal,
-          class,
-          value: NumericValue::Int {
-            positive,
-            radix: 8,
-            value: child.as_str(),
-          },
-        }),
-        Rule::hex_digits => self.push(Lexeme::Numeric {
-          expr_ix,
-          literal,
-          class,
-          value: NumericValue::Int {
-            positive,
-            radix: 16,
-            value: child.as_str(),
-          },
-        }),
-        Rule::unsigned_dec => self.push(Lexeme::Numeric {
-          expr_ix,
-          literal,
-          class,
-          value: NumericValue::Int {
-            positive,
-            radix: 10,
-            value: child.as_str(),
-          },
-        }),
-        _ => self.push(Lexeme::Residual(child)),
-      }
-    }
   }
 
   fn string(&mut self, parent: Pair<'a>, expr_ix: usize) {
