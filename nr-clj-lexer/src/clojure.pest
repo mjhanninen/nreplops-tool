@@ -41,13 +41,27 @@ meta_expr = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
 
 expr = {
-    number
+    nil
+  | boolean
+  | number
   | string
   | symbolic_value
   | symbol
   | keyword
   | bogus_map
 }
+
+//
+// Nils
+//
+
+nil = ${ "nil" ~ ! symbol_char }
+
+//
+// Booleans
+//
+
+boolean = ${ ( "true" | "false" ) ~ ! symbol_char }
 
 //
 // Numeric literals

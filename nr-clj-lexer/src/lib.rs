@@ -52,6 +52,13 @@ pub enum Lexeme<'a> {
   Discard {
     expr_ix: usize,
   },
+  Nil {
+    expr_ix: usize,
+  },
+  Boolean {
+    expr_ix: usize,
+    value: bool,
+  },
   Numeric {
     expr_ix: usize,
     literal: &'a str,
@@ -240,6 +247,11 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::COMMENT => self.push(Lexeme::Comment),
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::nil => self.push(Lexeme::Nil { expr_ix }),
+        Rule::boolean => self.push(Lexeme::Boolean {
+          expr_ix,
+          value: child.as_str() == "true",
+        }),
         Rule::number => self.number(child, expr_ix),
         Rule::string => self.string(child, expr_ix),
         Rule::symbolic_value => self.symbolic_value(child, expr_ix),
