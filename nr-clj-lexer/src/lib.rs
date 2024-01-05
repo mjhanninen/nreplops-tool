@@ -77,6 +77,10 @@ pub enum Lexeme<'a> {
     namespace: Option<&'a str>,
     name: &'a str,
   },
+  SymbolicValue {
+    expr_ix: usize,
+    value: SymbolicValue<'a>,
+  },
   Keyword {
     expr_ix: usize,
     alias: bool,
@@ -87,6 +91,14 @@ pub enum Lexeme<'a> {
     expr_ix: usize,
   },
   Residual(Pair<'a>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum SymbolicValue<'a> {
+  PosInf,
+  NegInf,
+  NaN,
+  Other(&'a str),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -230,6 +242,7 @@ impl<'a> Helper<'a> {
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
         Rule::number => self.number(child, expr_ix),
         Rule::string => self.string(child, expr_ix),
+        Rule::symbolic_value => self.symbolic_value(child, expr_ix),
         Rule::symbol => self.symbol(child, expr_ix),
         Rule::keyword => self.keyword(child, expr_ix),
         Rule::bogus_map => self.push(Lexeme::BogusMap { expr_ix }),
@@ -423,6 +436,25 @@ impl<'a> Helper<'a> {
       }
     }
     self.push(Lexeme::StringClose { expr_ix });
+  }
+
+  fn symbolic_value(&mut self, parent: Pair<'a>, expr_ix: usize) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => (),
+        Rule::WHITESPACE => (),
+        Rule::unqualified_symbol => self.push(Lexeme::SymbolicValue {
+          expr_ix,
+          value: match child.as_str() {
+            "Inf" => SymbolicValue::PosInf,
+            "-Inf" => SymbolicValue::NegInf,
+            "NaN" => SymbolicValue::NaN,
+            _ => SymbolicValue::Other(child.as_str()),
+          },
+        }),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
   }
 
   fn symbol(&mut self, parent: Pair<'a>, expr_ix: usize) {

@@ -43,6 +43,7 @@ meta_prefix = { "^" | "#^" }
 expr = {
     number
   | string
+  | symbolic_value
   | symbol
   | keyword
   | bogus_map
@@ -128,12 +129,21 @@ esc_octet = @{
 esc_code_point = @{ "\\u" ~ ASCII_HEX_DIGIT{4} }
 
 //
+// Symbolic values
+//
+
+symbolic_value = { symbolic_value_prefix ~ unqualified_symbol }
+symbolic_value_prefix = _{ "##" }
+
+//
 // Symbols
 //
 
 symbol = ${
-    namespace ~ "/" ~ qualified_symbol
-  | unqualified_symbol
+    ! "##"
+  ~ ( namespace ~ "/" ~ qualified_symbol
+    | unqualified_symbol
+    )
 }
 namespace = @{
     symbol_first_char
