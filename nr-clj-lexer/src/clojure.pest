@@ -28,16 +28,23 @@ WHITESPACE = @{
 // Top-level, forms, and expressions
 //
 
-top_level = { SOI ~ form* ~ discard_expr? ~ EOI }
+top_level = { SOI ~ form* ~ discarded_form? ~ EOI }
 
-form = { preform* ~ expr }
+form = {
+    expr
+  | quote_unquote_form
+  | preform+ ~ form
+}
 
-preform = { meta_expr | discard_expr }
+quote_unquote_form = { quote_unquote_prefix ~ form }
+quote_unquote_prefix = { "'" | "`" | "~@" | "~" }
 
-discard_expr = { discard_prefix ~ preform* ~ expr }
+preform = { meta_form | discarded_form }
+
+discarded_form = { discard_prefix ~ preform* ~ form }
 discard_prefix = { "#_" }
 
-meta_expr = { meta_prefix ~ form }
+meta_form = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
 
 expr = {
@@ -208,12 +215,12 @@ qualified_symbol = @{
     ( "/"* ~ ":"? ~ symbol_char+ )+
   | "/" ~ ! ":"
 }
-symbol_char = @{ symbol_first_char | ASCII_DIGIT }
+symbol_char = @{ symbol_first_char | "'" | ASCII_DIGIT }
 symbol_first_char = @{
     ! ( '\u{00}'..'\u{1F}'
       | " " | ","
       | ASCII_DIGIT
-      | ":" | "^" | "`" | "~" | "/"
+      | ":" | "^" | "'" | "`" | "~" | "/"
       | "(" | ")" | "[" | "]" | "{" | "}"
       | "\"" | "\\"
       )
