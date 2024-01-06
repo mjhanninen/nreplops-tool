@@ -75,6 +75,9 @@ pub enum Lexeme<'a> {
   Quote {
     form_ix: FormIx,
   },
+  VarQuote {
+    form_ix: FormIx,
+  },
   Synquote {
     form_ix: FormIx,
   },
@@ -282,6 +285,7 @@ impl<'a> Helper<'a> {
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
         Rule::quote_unquote_prefix => self.push(match child.as_str() {
           "'" => Lexeme::Quote { form_ix: parent_ix },
+          "#'" => Lexeme::VarQuote { form_ix: parent_ix },
           "`" => Lexeme::Synquote { form_ix: parent_ix },
           "~@" => Lexeme::SplicingUnquote { form_ix: parent_ix },
           "~" => Lexeme::Unquote { form_ix: parent_ix },

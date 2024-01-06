@@ -37,7 +37,7 @@ form = {
 }
 
 quote_unquote_form = { quote_unquote_prefix ~ form }
-quote_unquote_prefix = { "'" | "`" | "~@" | "~" }
+quote_unquote_prefix = { "'" | "#'" | "`" | "~@" | "~" }
 
 preform = { meta_form | discarded_form }
 
