@@ -56,6 +56,9 @@ expr = {
   | symbolic_value
   | symbol
   | keyword
+  | list
+  | vector
+  | set
   | bogus_map
 }
 
@@ -215,12 +218,12 @@ qualified_symbol = @{
     ( "/"* ~ ":"? ~ symbol_char+ )+
   | "/" ~ ! ":"
 }
-symbol_char = @{ symbol_first_char | "'" | ASCII_DIGIT }
+symbol_char = @{ symbol_first_char | "'" | "#" | ASCII_DIGIT }
 symbol_first_char = @{
     ! ( '\u{00}'..'\u{1F}'
       | " " | ","
       | ASCII_DIGIT
-      | ":" | "^" | "'" | "`" | "~" | "/"
+      | ":" | "^" | "'" | "`" | "~" | "/" | "#"
       | "(" | ")" | "[" | "]" | "{" | "}"
       | "\"" | "\\"
       )
@@ -238,6 +241,24 @@ keyword = ${
     )
 }
 keyword_prefix = @{ "::" | ":" }
+
+//
+// Lists
+//
+
+list = { "(" ~ form* ~ discarded_form? ~ ")" }
+
+//
+// Vectors
+//
+
+vector = { "[" ~ form* ~ discarded_form? ~ "]" }
+
+//
+// Sets
+//
+
+set = { "#{" ~ form* ~ discarded_form? ~ "}" }
 
 // Stubs
 

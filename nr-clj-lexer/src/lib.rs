@@ -131,6 +131,24 @@ pub enum Lexeme<'a> {
     namespace: Option<&'a str>,
     name: &'a str,
   },
+  StartList {
+    form_ix: FormIx,
+  },
+  EndList {
+    form_ix: FormIx,
+  },
+  StartVector {
+    form_ix: FormIx,
+  },
+  EndVector {
+    form_ix: FormIx,
+  },
+  StartSet {
+    form_ix: FormIx,
+  },
+  EndSet {
+    form_ix: FormIx,
+  },
   BogusMap {
     form_ix: FormIx,
   },
@@ -325,6 +343,9 @@ impl<'a> Helper<'a> {
         Rule::symbolic_value => self.symbolic_value(child, form_ix),
         Rule::symbol => self.symbol(child, form_ix),
         Rule::keyword => self.keyword(child, form_ix),
+        Rule::list => self.list(child, form_ix),
+        Rule::vector => self.vector(child, form_ix),
+        Rule::set => self.set(child, form_ix),
         Rule::bogus_map => self.push(Lexeme::BogusMap { form_ix }),
         _ => self.push(Lexeme::Residual(child)),
       }
@@ -608,6 +629,39 @@ impl<'a> Helper<'a> {
             name: child.as_str(),
           })
         }
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn list(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    self.push(Lexeme::StartList { form_ix: parent_ix });
+    self.list_vector_set_inner(parent, parent_ix);
+    self.push(Lexeme::EndList { form_ix: parent_ix });
+  }
+
+  fn vector(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    self.push(Lexeme::StartVector { form_ix: parent_ix });
+    self.list_vector_set_inner(parent, parent_ix);
+    self.push(Lexeme::EndVector { form_ix: parent_ix });
+  }
+
+  fn set(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    self.push(Lexeme::StartSet { form_ix: parent_ix });
+    self.list_vector_set_inner(parent, parent_ix);
+    self.push(Lexeme::EndSet { form_ix: parent_ix });
+  }
+
+  fn list_vector_set_inner(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::form => {
+          let child_ix = self.next_form_ix(Some(parent_ix));
+          self.form(child, child_ix)
+        }
+        Rule::discarded_form => self.discarded_form(child),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
