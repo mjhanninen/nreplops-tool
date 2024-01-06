@@ -116,6 +116,10 @@ pub enum Lexeme<'a> {
     form_ix: FormIx,
     code: u32,
   },
+  Regex {
+    form_ix: FormIx,
+    value: &'a str,
+  },
   Symbol {
     form_ix: FormIx,
     namespace: Option<&'a str>,
@@ -345,6 +349,7 @@ impl<'a> Helper<'a> {
         Rule::number => self.number(child, form_ix),
         Rule::char => self.char(child, form_ix),
         Rule::string => self.string(child, form_ix),
+        Rule::regex => self.regex(child, form_ix),
         Rule::symbolic_value => self.symbolic_value(child, form_ix),
         Rule::symbol => self.symbol(child, form_ix),
         Rule::keyword => self.keyword(child, form_ix),
@@ -581,6 +586,18 @@ impl<'a> Helper<'a> {
       }
     }
     self.push(Lexeme::StringClose { form_ix });
+  }
+
+  fn regex(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::regex_content => self.push(Lexeme::Regex {
+          form_ix,
+          value: child.as_str(),
+        }),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
   }
 
   fn symbolic_value(&mut self, parent: Pair<'a>, form_ix: FormIx) {

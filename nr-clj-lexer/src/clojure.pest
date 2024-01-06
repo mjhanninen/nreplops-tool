@@ -53,6 +53,7 @@ expr = {
   | number
   | char
   | string
+  | regex
   | symbolic_value
   | symbol
   | keyword
@@ -187,6 +188,22 @@ esc_octet = @{
          )
 }
 esc_code_point = @{ "\\u" ~ ASCII_HEX_DIGIT{4} }
+
+//
+// Regex pattern literals
+//
+
+regex = ${ "#\"" ~ regex_content ~ "\"" }
+regex_content = @{
+  ( "\\" ~ ! control_char ~ ANY
+  | ! ( control_char | "\"" ) ~ ANY
+  )*
+}
+control_char = {
+    '\u{00}'..'\u{08}'
+  | '\u{0E}'..'\u{1F}'
+  | "\u{7F}"
+}
 
 //
 // Symbolic values
