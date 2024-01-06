@@ -17,6 +17,9 @@ EOF
 ERROR: Failed to build the tester
 EOF
   for input in $(ls nr-clj-lexing-tester/input/*.clj); do
+    if [[ -n "$PATTERN" && ! "$input" =~ "$PATTERN" ]]; then
+      continue
+    fi
     cat <<EOF
 ===============================================================================
 TEST: $input
@@ -29,5 +32,9 @@ EOF
 }
 
 export -f run_tests die
+
+if [[ -n "$1" ]]; then
+  export PATTERN="$1"
+fi
 
 cargo watch --watch nr-clj-lexer --watch nr-clj-lexing-tester --shell run_tests
