@@ -20,3 +20,7 @@
 ::foo.bar/zip//:zap
 ::/                   ; not permitted by Clojure
 ::foo//
+
+;; XXX(soija) FIX: The following are valid keywords
+;; :'foo
+;; :#foo
