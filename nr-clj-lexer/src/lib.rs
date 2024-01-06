@@ -149,7 +149,12 @@ pub enum Lexeme<'a> {
   EndSet {
     form_ix: FormIx,
   },
-  BogusMap {
+  StartMap {
+    form_ix: FormIx,
+    alias: bool,
+    namespace: Option<&'a str>,
+  },
+  EndMap {
     form_ix: FormIx,
   },
   Residual(Pair<'a>),
@@ -346,7 +351,7 @@ impl<'a> Helper<'a> {
         Rule::list => self.list(child, form_ix),
         Rule::vector => self.vector(child, form_ix),
         Rule::set => self.set(child, form_ix),
-        Rule::bogus_map => self.push(Lexeme::BogusMap { form_ix }),
+        Rule::map => self.map(child, form_ix),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
@@ -657,6 +662,38 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::COMMENT => self.push(Lexeme::Comment),
         Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::form => {
+          let child_ix = self.next_form_ix(Some(parent_ix));
+          self.form(child, child_ix)
+        }
+        Rule::discarded_form => self.discarded_form(child),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn map(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    let mut alias = false;
+    let mut namespace = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::map_qualifier => {
+          for child2 in child.into_inner() {
+            match child2.as_rule() {
+              Rule::map_qualifier_prefix => alias = child2.as_str() == "#::",
+              Rule::namespace => namespace = Some(child2.as_str()),
+              _ => self.push(Lexeme::Residual(child2)),
+            }
+          }
+        }
+        Rule::map_open => self.push(Lexeme::StartMap {
+          form_ix: parent_ix,
+          alias,
+          namespace,
+        }),
+        Rule::map_close => self.push(Lexeme::EndMap { form_ix: parent_ix }),
         Rule::form => {
           let child_ix = self.next_form_ix(Some(parent_ix));
           self.form(child, child_ix)

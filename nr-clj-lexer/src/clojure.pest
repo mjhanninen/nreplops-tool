@@ -59,7 +59,7 @@ expr = {
   | list
   | vector
   | set
-  | bogus_map
+  | map
 }
 
 //
@@ -260,6 +260,12 @@ vector = { "[" ~ form* ~ discarded_form? ~ "]" }
 
 set = { "#{" ~ form* ~ discarded_form? ~ "}" }
 
-// Stubs
+// Map
 
-bogus_map = { "{}" }
+map = { map_qualifier? ~  map_open~ map_entry* ~ discarded_form? ~ map_close }
+map_qualifier = ${ map_qualifier_prefix ~ namespace }
+map_qualifier_prefix = { "#::" | "#:" }
+map_open = { "{" }
+map_close = { "}" }
+map_entry = _{ form ~ form }
+
