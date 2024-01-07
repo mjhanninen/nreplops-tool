@@ -177,6 +177,11 @@ pub enum Lexeme<'a> {
   EndReaderConditional {
     form_ix: FormIx,
   },
+  TaggedLiteral {
+    form_ix: FormIx,
+    tag_ix: FormIx,
+    arg_ix: FormIx,
+  },
   Residual(Pair<'a>),
 }
 
@@ -376,6 +381,7 @@ impl<'a> Helper<'a> {
         Rule::set => self.set(child, form_ix),
         Rule::map => self.map(child, form_ix),
         Rule::reader_conditional => self.reader_conditional(child, form_ix),
+        Rule::tagged_literal => self.tagged_literal(child, form_ix),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
@@ -783,5 +789,34 @@ impl<'a> Helper<'a> {
       }
     }
     self.push(end_lexeme);
+  }
+
+  fn tagged_literal(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let tag_ix = self.next_form_ix(Some(form_ix));
+    let arg_ix = self.next_form_ix(Some(form_ix));
+    self.push(Lexeme::TaggedLiteral {
+      form_ix,
+      tag_ix,
+      arg_ix,
+    });
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::tagged_literal_tag => {
+          for child2 in child.into_inner() {
+            match child2.as_rule() {
+              Rule::COMMENT => self.push(Lexeme::Comment),
+              Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+              Rule::preform => self.preforms(child2, tag_ix),
+              Rule::symbol => self.symbol(child2, tag_ix),
+              _ => self.push(Lexeme::Residual(child2)),
+            }
+          }
+        }
+        Rule::form => self.form(child, arg_ix),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
   }
 }

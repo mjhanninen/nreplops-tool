@@ -63,6 +63,7 @@ expr = {
   | anonymous_fn
   | map
   | reader_conditional
+  | tagged_literal
 }
 
 //
@@ -272,7 +273,9 @@ set = { "#{" ~ seq_body ~ "}" }
 
 seq_body = _{ form* ~ discarded_form? }
 
-// Map
+//
+// Maps
+//
 
 map = { map_qualifier? ~ unqualified_map }
 map_qualifier = ${ map_qualifier_prefix ~ namespace }
@@ -285,3 +288,15 @@ reader_conditional_body = { "(" ~ map_body ~ ")" }
 
 map_body = _{ map_entry* ~ discarded_form? }
 map_entry = _{ form ~ form }
+
+//
+// Tagged literals
+//
+
+tagged_literal = {
+    ! "#_"
+  ~ "#"
+  ~ tagged_literal_tag
+  ~ form
+}
+tagged_literal_tag = { preform* ~ symbol }
