@@ -164,6 +164,19 @@ pub enum Lexeme<'a> {
   EndMap {
     form_ix: FormIx,
   },
+  StartAnonymousFn {
+    form_ix: FormIx,
+  },
+  EndAnonymousFn {
+    form_ix: FormIx,
+  },
+  StartReaderConditional {
+    form_ix: FormIx,
+    splicing: bool,
+  },
+  EndReaderConditional {
+    form_ix: FormIx,
+  },
   Residual(Pair<'a>),
 }
 
@@ -359,8 +372,10 @@ impl<'a> Helper<'a> {
         Rule::keyword => self.keyword(child, form_ix),
         Rule::list => self.list(child, form_ix),
         Rule::vector => self.vector(child, form_ix),
+        Rule::anonymous_fn => self.anonymous_fn(child, form_ix),
         Rule::set => self.set(child, form_ix),
         Rule::map => self.map(child, form_ix),
+        Rule::reader_conditional => self.reader_conditional(child, form_ix),
         _ => self.push(Lexeme::Residual(child)),
       }
     }
@@ -661,39 +676,42 @@ impl<'a> Helper<'a> {
   }
 
   fn list(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
-    self.push(Lexeme::StartList { form_ix: parent_ix });
-    self.list_vector_set_inner(parent, parent_ix);
-    self.push(Lexeme::EndList { form_ix: parent_ix });
+    self.body(
+      parent,
+      parent_ix,
+      Lexeme::StartList { form_ix: parent_ix },
+      Lexeme::EndList { form_ix: parent_ix },
+    );
   }
 
   fn vector(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
-    self.push(Lexeme::StartVector { form_ix: parent_ix });
-    self.list_vector_set_inner(parent, parent_ix);
-    self.push(Lexeme::EndVector { form_ix: parent_ix });
+    self.body(
+      parent,
+      parent_ix,
+      Lexeme::StartVector { form_ix: parent_ix },
+      Lexeme::EndVector { form_ix: parent_ix },
+    );
+  }
+
+  fn anonymous_fn(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    self.body(
+      parent,
+      parent_ix,
+      Lexeme::StartAnonymousFn { form_ix: parent_ix },
+      Lexeme::EndAnonymousFn { form_ix: parent_ix },
+    );
   }
 
   fn set(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
-    self.push(Lexeme::StartSet { form_ix: parent_ix });
-    self.list_vector_set_inner(parent, parent_ix);
-    self.push(Lexeme::EndSet { form_ix: parent_ix });
+    self.body(
+      parent,
+      parent_ix,
+      Lexeme::StartSet { form_ix: parent_ix },
+      Lexeme::EndSet { form_ix: parent_ix },
+    );
   }
 
-  fn list_vector_set_inner(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
-    for child in parent.into_inner() {
-      match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
-        Rule::form => {
-          let child_ix = self.next_form_ix(Some(parent_ix));
-          self.form(child, child_ix)
-        }
-        Rule::discarded_form => self.discarded_form(child),
-        _ => self.push(Lexeme::Residual(child)),
-      }
-    }
-  }
-
-  fn map(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn map(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     let mut alias = false;
     let mut namespace = None;
     for child in parent.into_inner() {
@@ -709,12 +727,53 @@ impl<'a> Helper<'a> {
             }
           }
         }
-        Rule::map_open => self.push(Lexeme::StartMap {
-          form_ix: parent_ix,
-          alias,
-          namespace,
-        }),
-        Rule::map_close => self.push(Lexeme::EndMap { form_ix: parent_ix }),
+        Rule::unqualified_map => self.body(
+          child,
+          form_ix,
+          Lexeme::StartMap {
+            form_ix,
+            alias,
+            namespace,
+          },
+          Lexeme::EndMap { form_ix },
+        ),
+        Rule::discarded_form => self.discarded_form(child),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn reader_conditional(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let mut splicing = false;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::reader_conditional_prefix => splicing = child.as_str() == "#?@",
+        Rule::reader_conditional_body => self.body(
+          child,
+          form_ix,
+          Lexeme::StartReaderConditional { form_ix, splicing },
+          Lexeme::EndMap { form_ix },
+        ),
+        Rule::discarded_form => self.discarded_form(child),
+        _ => self.push(Lexeme::Residual(child)),
+      }
+    }
+  }
+
+  fn body(
+    &mut self,
+    parent: Pair<'a>,
+    parent_ix: FormIx,
+    start_lexeme: Lexeme<'a>,
+    end_lexeme: Lexeme<'a>,
+  ) {
+    self.push(start_lexeme);
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::COMMENT => self.push(Lexeme::Comment),
+        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
         Rule::form => {
           let child_ix = self.next_form_ix(Some(parent_ix));
           self.form(child, child_ix)
@@ -723,5 +782,6 @@ impl<'a> Helper<'a> {
         _ => self.push(Lexeme::Residual(child)),
       }
     }
+    self.push(end_lexeme);
   }
 }

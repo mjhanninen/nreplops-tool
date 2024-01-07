@@ -1,4 +1,4 @@
-;; simple10.clj -- lists and vectors
+;; simple10.clj -- lists and lisk-like forms
 
 ()
 (foo)
@@ -16,3 +16,7 @@
 #{#{foo} #{bar}}
 
 [(#{foo} #{bar}) (#{baz})]
+
+#()
+#(%)
+#(+ % %1 %100)

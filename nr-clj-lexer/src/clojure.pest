@@ -60,7 +60,9 @@ expr = {
   | list
   | vector
   | set
+  | anonymous_fn
   | map
+  | reader_conditional
 }
 
 //
@@ -260,29 +262,26 @@ keyword = ${
 keyword_prefix = @{ "::" | ":" }
 
 //
-// Lists
+// Lists, vectors, and the like
 //
 
-list = { "(" ~ form* ~ discarded_form? ~ ")" }
+list = { "(" ~ seq_body ~ ")" }
+vector = { "[" ~ seq_body ~ "]" }
+anonymous_fn = { "#(" ~ seq_body ~ ")"}
+set = { "#{" ~ seq_body ~ "}" }
 
-//
-// Vectors
-//
-
-vector = { "[" ~ form* ~ discarded_form? ~ "]" }
-
-//
-// Sets
-//
-
-set = { "#{" ~ form* ~ discarded_form? ~ "}" }
+seq_body = _{ form* ~ discarded_form? }
 
 // Map
 
-map = { map_qualifier? ~  map_open~ map_entry* ~ discarded_form? ~ map_close }
+map = { map_qualifier? ~ unqualified_map }
 map_qualifier = ${ map_qualifier_prefix ~ namespace }
 map_qualifier_prefix = { "#::" | "#:" }
-map_open = { "{" }
-map_close = { "}" }
-map_entry = _{ form ~ form }
+unqualified_map = { "{" ~ map_body ~ "}" }
 
+reader_conditional = { reader_conditional_prefix ~ reader_conditional_body }
+reader_conditional_prefix = { "#?@" | "#?" }
+reader_conditional_body = { "(" ~ map_body ~ ")" }
+
+map_body = _{ map_entry* ~ discarded_form? }
+map_entry = _{ form ~ form }
