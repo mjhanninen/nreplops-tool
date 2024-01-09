@@ -1,4 +1,4 @@
-// lib.rs
+// bin/test-conn-expr.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -13,24 +13,15 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#![deny(
-  future_incompatible,
-  missing_debug_implementations,
-  nonstandard_style,
-  rust_2021_compatibility,
-  unused
-)]
+use std::env;
 
-pub mod cli;
-pub mod clojure;
-pub mod conn_expr;
-pub mod error;
-pub mod host_options;
-pub mod hosts_files;
-pub mod nrepl;
-pub mod outputs;
-pub mod routes;
-pub mod socket;
-pub mod sources;
+use nreplops_tool::conn_expr::parser::*;
 
-mod bencode;
+fn main() {
+  for arg in env::args().skip(1) {
+    println!("INPUT: {}", arg);
+    let result =
+      ConnectionExprLanguage::parse(Rule::connection_expr, arg.as_str());
+    println!("RESULT:\n{:#?}", result);
+  }
+}

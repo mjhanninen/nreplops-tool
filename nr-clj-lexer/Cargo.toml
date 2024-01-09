@@ -1,9 +1,0 @@
-[package]
-name = "nr-clj-lexer"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-pest = "2.7.5"
-pest_derive = "2.7.5"
-thiserror = "1.0.56"

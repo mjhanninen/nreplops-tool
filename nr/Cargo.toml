@@ -1,12 +1,12 @@
 [package]
 name = "nreplops-tool"
 version = "0.1.2"
-authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 description = "Non-interactive nREPL client for shell scripting and command-line"
 keywords = ["nrepl", "repl", "clojure"]
 categories = ["command-line-utilities", "development-tools"]
-repository = "https://github.com/mjhanninen/nreplops-tool"
+authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 license = "Apache-2.0"
+repository = "https://github.com/mjhanninen/nreplops-tool"
 readme = "README.md"
 edition = "2021"
 
@@ -33,15 +33,3 @@ serde_bencode = "0.2"
 [[bin]]
 name = "nr"
 path = "src/bin/main.rs"
-
-# XXX: Convert into a proper test; or into main binary behind some debug flag
-#
-# [[bin]]
-# name = "nr-test-conn-expr"
-# path = "src/bin/test_conn_expr.rs"
-
-# XXX: Convert into a proper test; or into main binary behind some debug flag
-#
-# [[bin]]
-# name = "nr-test-hosts-file"
-# path = "src/bin/test_hosts_file.rs"

@@ -13,10 +13,10 @@ run_tests() {
 BUILD TESTER
 -------------------------------------------------------------------------------
 EOF
-  cargo build --package nr-clj-lexing-tester || die <<EOF
+  cargo build --bin test-lexing || die <<EOF
 ERROR: Failed to build the tester
 EOF
-  for input in $(ls nr-clj-lexing-tester/input/*.clj); do
+  for input in $(ls nr-dev/input/*.clj); do
     if [[ -n "$PATTERN" && ! "$input" =~ "$PATTERN" ]]; then
       continue
     fi
@@ -25,7 +25,7 @@ EOF
 TEST: $input
 -------------------------------------------------------------------------------
 EOF
-    target/debug/nr-clj-lexing-tester < "$input" || die <<EOF
+    target/debug/test-lexing < "$input" || die <<EOF
 ERROR: Test run failed
 EOF
   done
@@ -37,4 +37,4 @@ if [[ -n "$1" ]]; then
   export PATTERN="$1"
 fi
 
-cargo watch --watch nr-clj-lexer --watch nr-clj-lexing-tester --shell run_tests
+cargo watch --watch nr --watch nr-dev --shell run_tests

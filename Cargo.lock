@@ -210,22 +210,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
 
 [[package]]
-name = "nr-clj-lexer"
-version = "0.1.0"
-dependencies = [
- "pest",
- "pest_derive",
- "thiserror",
-]
-
-[[package]]
-name = "nr-clj-lexing-tester"
-version = "0.1.0"
-dependencies = [
- "nr-clj-lexer",
-]
-
-[[package]]
 name = "nreplops-tool"
 version = "0.1.2"
 dependencies = [
@@ -239,6 +223,13 @@ dependencies = [
  "serde_with",
  "thiserror",
  "toml",
+]
+
+[[package]]
+name = "nreplops-tool-dev"
+version = "0.1.0"
+dependencies = [
+ "nreplops-tool",
 ]
 
 [[package]]

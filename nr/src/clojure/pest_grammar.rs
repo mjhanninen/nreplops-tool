@@ -1,5 +1,5 @@
-// lib.rs
-// Copyright 2022 Matti Hänninen
+// pest_grammar.rs
+// Copyright 2024 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -13,24 +13,12 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#![deny(
-  future_incompatible,
-  missing_debug_implementations,
-  nonstandard_style,
-  rust_2021_compatibility,
-  unused
-)]
+pub use pest::Parser;
+use pest_derive::Parser;
 
-pub mod cli;
-pub mod clojure;
-pub mod conn_expr;
-pub mod error;
-pub mod host_options;
-pub mod hosts_files;
-pub mod nrepl;
-pub mod outputs;
-pub mod routes;
-pub mod socket;
-pub mod sources;
+#[allow(missing_debug_implementations)]
+#[derive(Parser)]
+#[grammar = "clojure/grammar.pest"]
+pub struct Grammar;
 
-mod bencode;
+pub type Pair<'a> = pest::iterators::Pair<'a, Rule>;

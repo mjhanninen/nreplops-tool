@@ -1,4 +1,4 @@
-// bin/test_hosts_file.rs
+// bin/test-hosts-file.rs
 // Copyright 2022 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not

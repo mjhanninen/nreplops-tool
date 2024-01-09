@@ -18,16 +18,15 @@
   missing_debug_implementations,
   nonstandard_style,
   rust_2021_compatibility,
-  // unused
+  unused
 )]
-#![allow(unused)]
 
 use std::{
   io::{self, IsTerminal, Read},
   process,
 };
 
-use nr_clj_lexer as lexer;
+use nreplops_tool::clojure::lex;
 
 fn main() {
   let stdin = io::stdin();
@@ -44,7 +43,7 @@ fn main() {
     process::exit(1);
   }
 
-  match lexer::lex(&input) {
+  match lex::lex(&input) {
     Ok(lexemes) => {
       for (ix, lexeme) in lexemes.iter().enumerate() {
         println!("{}: {:?}", ix, lexeme);

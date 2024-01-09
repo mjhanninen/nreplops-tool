@@ -1,5 +1,5 @@
-// bin/test_connection_expr.rs
-// Copyright 2022 Matti Hänninen
+// mod.rs
+// Copyright 2024 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -13,15 +13,6 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::env;
+pub mod lex;
 
-use nreplops_tool::conn_expr::parser::*;
-
-fn main() {
-  for arg in env::args().skip(1) {
-    println!("INPUT: {}", arg);
-    let result =
-      ConnectionExprLanguage::parse(Rule::connection_expr, arg.as_str());
-    println!("RESULT:\n{:#?}", result);
-  }
-}
+mod pest_grammar;

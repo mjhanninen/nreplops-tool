@@ -1,0 +1,11 @@
+[package]
+name = "nreplops-tool-dev"
+version = "0.1.0"
+authors = ["Matti Hänninen <matti@mjhanninen.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/mjhanninen/nreplops-tool"
+readme = "README.md"
+edition = "2021"
+
+[dependencies]
+nreplops-tool = { path = "../nr" }
