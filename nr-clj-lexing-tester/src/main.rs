@@ -23,21 +23,23 @@
 #![allow(unused)]
 
 use std::{
-  io::{self, Read},
+  io::{self, IsTerminal, Read},
   process,
 };
 
-use atty::Stream;
 use nr_clj_lexer as lexer;
 
 fn main() {
-  if atty::is(Stream::Stdin) {
+  let stdin = io::stdin();
+  let mut stdin = stdin.lock();
+
+  if stdin.is_terminal() {
     eprintln!("ERROR: No input provided. Please provide input via stdin.");
     process::exit(1);
   }
 
   let mut input = String::new();
-  if let Err(e) = io::stdin().read_to_string(&mut input) {
+  if let Err(e) = stdin.read_to_string(&mut input) {
     eprintln!("ERROR: Failed to read from stdin: {}", e);
     process::exit(1);
   }
