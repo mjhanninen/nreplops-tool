@@ -86,6 +86,12 @@ impl TryFrom<Cli> for Args {
   fn try_from(cli: Cli) -> Result<Self, Self::Error> {
     let mut pos_arg_it = cli.pos_args.iter();
 
+    // XXX(soija) I don't like the how expressions and files are mutually
+    //            exclusive. Figure out a way to lift this restriction SO that
+    //            the relative order of expressions and files is honored.  That
+    //            is, `-e a -f b -e c` should be sourced in order `a`, `b`,
+    //            and `c`.
+
     let source_args = if cli.shebang_guard.is_some() {
       //
       // When the shebang guard is given the first positional argument is always
