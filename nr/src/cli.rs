@@ -86,7 +86,17 @@ impl TryFrom<Cli> for Args {
   fn try_from(cli: Cli) -> Result<Self, Self::Error> {
     let mut pos_arg_it = cli.pos_args.iter();
 
-    let source_args = if !cli.exprs.is_empty() {
+    let source_args = if cli.shebang_guard.is_some() {
+      //
+      // When the shebang guard is given the first positional argument is always
+      // interpreted as the (sole) source.
+      //
+      let pos_arg = pos_arg_it.next().ok_or(Error::NoInput)?;
+      let src_arg = IoArg::parse_from_path(pos_arg)
+        .map(SourceArg::from)
+        .map_err(|_| Error::BadSourceFile)?;
+      vec![src_arg]
+    } else if !cli.exprs.is_empty() {
       cli
         .exprs
         .iter()
@@ -227,6 +237,15 @@ impl IoArg {
     IoArg::File(path.as_ref().to_owned())
   }
 
+  fn parse_from_path(s: impl AsRef<ffi::OsStr>) -> Result<Self, IoParseError> {
+    let s = s.as_ref();
+    if let Ok(p) = path::PathBuf::from(s).canonicalize() {
+      Ok(IoArg::File(p))
+    } else {
+      Err(IoParseError(s.to_string_lossy().into()))
+    }
+  }
+
   fn parse_from_path_or_pipe(
     s: impl AsRef<ffi::OsStr>,
   ) -> Result<Self, IoParseError> {
@@ -345,15 +364,17 @@ struct Cli {
   #[arg(long = "arg", short = 'a', value_name = "NAME=VALUE")]
   args: Vec<String>,
 
+  /// Positional arguments
   #[arg(value_name = "ARG")]
   pos_args: Vec<ffi::OsString>,
 
   /// Run in shebang (#!) mode
   #[arg(
         short = '!',
+        value_name = "MIN_VERSION",
         conflicts_with_all = &["exprs", "files"],
     )]
-  _shebang_guard: bool,
+  shebang_guard: Option<Option<String>>,
 
   /// Wait .nrepl-port file to appear for SECONDS
   #[arg(long = "wait-port-file", value_name = "SECONDS")]

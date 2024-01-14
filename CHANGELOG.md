@@ -2,6 +2,10 @@
 
 ## [Unreleased][unreleased]
 
+- Changes to behavior of the shebang mode (**breaking**)
+  - The source is required to be given through the first positional argument.
+    Piping through stdin is not allowed anymore.
+
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...main
 
 ## [Version 0.1.2][v0.1.2]
