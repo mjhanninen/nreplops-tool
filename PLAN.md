@@ -25,7 +25,7 @@
 - `--stdin-to <sink>` for echoing sent input to `<sink>`
 - `--log-to <sink>` write an execution log to a file
 - `--log` write an execution log to a file named by the source file
-- `-!` takes minimum version
+- ~~`-!` takes minimum version~~ (done)
 - `--production` with optional "are you sure?" mechanism
 - `--dry-run` for debugging (combine with `--exprs-to` to see what would be sent)
 - Return a distinct error code if evaluation throws; opt-in (now: 0)
