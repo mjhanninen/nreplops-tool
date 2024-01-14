@@ -22,15 +22,28 @@
 )]
 
 use std::{
+  cmp,
   io::{self, Write},
   process,
 };
 
-use nreplops_tool::{self, error::Error, outputs::OutputTarget, *};
+use nreplops_tool::{self, error::Error, outputs::OutputTarget, version, *};
 
 fn main() {
   let args = cli::Args::from_command_line().unwrap_or_else(die);
+
+  if let Some(ref required) = args.version_range {
+    let current = version::crate_version();
+    use cmp::Ordering::*;
+    match current.cmp_to_range(&required) {
+      Less => die(Error::TooOldVersion(current, required.clone())),
+      Greater => die(Error::TooNewVersion(current, required.clone())),
+      Equal => (),
+    }
+  }
+
   let conn_expr = args.conn_expr_src.resolve_expr().unwrap_or_else(die);
+
   let host_opts_table =
     hosts_files::load_default_hosts_files().unwrap_or_else(die);
   let sources =

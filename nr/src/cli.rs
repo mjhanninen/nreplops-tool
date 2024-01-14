@@ -26,10 +26,12 @@ use clap::Parser;
 use crate::{
   conn_expr::{ConnectionExpr, ConnectionExprSource},
   error::Error,
+  version::{Version, VersionRange},
 };
 
 #[derive(Debug)]
 pub struct Args {
+  pub version_range: Option<VersionRange>,
   pub conn_expr_src: ConnectionExprSource,
   pub stdin_from: Option<IoArg>,
   pub stdout_to: Option<IoArg>,
@@ -84,6 +86,11 @@ impl TryFrom<Cli> for Args {
   type Error = Error;
 
   fn try_from(cli: Cli) -> Result<Self, Self::Error> {
+    let (shebang_mode, assert_version) = match cli.shebang_guard {
+      Some(version) => (true, version),
+      None => (false, None),
+    };
+
     let mut pos_arg_it = cli.pos_args.iter();
 
     // XXX(soija) I don't like the how expressions and files are mutually
@@ -92,7 +99,7 @@ impl TryFrom<Cli> for Args {
     //            is, `-e a -f b -e c` should be sourced in order `a`, `b`,
     //            and `c`.
 
-    let source_args = if cli.shebang_guard.is_some() {
+    let source_args = if shebang_mode {
       //
       // When the shebang guard is given the first positional argument is always
       // interpreted as the (sole) source.
@@ -168,6 +175,7 @@ impl TryFrom<Cli> for Args {
     };
 
     Ok(Self {
+      version_range: assert_version,
       conn_expr_src,
       stdin_from,
       stdout_to: if cli.no_stdout {
@@ -336,10 +344,10 @@ struct Cli {
 
   /// Discard server's stdout
   #[arg(
-        long,
-        visible_aliases = &["no-out", "no-output"],
-        conflicts_with = "stdout",
-    )]
+    long,
+    visible_aliases = &["no-out", "no-output"],
+    conflicts_with = "stdout",
+  )]
   no_stdout: bool,
 
   /// Write server's stderr to FILE
@@ -348,10 +356,10 @@ struct Cli {
 
   /// Discard server's stderr
   #[arg(
-        long,
-        visible_aliases = &["no-err"],
-        conflicts_with = "stderr",
-    )]
+    long,
+    visible_aliases = &["no-err"],
+    conflicts_with = "stderr",
+  )]
   no_stderr: bool,
 
   /// Write evaluation results to FILE
@@ -360,10 +368,10 @@ struct Cli {
 
   /// Discard evaluation results
   #[arg(
-        long,
-        visible_aliases = &["no-res", "no-values"],
-        conflicts_with = "results",
-    )]
+    long,
+    visible_aliases = &["no-res", "no-values"],
+    conflicts_with = "results",
+  )]
   no_results: bool,
 
   /// Set template argument NAME to VALUE
@@ -376,11 +384,12 @@ struct Cli {
 
   /// Run in shebang (#!) mode
   #[arg(
-        short = '!',
-        value_name = "MIN_VERSION",
-        conflicts_with_all = &["exprs", "files"],
-    )]
-  shebang_guard: Option<Option<String>>,
+    short = '!',
+    value_name = "VERSION_EXPR",
+    value_parser = parse_version_range,
+    conflicts_with_all = &["exprs", "files"],
+  )]
+  shebang_guard: Option<Option<VersionRange>>,
 
   /// Wait .nrepl-port file to appear for SECONDS
   #[arg(long = "wait-port-file", value_name = "SECONDS")]
@@ -388,11 +397,26 @@ struct Cli {
 
   /// Set timeout for program execution
   #[arg(
-        long = "timeout",
-        value_name = "SECONDS",
-        value_parser = not_implemented::<u32>,
-    )]
+    long = "timeout",
+    value_name = "SECONDS",
+    value_parser = not_implemented::<u32>,
+  )]
   _timeout: Option<u32>,
+}
+
+fn parse_version_range(s: &str) -> Result<VersionRange, &'static str> {
+  if let Ok(start) = s.parse::<Version>() {
+    let end = start.next_breaking();
+    Ok(VersionRange {
+      start,
+      end,
+      inclusive: false,
+    })
+  } else if let Ok(range) = s.parse::<VersionRange>() {
+    Ok(range)
+  } else {
+    Err("bad version or version range")
+  }
 }
 
 fn not_implemented<T>(_: &str) -> Result<T, &'static str> {

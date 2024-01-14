@@ -32,5 +32,6 @@ pub mod outputs;
 pub mod routes;
 pub mod socket;
 pub mod sources;
+pub mod version;
 
 mod bencode;
