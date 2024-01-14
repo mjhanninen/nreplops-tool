@@ -9,6 +9,7 @@ license = "Apache-2.0"
 repository = "https://github.com/mjhanninen/nreplops-tool"
 readme = "README.md"
 edition = "2021"
+default-run = "nr"
 
 [dependencies]
 clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
