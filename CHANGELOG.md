@@ -2,6 +2,10 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.2.0...main
+
+## [Version 0.2.0][v0.2.0]
+
 - **Breaking**: The shebang mode flag `-!` now requires the source file to be
   specified as the first positional argument. Piping from stdin is no longer
   supported.
@@ -11,7 +15,7 @@
   range (e.g., `-! 0.2` for versions >= 0.2.0 and < 0.3.0) or a specific version
   range (e.g., `-! 1.2.3..4.5.6` for versions >= 1.2.3 and < 4.5.6).
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...main
+[v0.2.0]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...v0.2.0}
 
 ## [Version 0.1.2][v0.1.2]
 
