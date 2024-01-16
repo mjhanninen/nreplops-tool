@@ -11,7 +11,7 @@ die() {
 
 [[ -n "${VERSION:-}" ]] || die "variable VERSION not defined"
 
-grep -q "^version = \"${VERSION}\"\$" ./Cargo.toml \
+grep -q "^version = \"${VERSION}\"\$" nr/Cargo.toml \
   || die "conflicting version in Cargo.toml"
 
 echo "All good"

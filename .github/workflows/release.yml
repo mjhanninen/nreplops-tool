@@ -92,7 +92,10 @@ jobs:
           targets: ${{ matrix.job.target }}
 
       - name: Build binary
-        run: cargo build --locked --release --target ${{ matrix.job.target }}
+        run: |
+          cargo build --package nreplops-tool \
+                      --locked --release \
+                      --target ${{ matrix.job.target }}
 
       - name: Build manual page
         run: scripts/build-manual-page
@@ -125,6 +128,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.70.0
 
       - name: Publish
-        run: cargo publish --locked
+        run: cargo publish --package nreplops-tool --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
