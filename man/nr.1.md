@@ -22,9 +22,14 @@ nr - The nREPL ops tool
 
 ## General options
 
-**-!**
+**-!** \[_version_|_version-range_]
 
 :   Runs in the shebang mode.
+
+    The flag takes an optional version assertion.  This can be either a minimum
+    point version in a non-breaking version range (e.g., **\-!\ 0.2** for
+    versions >= 0.2.0 and < 0.3.0) or a specific version range (e.g.,
+    **\-!\ 1.2.3..4.5.6** for versions >= 1.2.3 and < 4.5.6).
 
 **\--timeout** _seconds_
 
