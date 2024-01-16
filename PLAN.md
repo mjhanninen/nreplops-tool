@@ -25,11 +25,11 @@
 - `--stdin-to <sink>` for echoing sent input to `<sink>`
 - `--log-to <sink>` write an execution log to a file
 - `--log` write an execution log to a file named by the source file
-- ~~`-!` takes minimum version~~ (done)
 - `--production` with optional "are you sure?" mechanism
 - `--dry-run` for debugging (combine with `--exprs-to` to see what would be sent)
 - Return a distinct error code if evaluation throws; opt-in (now: 0)
 - Windows support
+- ~~`-!` takes minimum version~~ ✅
 
 ## Less important features
 
@@ -57,6 +57,8 @@
   how to achieve the same by changing `~/.ssh/config`.
 - **Run against multiple servers**: Enable running the same script against
   multiple nREPL servers in one go.  Might be useful in ping-like queries.
+- Subcommand for creating and editing scripts (see [Subcommands](#subcommands))
+- Subcommand for checking code and docs parse okay (see [Subcommands](#subcommands))
 
 ## Miscallaneous to-do
 
@@ -80,3 +82,17 @@
 
 - provide tagged literal function `#nr` for running the scripts directly on the
   host Clojure process (for testing purposes)
+
+### Subcommands
+
+The subcommands could be:
+
+- `exec`: Send the forms to nREPL server for evaluation.  This is what the
+  program currently does.  Should be the default in the sense that if no
+  subcommand is given then `exec` is assumed.
+- `check`: Checks that the given input files can be parsed by the program.
+  Covers both the code and the script documentation that has its own special
+  comment format
+- `edit`: Opens or creates the given files for editing in the user's default
+  editor.  Furnishes the file, in case it is newly created, with shebang spell
+  and documentation template.
