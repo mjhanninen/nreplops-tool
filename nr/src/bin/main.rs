@@ -35,7 +35,7 @@ fn main() {
   if let Some(ref required) = args.version_range {
     let current = version::crate_version();
     use cmp::Ordering::*;
-    match current.cmp_to_range(&required) {
+    match current.cmp_to_range(required) {
       Less => die(Error::TooOldVersion(current, required.clone())),
       Greater => die(Error::TooNewVersion(current, required.clone())),
       Equal => (),

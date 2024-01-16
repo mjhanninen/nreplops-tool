@@ -213,6 +213,7 @@ pub enum NumberClass {
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
 
+#[allow(clippy::result_large_err)]
 pub fn lex(input: &str) -> Result<Lexemes, Error> {
   let mut helper = Helper::default();
   let mut pairs = Grammar::parse(Rule::top_level, input)?;

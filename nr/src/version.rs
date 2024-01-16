@@ -51,6 +51,7 @@ impl Version {
   }
 
   pub fn cmp_to_range(&self, range: &VersionRange) -> cmp::Ordering {
+    #[allow(clippy::if_same_then_else)]
     if *self < range.start {
       cmp::Ordering::Less
     } else if range.end < *self {
