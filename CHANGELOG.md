@@ -2,13 +2,16 @@
 
 ## [Unreleased][unreleased]
 
-- Breaking changes to the shebang mode flag `-!` (**breaking**)
+- **Breaking**: The shebang mode `-!` requires that the source file is given
+  through the first positional argument. Piping through stdin is not allowed
+  anymore.
 
-  - The source file is required to be given through the first positional
-    argument. Piping through stdin is not allowed anymore.
-  - The flag takes optional tool version assertiong (e.g. `-! 0.2` asserts that
-    0.2.0 ≤ tool version < 0.3.0 and `-! 1.2.3..4.5.6` asserts that 1.2.3 ≤ tool
-    version < 4.5.6)
+- The shebang mode flag `-!` accepts an optional version assertion.  The
+  assertion can be either a point version giving the minimum version of an
+  non-breaking version range (for example, `-! 0.2` asserts that the tool
+  version must be at least 0.2.0 but less than 0.3.0) or an explicit version
+  range (for example, `-! 1.2.3..4.5.6` asserts the version must be at least
+  1.2.3 but less than 4.5.6)
 
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...main
 
