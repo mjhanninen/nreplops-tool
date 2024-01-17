@@ -12,59 +12,71 @@
 [jet]: https://github.com/borkdude/jet
 [jq]: https://github.com/stedolan/jq
 
-## More important features
+## nREPL session features
 
 - `^C` interrupts evaluation (now: runaway)
 - Implement timeout; we already have `--timeout` option without implementation, related to `^C`
-- Proper argument handling and interpolation (see below)
-- Reuse tunneled connection (see OpenSSH ControlMaster)
+- Return a distinct non-zero error code if evaluation throws
+  - option to opt-out
+- Short-circuiting:
+  - given `-e A -e B` when `A` fails don't evaluate `B`
+  - prerequisites: source parsing
+  - option to opt-out
+
+## Connection features
+
 - Hostname assertions for SSH connections
+- Merge `--port` and `--port-file` options. `--port` already handles host
+  aliases, so why not port file paths
+- Host name assertion for SSH: safer, esp. with port forwarding vpns
 - Check that SSH client is present and one that we support
-- Short-circuiting: given `-e A -e B` when `A` fails don't evaluate `B`; opt-in
-- `--exprs-to <sink>` for echoing sent expressions to `<sink>`
-- `--stdin-to <sink>` for echoing sent input to `<sink>`
-- `--log-to <sink>` write an execution log to a file
-- `--log` write an execution log to a file named by the source file
-- `--production` with optional "are you sure?" mechanism
-- `--dry-run` for debugging (combine with `--exprs-to` to see what would be sent)
-- Return a distinct error code if evaluation throws; opt-in (now: 0)
-- Windows support
-- ~~`-!` takes minimum version~~ ✅
-
-## Less important features
-
-- Capture arguments from environment (now: only from command line)
-- Host name assertion (safer, esp. with port forwarding vpns)
-- Colored output: on/off/auto, defaults to auto, match with jq colors
-- Pretty-printing: on/off/auto, defaults to auto
-- JSON encoded output
-- YAML encoded output
-- table output
-- `--help` renders script's help when invoked via shebang
-- Tooling for rendering script "docstrings" into Markdown
-- Cache successfully resolved route to reduce unnecesary knocking
-- [socket prepl support](./notes/prepl.md)
-- Merge `--port` and `--port-file` options
-  - `--port` already handles host aliases, so why not port file paths
-- Rewrite rules (e.g `clojure.pprint/print` → `puget.cprint`)
-  - conditional on stdout or stderr being connected to tty locally
-- `--watch` the script and input files and resubmit upon change
+- Cache successfully resolved routes for SSH: reduces unnecesary knocking
+- Reuse tunneled connection (see OpenSSH ControlMaster)
 - **Skip SSH fingerprint**: When tunneling through a stable localhost port (can
   happen with VPN setups, for example) to multiple different remote hosts you
   easily end up in a sitation in which the host fingerprint check fails.  Add an
   option to host configuration (`nreplops-hosts.toml`) to allow skipping this
   check.  (Effectively `-o StrictHostKeyChecking=no`.)  Alternatively document
   how to achieve the same by changing `~/.ssh/config`.
+- Support [socket prepl](./notes/prepl.md)
 - **Run against multiple servers**: Enable running the same script against
   multiple nREPL servers in one go.  Might be useful in ping-like queries.
-- Subcommand for creating and editing scripts (see [Subcommands](#subcommands))
-- Subcommand for checking code and docs parse okay (see [Subcommands](#subcommands))
 
-## Miscallaneous to-do
+## Scripting/shebang features
+
+- Proper argument handling and interpolation (see below)
+- `--help` renders script's help when invoked via shebang
+- Tooling for rendering script "docstrings" into Markdown
+- `--production` with optional "are you sure?" mechanism
+- `--dry-run` for debugging (combine with `--exprs-to` to see what would be sent)
+- Creating and editing scripts (see [Subcommands](#subcommands) below)
+- Checking code and docs parse okay (see [Subcommands](#subcommands) below)
+- `--watch` the script and input files and resubmit upon change
+- Rewrite rules (e.g `clojure.pprint/print` → `puget.cprint`)
+  - conditional on stdout or stderr being connected to local tty
+  - note: pointless, if we pretty-print ourselves
+
+## Output features
+
+- `--exprs-to <sink>` for echoing sent expressions to `<sink>`
+- `--stdin-to <sink>` for echoing sent input to `<sink>`
+- `--log-to <sink>` write an execution log to a file
+- `--log` write an execution log to a file named by the source file
+- Pretty-printed output: on/off/auto, defaults to auto
+- Colored output: on/off/auto, defaults to auto, match with jq colors
+- JSON encoded output
+- YAML encoded output
+- Table output
+
+## Other features
+
+- Windows support
+
+## Miscallaneous to-dos
 
 - configure the CI to run the integration (Clojure) tests
 
-## Details for selected features
+## More details on selected features
 
 ### Argument handling and interpolation
 
@@ -79,7 +91,6 @@
 - **Ask argument values interactively**: When running in terminal context (tty)
   the program could ask the user to input values for arguments that are missing
   them.
-
 - provide tagged literal function `#nr` for running the scripts directly on the
   host Clojure process (for testing purposes)
 
@@ -96,3 +107,4 @@ The subcommands could be:
 - `edit`: Opens or creates the given files for editing in the user's default
   editor.  Furnishes the file, in case it is newly created, with shebang spell
   and documentation template.
+- `pp` or `pretty`: Pretty prints the input.
