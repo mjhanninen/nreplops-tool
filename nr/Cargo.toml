@@ -7,7 +7,7 @@ categories = ["command-line-utilities", "development-tools"]
 authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/mjhanninen/nreplops-tool"
-readme = "README.md"
+readme = "../README.md"
 edition = "2021"
 default-run = "nr"
 
