@@ -14,7 +14,7 @@
 // the License.
 
 use std::{
-  ffi,
+  env, ffi,
   io::{self, IsTerminal},
   path,
   rc::Rc,
@@ -43,7 +43,25 @@ pub struct Args {
 
 impl Args {
   pub fn from_command_line() -> Result<Self, Error> {
-    Self::try_from(Cli::parse())
+    let mut args_os = env::args_os().collect::<Vec<ffi::OsString>>();
+
+    // Inject an "any" version range after the shebang mode flag (`-!`) in
+    // certain cases.  This helps Clap to not confuse positional arguments with
+    // the optional version assertion.
+    if let Some(pos) =
+      args_os.iter().position(|arg| *arg == ffi::OsStr::new("-!"))
+    {
+      if args_os
+        .get(pos + 1)
+        .and_then(|value| value.to_str())
+        .map(|value| parse_version_range(value).is_err())
+        .unwrap_or(true)
+      {
+        args_os.insert(pos + 1, "..".into());
+      }
+    }
+
+    Self::try_from(Cli::parse_from(args_os))
   }
 }
 
