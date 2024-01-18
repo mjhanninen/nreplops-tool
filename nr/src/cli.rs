@@ -172,6 +172,19 @@ impl TryFrom<Cli> for Args {
       .map(IoArg::try_from)
       .transpose()
       .map_err(|_| Error::BadStdIn)?;
+    //
+    // XXX(soija) Is this correct? `--stdin` determines what gets sent to the
+    //            server as stdin and `stdin_reserved` means that the source is
+    //            read from the local stdin.  So, I think, it should be okay to
+    //
+    //                cat program.clj | nr --stdin input.txt
+    //
+    //            which should be more or less equivalent to
+    //
+    //                nr --file program.clj --stdin input.txt
+    //
+    //            Right?
+    //
     if stdin_from.is_some() && stdin_reserved {
       return Err(Error::StdInConflict);
     }
