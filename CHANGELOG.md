@@ -2,6 +2,9 @@
 
 ## [Unreleased][unreleased]
 
+- **Breaking**: Fixes a bug where the first positional argument was parsed as the
+  version assertion when the latter was not given (through the shebang flag `-!`)
+
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.2.0...main
 
 ## [Version 0.2.0][v0.2.0]
@@ -10,10 +13,10 @@
   specified as the first positional argument. Piping from stdin is no longer
   supported.
 
-- Enhancement: The shebang mode flag `-!` now supports an optional version
-  assertion. This can be either a minimum point version in a non-breaking version
-  range (e.g., `-! 0.2` for versions >= 0.2.0 and < 0.3.0) or a specific version
-  range (e.g., `-! 1.2.3..4.5.6` for versions >= 1.2.3 and < 4.5.6).
+- The shebang mode flag `-!` now supports an optional version assertion. This
+  can be either a minimum point version in a non-breaking version range (e.g.,
+  `-! 0.2` for versions >= 0.2.0 and < 0.3.0) or a specific version range (e.g.,
+  `-! 1.2.3..4.5.6` for versions >= 1.2.3 and < 4.5.6).
 
 [v0.2.0]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.2...v0.2.0}
 
