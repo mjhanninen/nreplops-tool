@@ -74,7 +74,8 @@
 
 ## Miscallaneous to-dos
 
-- configure the CI to run the integration (Clojure) tests
+- Fix bad error message "bad source file": What does it mean? Which file?
+- Configure the CI to run the integration (Clojure) tests
 
 ## More details on selected features
 
