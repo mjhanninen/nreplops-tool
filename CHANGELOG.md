@@ -2,10 +2,14 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.0...main
+
+## [Version 0.3.0][v0.3.0]
+
 - **Breaking**: Fixes a bug where the first positional argument was parsed as the
   version assertion when the latter was not given (through the shebang flag `-!`)
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.2.0...main
+[v0.3.0]: https://github.com/mjhanninen/nreplops-tool/compare/v0.2.0...v0.3.0}
 
 ## [Version 0.2.0][v0.2.0]
 
