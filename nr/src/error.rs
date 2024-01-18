@@ -19,9 +19,9 @@ use crate::version::{Version, VersionRange};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-  #[error("too old nr ({0}), scripts requires {1}")]
+  #[error("too old nr ({0}), the script requires version {1}")]
   TooOldVersion(Version, VersionRange),
-  #[error("too now nr ({0}), scripts requires {1}")]
+  #[error("too new nr ({0}), the script requires version {1}")]
   TooNewVersion(Version, VersionRange),
   #[error("No input")]
   NoInput,
