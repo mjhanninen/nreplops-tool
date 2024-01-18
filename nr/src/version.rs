@@ -51,16 +51,18 @@ impl Version {
   }
 
   pub fn cmp_to_range(&self, range: &VersionRange) -> cmp::Ordering {
-    #[allow(clippy::if_same_then_else)]
-    if *self < range.start {
-      cmp::Ordering::Less
-    } else if range.end < *self {
-      cmp::Ordering::Greater
-    } else if range.end == *self && !range.inclusive {
-      cmp::Ordering::Greater
-    } else {
-      cmp::Ordering::Equal
+    use cmp::Ordering::*;
+    if let Some(ref start) = range.start {
+      if *self < *start {
+        return Less;
+      }
     }
+    if let Some(ref end) = range.end {
+      if *end < *self || (!range.inclusive && *end == *self) {
+        return Greater;
+      }
+    }
+    Equal
   }
 }
 
@@ -117,16 +119,16 @@ impl fmt::Display for Version {
 
 #[derive(Clone, Debug)]
 pub struct VersionRange {
-  pub start: Version,
-  pub end: Version,
+  pub start: Option<Version>,
+  pub end: Option<Version>,
   pub inclusive: bool,
 }
 
 impl VersionRange {
   pub fn non_breaking_from(start: &Version) -> Self {
     Self {
-      start: start.clone(),
-      end: start.next_breaking(),
+      start: Some(start.clone()),
+      end: Some(start.next_breaking()),
       inclusive: false,
     }
   }
@@ -136,37 +138,48 @@ impl str::FromStr for VersionRange {
   type Err = ParseVersionRangeError;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn parse_version(
+      s: &str,
+    ) -> Result<Option<Version>, ParseVersionRangeError> {
+      match s.parse() {
+        Ok(v) => Ok(Some(v)),
+        Err(_) => Err(ParseVersionRangeError),
+      }
+    }
+
+    fn parse_opt_version(
+      s: &str,
+    ) -> Result<Option<Version>, ParseVersionRangeError> {
+      if s.is_empty() {
+        Ok(None)
+      } else {
+        parse_version(s)
+      }
+    }
+
     if let Some((start_str, end_str)) = s.split_once("..=") {
-      let Ok(start) = start_str.parse() else {
-        return Err(ParseVersionRangeError);
-      };
-      let Ok(end) = end_str.parse() else {
-        return Err(ParseVersionRangeError);
-      };
-      if start <= end {
+      let start = parse_opt_version(start_str)?;
+      let end = parse_version(end_str)?;
+      if start.is_some() && end.is_some() && start > end {
+        Err(ParseVersionRangeError)
+      } else {
         Ok(Self {
           start,
           end,
           inclusive: true,
         })
-      } else {
-        Err(ParseVersionRangeError)
       }
     } else if let Some((start_str, end_str)) = s.split_once("..") {
-      let Ok(start) = start_str.parse() else {
-        return Err(ParseVersionRangeError);
-      };
-      let Ok(end) = end_str.parse() else {
-        return Err(ParseVersionRangeError);
-      };
-      if start < end {
+      let start = parse_opt_version(start_str)?;
+      let end = parse_opt_version(end_str)?;
+      if start.is_some() && end.is_some() && start >= end {
+        Err(ParseVersionRangeError)
+      } else {
         Ok(Self {
           start,
           end,
           inclusive: false,
         })
-      } else {
-        Err(ParseVersionRangeError)
       }
     } else {
       Err(ParseVersionRangeError)
@@ -179,13 +192,14 @@ pub struct ParseVersionRangeError;
 
 impl fmt::Display for VersionRange {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(
-      f,
-      "{}{}{}",
-      self.start,
-      if self.inclusive { "..=" } else { ".." },
-      self.end,
-    )
+    if let Some(ref v) = self.start {
+      write!(f, "{}", v)?;
+    }
+    write!(f, "{}", if self.inclusive { "..=" } else { ".." })?;
+    if let Some(ref v) = self.end {
+      write!(f, "{}", v)?;
+    }
+    Ok(())
   }
 }
 
@@ -296,8 +310,8 @@ mod test {
 
     assert!(match "1..=1".parse() {
       Ok(VersionRange {
-        start: Major(1),
-        end: Major(1),
+        start: Some(Major(1)),
+        end: Some(Major(1)),
         inclusive: true,
       }) => true,
       bad => panic!("bad parse: {:#?}", bad),
@@ -305,8 +319,8 @@ mod test {
 
     assert!(match "1..=1.0.0".parse() {
       Ok(VersionRange {
-        start: Major(1),
-        end: MajorMinorPatch(1, 0, 0),
+        start: Some(Major(1)),
+        end: Some(MajorMinorPatch(1, 0, 0)),
         inclusive: true,
       }) => true,
       bad => panic!("bad parse: {:#?}", bad),
@@ -314,8 +328,44 @@ mod test {
 
     assert!(match "1..1.0.1".parse() {
       Ok(VersionRange {
-        start: Major(1),
-        end: MajorMinorPatch(1, 0, 1),
+        start: Some(Major(1)),
+        end: Some(MajorMinorPatch(1, 0, 1)),
+        inclusive: false,
+      }) => true,
+      bad => panic!("bad parse: {:#?}", bad),
+    });
+
+    assert!(match "1..".parse() {
+      Ok(VersionRange {
+        start: Some(Major(1)),
+        end: None,
+        inclusive: false,
+      }) => true,
+      bad => panic!("bad parse: {:#?}", bad),
+    });
+
+    assert!(match "..1".parse() {
+      Ok(VersionRange {
+        start: None,
+        end: Some(Major(1)),
+        inclusive: false,
+      }) => true,
+      bad => panic!("bad parse: {:#?}", bad),
+    });
+
+    assert!(match "..=1".parse() {
+      Ok(VersionRange {
+        start: None,
+        end: Some(Major(1)),
+        inclusive: true,
+      }) => true,
+      bad => panic!("bad parse: {:#?}", bad),
+    });
+
+    assert!(match "..".parse() {
+      Ok(VersionRange {
+        start: None,
+        end: None,
         inclusive: false,
       }) => true,
       bad => panic!("bad parse: {:#?}", bad),
@@ -334,6 +384,10 @@ mod test {
     );
     assert_eq!(
       "1.2.3..=1.2.2".parse::<VersionRange>().unwrap_err(),
+      ParseVersionRangeError
+    );
+    assert_eq!(
+      "..=".parse::<VersionRange>().unwrap_err(),
       ParseVersionRangeError
     );
   }

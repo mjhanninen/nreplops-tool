@@ -408,8 +408,8 @@ fn parse_version_range(s: &str) -> Result<VersionRange, &'static str> {
   if let Ok(start) = s.parse::<Version>() {
     let end = start.next_breaking();
     Ok(VersionRange {
-      start,
-      end,
+      start: Some(start),
+      end: Some(end),
       inclusive: false,
     })
   } else if let Ok(range) = s.parse::<VersionRange>() {
