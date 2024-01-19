@@ -33,6 +33,10 @@ pub enum Error {
   CannotReadFile(String),
   #[error("cannot write file {0}")]
   CannotWriteFile(String),
+  #[error("broken stdout pipe")]
+  CannotWriteStdOut,
+  #[error("broken stderr pipe")]
+  CannotWriteStdErr,
   #[error("bad port file {0}")]
   CannotParsePortFile(String),
   #[error("cannot resolve the IP address for the domain {0}")]

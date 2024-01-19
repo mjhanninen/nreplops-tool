@@ -101,10 +101,9 @@ fn eval_sources(
 
   for input in sources.iter() {
     session.eval(&input.content, None, Some(1), Some(1), |response| {
-      if let Some(ref s) = response.value {
-        if let Some(ref output) = outputs.nrepl_results {
-          writeln!(output.writer(), "{}", s)
-            .map_err(|e| xform_err(output, e))?;
+      if let Some(value) = response.value {
+        if let Some(ref sink) = outputs.nrepl_results {
+          sink.output(value)?;
         }
       }
       if let Some(ref s) = response.out {

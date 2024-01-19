@@ -29,7 +29,7 @@ use crate::{
   version::{Version, VersionRange},
 };
 
-use self::tristate::Tristate;
+pub use self::tristate::Tristate;
 
 #[derive(Debug)]
 pub struct Args {
@@ -350,14 +350,14 @@ mod tristate {
   }
 
   impl Tristate {
-    // pub fn to_bool(&self, default: bool) -> bool {
-    //   use Tristate::*;
-    //   match self {
-    //     On => true,
-    //     Off => false,
-    //     Auto => default,
-    //   }
-    // }
+    pub fn to_bool(&self, default: bool) -> bool {
+      use Tristate::*;
+      match self {
+        On => true,
+        Off => false,
+        Auto => default,
+      }
+    }
   }
 
   impl fmt::Display for Tristate {

@@ -17,7 +17,7 @@ use std::{
   cell::{RefCell, RefMut},
   collections::HashMap,
   fmt, fs,
-  io::{self, Write},
+  io::{self, IsTerminal, Write},
   path::{self, Path},
   rc::Rc,
 };
@@ -29,8 +29,12 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub enum Output {
-  StdOut,
-  StdErr,
+  StdOut {
+    terminal: bool,
+  },
+  StdErr {
+    terminal: bool,
+  },
   File {
     file: Rc<RefCell<io::BufWriter<fs::File>>>,
     path: Box<Path>,
@@ -40,12 +44,20 @@ pub enum Output {
 impl Output {
   pub fn writer(&self) -> OutputWriter<'_> {
     match *self {
-      Output::StdOut => OutputWriter::StdOut,
-      Output::StdErr => OutputWriter::StdErr,
+      Output::StdOut { .. } => OutputWriter::StdOut,
+      Output::StdErr { .. } => OutputWriter::StdErr,
       Output::File { ref file, ref path } => OutputWriter::File {
         file: file.borrow_mut(),
         path,
       },
+    }
+  }
+
+  pub fn is_terminal(&self) -> bool {
+    match self {
+      Output::StdOut { terminal } => *terminal,
+      Output::StdErr { terminal } => *terminal,
+      _ => false,
     }
   }
 }
@@ -63,8 +75,8 @@ pub enum OutputWriter<'a> {
 impl Output {
   pub fn target(&self) -> OutputTarget {
     match self {
-      Output::StdOut => OutputTarget::StdOut,
-      Output::StdErr => OutputTarget::StdErr,
+      Output::StdOut { .. } => OutputTarget::StdOut,
+      Output::StdErr { .. } => OutputTarget::StdErr,
       Output::File { ref path, .. } => OutputTarget::File(path),
     }
   }
@@ -114,7 +126,7 @@ pub struct Outputs {
   // Receives nREPL's standard error
   pub nrepl_stderr: Option<Output>,
   // Receives result forms
-  pub nrepl_results: Option<Output>,
+  pub nrepl_results: Option<NreplResultsSink>,
 }
 
 impl Outputs {
@@ -155,8 +167,12 @@ impl Outputs {
       None => (),
     }
 
-    let stdout = Output::StdOut;
-    let stderr = Output::StdErr;
+    let stdout = Output::StdOut {
+      terminal: io::stdout().is_terminal(),
+    };
+    let stderr = Output::StdErr {
+      terminal: io::stderr().is_terminal(),
+    };
     let mut nrepl_stdout = None;
     let mut nrepl_stderr = None;
     let mut nrepl_results = None;
@@ -179,7 +195,13 @@ impl Outputs {
         match source {
           Src::StdOut => nrepl_stdout = Some(output.clone()),
           Src::StdErr => nrepl_stderr = Some(output.clone()),
-          Src::Results => nrepl_results = Some(output.clone()),
+          Src::Results => {
+            nrepl_results = Some(NreplResultsSink {
+              _pretty: args.pretty.to_bool(output.is_terminal()),
+              _color: args.color.to_bool(output.is_terminal()),
+              output: output.clone(),
+            })
+          }
         }
       }
     }
@@ -208,4 +230,25 @@ enum Dst {
   StdOut,
   StdErr,
   File(Box<Path>),
+}
+
+#[derive(Debug)]
+pub struct NreplResultsSink {
+  output: Output,
+  _pretty: bool,
+  _color: bool,
+}
+
+impl NreplResultsSink {
+  pub fn output(&self, clj: &str) -> Result<(), Error> {
+    writeln!(self.output.writer(), "{}", clj).map_err(|_| {
+      match self.output.target() {
+        OutputTarget::StdOut => Error::CannotWriteStdOut,
+        OutputTarget::StdErr => Error::CannotWriteStdErr,
+        OutputTarget::File(path) => {
+          Error::CannotWriteFile(path.to_string_lossy().to_string())
+        }
+      }
+    })
+  }
 }
