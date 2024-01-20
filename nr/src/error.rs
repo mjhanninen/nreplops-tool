@@ -15,7 +15,10 @@
 
 use std::io;
 
-use crate::version::{Version, VersionRange};
+use crate::{
+  clojure::lex,
+  version::{Version, VersionRange},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -86,4 +89,8 @@ pub enum Error {
   HostDisconnected,
   #[error("host sent unexptected response")]
   UnexptectedResponse,
+
+  // Related to parsing Clojure
+  #[error("failed to parse result: {0}")]
+  FailedToParseResult(Box<lex::Error>),
 }

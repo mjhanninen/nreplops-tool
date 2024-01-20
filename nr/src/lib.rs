@@ -25,6 +25,7 @@ pub mod cli;
 pub mod clojure;
 pub mod conn_expr;
 pub mod error;
+pub mod formatters;
 pub mod host_options;
 pub mod hosts_files;
 pub mod nrepl;

@@ -24,7 +24,9 @@ use std::{
 
 use crate::{
   cli::{self, IoArg},
+  clojure::lex,
   error::Error,
+  formatters::Formatter,
 };
 
 #[derive(Clone, Debug)]
@@ -196,10 +198,15 @@ impl Outputs {
           Src::StdOut => nrepl_stdout = Some(output.clone()),
           Src::StdErr => nrepl_stderr = Some(output.clone()),
           Src::Results => {
+            let pretty = args.pretty.to_bool(output.is_terminal());
+            let color = args.color.to_bool(output.is_terminal());
             nrepl_results = Some(NreplResultsSink {
-              _pretty: args.pretty.to_bool(output.is_terminal()),
-              _color: args.color.to_bool(output.is_terminal()),
               output: output.clone(),
+              formatter: if pretty || color {
+                Some(Formatter::new(pretty, color))
+              } else {
+                None
+              },
             })
           }
         }
@@ -235,13 +242,21 @@ enum Dst {
 #[derive(Debug)]
 pub struct NreplResultsSink {
   output: Output,
-  _pretty: bool,
-  _color: bool,
+  formatter: Option<Formatter>,
 }
 
 impl NreplResultsSink {
-  pub fn output(&self, clj: &str) -> Result<(), Error> {
-    writeln!(self.output.writer(), "{}", clj)
-      .map_err(|e| self.output.generate_error(e))
+  pub fn output(&self, clojure: &str) -> Result<(), Error> {
+    if let Some(ref f) = self.formatter {
+      f.write(
+        &mut self.output.writer(),
+        // XXX(soija) I have not thought out the implications of this aggressive
+        //            error handling.
+        &lex::lex(clojure).map_err(|e| Error::FailedToParseResult(e.into()))?,
+      )
+    } else {
+      writeln!(self.output.writer(), "{}", clojure)
+    }
+    .map_err(|e| self.output.generate_error(e))
   }
 }
