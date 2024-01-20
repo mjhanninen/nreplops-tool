@@ -60,6 +60,16 @@ impl Output {
       _ => false,
     }
   }
+
+  pub fn generate_error(&self, _: io::Error) -> Error {
+    match self {
+      Output::StdOut { .. } => Error::CannotWriteStdOut,
+      Output::StdErr { .. } => Error::CannotWriteStdErr,
+      Output::File { path, .. } => {
+        Error::CannotWriteFile(path.to_string_lossy().to_string())
+      }
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -70,16 +80,6 @@ pub enum OutputWriter<'a> {
     file: RefMut<'a, io::BufWriter<fs::File>>,
     path: &'a Path,
   },
-}
-
-impl Output {
-  pub fn target(&self) -> OutputTarget {
-    match self {
-      Output::StdOut { .. } => OutputTarget::StdOut,
-      Output::StdErr { .. } => OutputTarget::StdErr,
-      Output::File { ref path, .. } => OutputTarget::File(path),
-    }
-  }
 }
 
 impl<'a> Write for OutputWriter<'a> {
@@ -241,14 +241,7 @@ pub struct NreplResultsSink {
 
 impl NreplResultsSink {
   pub fn output(&self, clj: &str) -> Result<(), Error> {
-    writeln!(self.output.writer(), "{}", clj).map_err(|_| {
-      match self.output.target() {
-        OutputTarget::StdOut => Error::CannotWriteStdOut,
-        OutputTarget::StdErr => Error::CannotWriteStdErr,
-        OutputTarget::File(path) => {
-          Error::CannotWriteFile(path.to_string_lossy().to_string())
-        }
-      }
-    })
+    writeln!(self.output.writer(), "{}", clj)
+      .map_err(|e| self.output.generate_error(e))
   }
 }

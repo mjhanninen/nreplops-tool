@@ -21,13 +21,9 @@
   unused
 )]
 
-use std::{
-  cmp,
-  io::{self, Write},
-  process,
-};
+use std::{cmp, io::Write, process};
 
-use nreplops_tool::{self, error::Error, outputs::OutputTarget, version, *};
+use nreplops_tool::{self, error::Error, version, *};
 
 fn main() {
   let args = cli::Args::from_command_line().unwrap_or_else(die);
@@ -86,19 +82,6 @@ fn eval_sources(
   sources: &[sources::Source],
   outputs: &outputs::Outputs,
 ) -> Result<(), Error> {
-  fn xform_err(output: &outputs::Output, _: io::Error) -> Error {
-    match output.target() {
-      // XXX(soija) These panics would make us leak sessions.  On the other hand
-      //            a situation in which we cannot write stdout/err is already
-      //            pretty exotic.
-      OutputTarget::StdOut => panic!("cannot write to stdout"),
-      OutputTarget::StdErr => panic!("cannot write to stderr"),
-      OutputTarget::File(path) => {
-        Error::CannotWriteFile(path.to_string_lossy().to_string())
-      }
-    }
-  }
-
   for input in sources.iter() {
     session.eval(&input.content, None, Some(1), Some(1), |response| {
       if let Some(value) = response.value {
@@ -108,12 +91,14 @@ fn eval_sources(
       }
       if let Some(ref s) = response.out {
         if let Some(ref output) = outputs.nrepl_stdout {
-          write!(output.writer(), "{}", s).map_err(|e| xform_err(output, e))?;
+          write!(output.writer(), "{}", s)
+            .map_err(|e| output.generate_error(e))?;
         }
       }
       if let Some(ref s) = response.err {
         if let Some(ref output) = outputs.nrepl_stderr {
-          write!(output.writer(), "{}", s).map_err(|e| xform_err(output, e))?;
+          write!(output.writer(), "{}", s)
+            .map_err(|e| output.generate_error(e))?;
         }
       }
       Ok(())
