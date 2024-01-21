@@ -88,19 +88,10 @@ pub enum Lexeme<'a> {
     syntax: CharSyntax,
     value: char,
   },
-  StringOpen {
+  String {
     form_ix: FormIx,
-  },
-  StringClose {
-    form_ix: FormIx,
-  },
-  Unescaped {
-    form_ix: FormIx,
-    value: &'a str,
-  },
-  Escaped {
-    form_ix: FormIx,
-    code: u32,
+    literal: &'a str,
+    value: Box<[StringFragment<'a>]>,
   },
   Regex {
     form_ix: FormIx,
@@ -209,6 +200,12 @@ pub enum NumberClass {
   BigInt,
   BigDecimal,
   Ratio,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum StringFragment<'a> {
+  Unescaped { value: &'a str },
+  Escaped { code: u32 },
 }
 
 type Lexemes<'a> = Vec<Lexeme<'a>>;
@@ -517,7 +514,6 @@ impl<'a> Helper<'a> {
   fn unsigned_int(
     &mut self,
     parent: Pair<'a>,
-
     form_ix: FormIx,
     literal: &'a str,
     positive: bool,
@@ -560,11 +556,11 @@ impl<'a> Helper<'a> {
   }
 
   fn string(&mut self, parent: Pair<'a>, form_ix: FormIx) {
-    self.push(Lexeme::StringOpen { form_ix });
+    let mut fragments = Vec::new();
+    let literal = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::unescaped => self.push(Lexeme::Unescaped {
-          form_ix,
+        Rule::unescaped => fragments.push(StringFragment::Unescaped {
           value: child.as_str(),
         }),
         Rule::esc_char => {
@@ -579,22 +575,27 @@ impl<'a> Helper<'a> {
             "\\" => 0x5C,
             e => unreachable!("inexhaustive: {}", e),
           };
-          self.push(Lexeme::Escaped { form_ix, code })
+          fragments.push(StringFragment::Escaped { code })
         }
         Rule::esc_octet => {
           let value = &child.as_str()[1..];
           let code = u32::from_str_radix(value, 8).unwrap();
-          self.push(Lexeme::Escaped { form_ix, code })
+          fragments.push(StringFragment::Escaped { code })
         }
         Rule::esc_code_point => {
           let value = &child.as_str()[2..];
           let code = u32::from_str_radix(value, 16).unwrap();
-          self.push(Lexeme::Escaped { form_ix, code })
+          fragments.push(StringFragment::Escaped { code })
         }
         _ => self.push(Lexeme::Residual(child)),
       }
     }
-    self.push(Lexeme::StringClose { form_ix });
+    fragments.shrink_to_fit();
+    self.push(Lexeme::String {
+      form_ix,
+      literal,
+      value: fragments.into_boxed_slice(),
+    });
   }
 
   fn regex(&mut self, parent: Pair<'a>, form_ix: FormIx) {
