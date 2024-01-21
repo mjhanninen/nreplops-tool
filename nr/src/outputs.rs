@@ -26,7 +26,7 @@ use crate::{
   cli::{self, IoArg},
   clojure::lex,
   error::Error,
-  formatters::Formatter,
+  printers::ClojureResultPrinter,
 };
 
 #[derive(Clone, Debug)]
@@ -203,7 +203,7 @@ impl Outputs {
             nrepl_results = Some(NreplResultsSink {
               output: output.clone(),
               formatter: if pretty || color {
-                Some(Formatter::new(pretty, color))
+                Some(ClojureResultPrinter::new(pretty, color))
               } else {
                 None
               },
@@ -242,13 +242,13 @@ enum Dst {
 #[derive(Debug)]
 pub struct NreplResultsSink {
   output: Output,
-  formatter: Option<Formatter>,
+  formatter: Option<ClojureResultPrinter>,
 }
 
 impl NreplResultsSink {
   pub fn output(&self, clojure: &str) -> Result<(), Error> {
     if let Some(ref f) = self.formatter {
-      f.write(
+      f.print(
         &mut self.output.writer(),
         // XXX(soija) I have not thought out the implications of this aggressive
         //            error handling.
