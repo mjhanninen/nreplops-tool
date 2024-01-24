@@ -14,5 +14,6 @@
 // the License.
 
 pub mod lex;
+pub mod result_ir;
 
 mod pest_grammar;
