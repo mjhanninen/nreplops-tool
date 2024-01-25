@@ -13,6 +13,52 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+//
+// So the different representations that the result being printed passes through
+// are the following:
+//
+// 1. unparsed result
+// 2. list of lexemes
+// 3. result value AST
+// 4. input structure to layout solver
+// 5. input structure to printer
+//
+// The unparsed result (1) is what we receive from the nREPL server.  This
+// is produced by Clojure's printer so it is Clojure but, importantly, very
+// restricted form of Clojure.  It does not contain meta data literal and most
+// of the reader macros are absent as well.
+//
+// The lexemes (2) are produced with our Clojure lexer and should be able to
+// represent the whole language.  However, as the input result is restricted
+// form of Clojure, so the produced lexemes are also a subset of known lexemes.
+//
+// The abstract syntax tree (3) is capable of representing only a limited subset
+// of Clojure; this is effectively the EDN.  It is rich enough so that we can
+// formulate the problem for the layout solver and, optionally, translate the
+// data into some other form (e.g. JSON, YAML, or CSV).
+//
+// The input to the pretty-printing layout solver (4) is either a flat list
+// or a tree structure.  I'm not sure which one it will be.  In any case it
+// conssists of chunks of unbreakable texts together with styling information,
+// suggested breakpoints, layout anchors, optional whitespacing, relationships
+// between breakpoints and the like.  Things that the layout solver uses while
+// determining the optimal layout.
+//
+// The input to the printer (5) consists of text fragments, style coding
+// (separated from the text), line breaks, and spacing.  There is not much
+// conditionality at this phase; only the decision whether to include or
+// ignore the styling (coloring) when printing according to the alraedy fixed
+// layout.
+//
+// When we are printing unformatted but colored output we can skip the phases
+// (3) and (4) produce the printer input (5) directly from the lexemes (2).
+//
+// When we are converting the results to some other output format (e.g. JSON,
+// YAML, or CSV) we follow through the same phases but do the translation
+// into the alternative output format when we produce the input for the layout
+// solver.
+//
+
 #![allow(unused)]
 
 use std::io::{self, Write};
