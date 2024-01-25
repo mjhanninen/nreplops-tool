@@ -36,3 +36,4 @@ pub mod sources;
 pub mod version;
 
 mod bencode;
+mod style;

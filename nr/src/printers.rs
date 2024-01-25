@@ -108,7 +108,7 @@ where
   for c in chunks {
     match c {
       C::Text(fragments) => {
-        use fragments::Style as S;
+        use crate::style::Style as S;
         for f in fragments.iter() {
           write!(w, "{}", f.text.as_str(),)?;
           col += f.len();
@@ -140,31 +140,6 @@ fn render_with_color<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
 where
   W: Write,
 {
-  let collection_delimiter =
-    anstyle::Style::new().fg_color(Some(anstyle::AnsiColor::White.into()));
-  let symbol_decoration = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightBlack.into()));
-  let symbol_ns = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightBlack.into()));
-  let symbol_name = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightWhite.into()));
-  let keyword_decoration = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightBlack.into()));
-  let keyword_ns = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightBlack.into()));
-  let keyword_name =
-    anstyle::Style::new().fg_color(Some(anstyle::AnsiColor::BrightBlue.into()));
-  let number_value = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightGreen.into()));
-  let string_decoration = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightBlack.into()));
-  let string_value = anstyle::Style::new()
-    .fg_color(Some(anstyle::AnsiColor::BrightGreen.into()));
-  let boolean_value =
-    anstyle::Style::new().fg_color(Some(anstyle::AnsiColor::White.into()));
-  let nil_value =
-    anstyle::Style::new().fg_color(Some(anstyle::AnsiColor::White.into()));
-
   let mut col = 0_u32;
   let mut anchors = vec![0_u32];
 
@@ -172,26 +147,12 @@ where
   for c in chunks {
     match c {
       C::Text(fragments) => {
-        use fragments::Style as S;
+        use crate::style::Style as S;
         for f in fragments.iter() {
           write!(
             w,
             "{}{}{}",
-            match f.style {
-              S::CollectionDelimiter => collection_delimiter,
-              S::SymbolDecoration => symbol_decoration,
-              S::SymbolNamespace => symbol_ns,
-              S::SymbolName => symbol_name,
-              S::KeywordDecoration => keyword_decoration,
-              S::KeywordNamespace => keyword_ns,
-              S::KeywordName => keyword_name,
-              S::StringDecoration => string_decoration,
-              S::StringValue => string_value,
-              S::NumberValue => number_value,
-              S::BooleanValue => boolean_value,
-              S::NilValue => nil_value,
-            }
-            .render(),
+            f.style.to_ansi_color().render_fg(),
             f.text.as_str(),
             anstyle::Reset.render()
           )?;
@@ -228,7 +189,7 @@ fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
 }
 
 fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
-  use fragments::Style as S;
+  use crate::style::Style as S;
   use fragments::*;
   use Value as V;
   match value {
@@ -309,7 +270,8 @@ fn chunks_from_value_seq<'a>(
   opening_delim: &'static str,
   closing_delim: &'static str,
 ) {
-  use fragments::{Style as S, *};
+  use crate::style::Style as S;
+  use fragments::*;
   chunks.push(
     TextBuilder::new()
       .add(opening_delim, S::CollectionDelimiter)
@@ -343,7 +305,8 @@ fn chunks_from_value_seq<'a>(
 }
 
 fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
-  use fragments::{Style as S, *};
+  use crate::style::Style as S;
+  use fragments::*;
 
   chunks.push(TextBuilder::new().add("{", S::CollectionDelimiter).build());
 
@@ -368,6 +331,8 @@ fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
 mod fragments {
 
   use std::borrow::Borrow;
+
+  use crate::style::Style;
 
   #[derive(Clone, Debug)]
   pub enum Chunk<'a> {
@@ -398,22 +363,6 @@ mod fragments {
       // XXX(soija) FIXME: This is the byte length of the string, should be visible characters
       self.text.as_str().len() as u32
     }
-  }
-
-  #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-  pub enum Style {
-    CollectionDelimiter,
-    SymbolDecoration,
-    SymbolNamespace,
-    SymbolName,
-    KeywordDecoration,
-    KeywordNamespace,
-    KeywordName,
-    StringDecoration,
-    StringValue,
-    NumberValue,
-    BooleanValue,
-    NilValue,
   }
 
   #[derive(Clone, Debug)]
