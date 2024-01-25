@@ -196,6 +196,9 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
       chunks.push(TextBuilder::new().add("\"", S::StringDecoration).build());
       chunks.push(
         TextBuilder::new()
+          // XXX(soija) This subrange is a hack. FIXME: Make the string value
+          //            (and the corresponding string lexeme) to expose the
+          //            string *content* directly.
           .add(&literal[1..literal.len() - 1], S::StringValue)
           .build(),
       );
