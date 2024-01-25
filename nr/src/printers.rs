@@ -40,14 +40,57 @@ impl ClojureResultPrinter {
   ) -> io::Result<()> {
     let value = result_ir::build(lexemes).unwrap();
     let chunks = clojure_chunks(&value);
-    render(writer, &chunks)?;
+    if self.color {
+      render_with_color(writer, &chunks)?;
+    } else {
+      render_without_color(writer, &chunks)?;
+    }
     writeln!(writer)
   }
 }
 
 use fragments::Chunk;
 
-fn render<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
+fn render_without_color<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
+where
+  W: Write,
+{
+  let mut col = 0_u32;
+  let mut anchors = vec![0_u32];
+
+  use Chunk as C;
+  for c in chunks {
+    match c {
+      C::Text(fragments) => {
+        use fragments::Style as S;
+        for f in fragments.iter() {
+          write!(w, "{}", f.text.as_str(),)?;
+          col += f.len();
+        }
+      }
+      C::SoftSpace => {
+        write!(w, " ")?;
+        col += 1;
+      }
+      C::HardBreak => {
+        writeln!(w)?;
+        col = *anchors.last().unwrap();
+        for _ in 0..col {
+          write!(w, " ")?;
+        }
+      }
+      C::PushAnchor => {
+        anchors.push(col);
+      }
+      C::PopAnchor => {
+        anchors.pop();
+      }
+    }
+  }
+  Ok(())
+}
+
+fn render_with_color<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
 where
   W: Write,
 {
