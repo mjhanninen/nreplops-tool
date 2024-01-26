@@ -15,14 +15,17 @@
 
 use std::io::{self, Write};
 
-use super::{fragments::Fragment, style::Style};
+use super::{
+  fragments::{Fragment, FragmentText},
+  style::Style,
+};
 
 pub enum Command<'a> {
   NewLine,
   Space(u16),
   SetStyle(Style),
   ResetStyle(Style),
-  Text(&'a str),
+  Text(FragmentText<'a>),
 }
 
 impl<'a> Command<'a> {
@@ -90,19 +93,39 @@ where
 pub trait BuildInput<'a> {
   fn add_new_line(&mut self);
   fn add_spaces(&mut self, amount: u16);
-  fn add_fragment(&mut self, fragment: &'a Fragment<'a>);
+  fn add_fragment(&mut self, fragment: &Fragment<'a>);
+  fn add_styled<T: Into<FragmentText<'a>>>(&mut self, style: Style, text: T);
+  fn add_plain<T: Into<FragmentText<'a>>>(&mut self, text: T);
 }
 
 impl<'a> BuildInput<'a> for Vec<Command<'a>> {
   fn add_new_line(&mut self) {
     self.push(Command::NewLine);
   }
+
   fn add_spaces(&mut self, amount: u16) {
     self.push(Command::Space(amount))
   }
-  fn add_fragment(&mut self, fragment: &'a Fragment<'a>) {
+
+  fn add_fragment(&mut self, fragment: &Fragment<'a>) {
     self.push(Command::SetStyle(fragment.style));
-    self.push(Command::Text(fragment.text.as_str()));
+    self.push(Command::Text(fragment.text.clone()));
     self.push(Command::ResetStyle(fragment.style));
+  }
+
+  fn add_styled<T>(&mut self, style: Style, text: T)
+  where
+    T: Into<FragmentText<'a>>,
+  {
+    self.push(Command::SetStyle(style));
+    self.add_plain(text);
+    self.push(Command::ResetStyle(style));
+  }
+
+  fn add_plain<T>(&mut self, text: T)
+  where
+    T: Into<FragmentText<'a>>,
+  {
+    self.push(Command::Text(text.into()));
   }
 }

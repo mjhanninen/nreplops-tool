@@ -69,10 +69,7 @@ impl<'a> TextBuilder<'a> {
   }
 }
 
-pub fn solve<'a>(
-  chunks: &'a [Chunk<'a>],
-  printer_input: &mut Vec<Command<'a>>,
-) {
+pub fn solve<'a>(chunks: &[Chunk<'a>], printer_input: &mut Vec<Command<'a>>) {
   use super::printer::BuildInput;
   use Chunk as C;
 

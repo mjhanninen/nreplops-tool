@@ -49,6 +49,13 @@ impl<'a> FragmentText<'a> {
   pub fn as_str(&'a self) -> &'a str {
     self.borrow()
   }
+
+  pub fn as_bytes(&'a self) -> &'a [u8] {
+    match self {
+      FragmentText::Borrowed(b) => b.as_bytes(),
+      FragmentText::Owned(o) => o.as_bytes(),
+    }
+  }
 }
 
 impl<'a> From<&'a str> for FragmentText<'a> {

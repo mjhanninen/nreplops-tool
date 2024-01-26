@@ -19,6 +19,7 @@ use anstyle::{AnsiColor, Style as Anstyle};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Style {
+  Whitespace,
   CollectionDelimiter,
   SymbolDecoration,
   SymbolNamespace,
@@ -38,6 +39,7 @@ impl Style {
     use AnsiColor as A;
     use Style as S;
     match *self {
+      S::Whitespace => A::BrightBlack,
       S::CollectionDelimiter => A::White,
       S::SymbolDecoration => A::BrightBlack,
       S::SymbolNamespace => A::BrightBlack,
