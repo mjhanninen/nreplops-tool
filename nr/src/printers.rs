@@ -86,11 +86,9 @@ impl ClojureResultPrinter {
   ) -> io::Result<()> {
     let value = result_ir::build(lexemes).unwrap();
     let chunks = clojure_chunks(&value);
-    if self.color {
-      render_with_color(writer, &chunks)?;
-    } else {
-      render_without_color(writer, &chunks)?;
-    }
+    let mut printer_input = Vec::new();
+    layout_solver::solve(&chunks, &mut printer_input);
+    printer::print(writer, printer_input.iter(), self.color)?;
     writeln!(writer)
   }
 }
@@ -192,91 +190,7 @@ mod printer {
   }
 }
 
-use fragments::Chunk;
-
-fn render_without_color<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
-where
-  W: Write,
-{
-  let mut col = 0_u32;
-  let mut anchors = vec![0_u32];
-
-  use Chunk as C;
-  for c in chunks {
-    match c {
-      C::Text(fragments) => {
-        use crate::style::Style as S;
-        for f in fragments.iter() {
-          write!(w, "{}", f.text.as_str(),)?;
-          col += f.len();
-        }
-      }
-      C::SoftSpace => {
-        write!(w, " ")?;
-        col += 1;
-      }
-      C::HardBreak => {
-        writeln!(w)?;
-        col = *anchors.last().unwrap();
-        for _ in 0..col {
-          write!(w, " ")?;
-        }
-      }
-      C::PushAnchor => {
-        anchors.push(col);
-      }
-      C::PopAnchor => {
-        anchors.pop();
-      }
-    }
-  }
-  Ok(())
-}
-
-fn render_with_color<W>(w: &mut W, chunks: &[Chunk]) -> io::Result<()>
-where
-  W: Write,
-{
-  let mut col = 0_u32;
-  let mut anchors = vec![0_u32];
-
-  use Chunk as C;
-  for c in chunks {
-    match c {
-      C::Text(fragments) => {
-        use crate::style::Style as S;
-        for f in fragments.iter() {
-          write!(
-            w,
-            "{}{}{}",
-            f.style.to_ansi_color().render_fg(),
-            f.text.as_str(),
-            anstyle::Reset.render()
-          )?;
-          col += f.len();
-        }
-      }
-      C::SoftSpace => {
-        write!(w, " ")?;
-        col += 1;
-      }
-      C::HardBreak => {
-        writeln!(w)?;
-        col = *anchors.last().unwrap();
-        for _ in 0..col {
-          write!(w, " ")?;
-        }
-      }
-      C::PushAnchor => {
-        anchors.push(col);
-      }
-      C::PopAnchor => {
-        anchors.pop();
-      }
-    }
-  }
-  Ok(())
-}
+use layout_solver::Chunk;
 
 fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
   let mut chunks = Vec::new();
@@ -288,7 +202,9 @@ fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
 fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
   use crate::style::Style as S;
   use fragments::*;
+  use layout_solver::*;
   use Value as V;
+
   match value {
     V::Nil => {
       chunks.push(TextBuilder::new().add("nil", S::NilValue).build());
@@ -369,6 +285,8 @@ fn chunks_from_value_seq<'a>(
 ) {
   use crate::style::Style as S;
   use fragments::*;
+  use layout_solver::*;
+
   chunks.push(
     TextBuilder::new()
       .add(opening_delim, S::CollectionDelimiter)
@@ -404,6 +322,7 @@ fn chunks_from_value_seq<'a>(
 fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
   use crate::style::Style as S;
   use fragments::*;
+  use layout_solver::*;
 
   chunks.push(TextBuilder::new().add("{", S::CollectionDelimiter).build());
 
@@ -425,10 +344,10 @@ fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
   chunks.push(TextBuilder::new().add("}", S::CollectionDelimiter).build());
 }
 
-mod fragments {
+mod layout_solver {
 
-  use std::borrow::Borrow;
-
+  use super::fragments::{Fragment, FragmentText};
+  use super::printer::Command;
   use crate::style::Style;
 
   #[derive(Clone, Debug)]
@@ -449,6 +368,82 @@ mod fragments {
     Text(Box<[Fragment<'a>]>),
   }
 
+  #[derive(Default)]
+  pub struct TextBuilder<'a> {
+    fragments: Vec<Fragment<'a>>,
+  }
+
+  impl<'a> TextBuilder<'a> {
+    pub fn new() -> Self {
+      Self::default()
+    }
+
+    pub fn add<T: Into<FragmentText<'a>>>(
+      mut self,
+      text: T,
+      style: Style,
+    ) -> Self {
+      self.fragments.push(Fragment::new(style, text));
+      self
+    }
+
+    pub fn apply<F>(self, mut func: F) -> Self
+    where
+      F: FnOnce(Self) -> Self,
+    {
+      func(self)
+    }
+
+    pub fn build(mut self) -> Chunk<'a> {
+      self.fragments.shrink_to_fit();
+      Chunk::Text(self.fragments.into_boxed_slice())
+    }
+  }
+
+  pub fn solve<'a>(
+    chunks: &'a [Chunk<'a>],
+    printer_input: &mut Vec<Command<'a>>,
+  ) {
+    use super::printer::BuildInput;
+    use Chunk as C;
+
+    let mut col = 0_u16;
+    let mut anchors = vec![0_u16];
+
+    for c in chunks {
+      match c {
+        C::Text(fragments) => {
+          for f in fragments.iter() {
+            printer_input.add_fragment(f);
+            col += f.width() as u16;
+          }
+        }
+        C::SoftSpace => {
+          printer_input.add_spaces(1);
+          col += 1;
+        }
+        C::HardBreak => {
+          printer_input.add_new_line();
+          col = *anchors.last().unwrap();
+          printer_input.add_spaces(col);
+        }
+        C::PushAnchor => {
+          anchors.push(col);
+        }
+        C::PopAnchor => {
+          anchors.pop();
+        }
+      }
+    }
+  }
+}
+
+mod fragments {
+
+  use std::borrow::Borrow;
+
+  use crate::style::Style;
+
   #[derive(Clone, Debug)]
   pub struct Fragment<'a> {
     pub style: Style,
@@ -456,9 +451,18 @@ mod fragments {
   }
 
   impl<'a> Fragment<'a> {
-    pub fn len(&self) -> u32 {
-      // XXX(soija) FIXME: This is the byte length of the string, should be visible characters
-      self.text.as_str().len() as u32
+    pub fn new<T>(style: Style, text: T) -> Self
+    where
+      T: Into<FragmentText<'a>>,
+    {
+      Self {
+        style,
+        text: text.into(),
+      }
+    }
+
+    pub fn width(&self) -> usize {
+      self.text.as_str().chars().count()
     }
   }
 
@@ -492,41 +496,6 @@ mod fragments {
         FragmentText::Borrowed(s) => s,
         FragmentText::Owned(s) => s.borrow(),
       }
-    }
-  }
-
-  #[derive(Default)]
-  pub struct TextBuilder<'a> {
-    fragments: Vec<Fragment<'a>>,
-  }
-
-  impl<'a> TextBuilder<'a> {
-    pub fn new() -> Self {
-      Self::default()
-    }
-
-    pub fn add<T: Into<FragmentText<'a>>>(
-      mut self,
-      text: T,
-      style: Style,
-    ) -> Self {
-      self.fragments.push(Fragment {
-        style,
-        text: text.into(),
-      });
-      self
-    }
-
-    pub fn apply<F>(self, mut func: F) -> Self
-    where
-      F: FnOnce(Self) -> Self,
-    {
-      func(self)
-    }
-
-    pub fn build(mut self) -> Chunk<'a> {
-      self.fragments.shrink_to_fit();
-      Chunk::Text(self.fragments.into_boxed_slice())
     }
   }
 }
