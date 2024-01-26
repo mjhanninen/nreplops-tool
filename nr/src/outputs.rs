@@ -26,7 +26,7 @@ use crate::{
   cli::{self, IoArg},
   clojure::lex,
   error::Error,
-  printers::ClojureResultPrinter,
+  pprint::ClojureResultPrinter,
 };
 
 #[derive(Clone, Debug)]

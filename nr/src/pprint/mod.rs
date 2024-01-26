@@ -1,4 +1,4 @@
-// printer.rs
+// pprint/mod.rs
 // Copyright 2024 Matti Hänninen
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -63,10 +63,16 @@
 
 use std::io::{self, Write};
 
+mod fragments;
+mod layout_solver;
+mod printer;
+mod style;
+
 use crate::clojure::{
   lex::Lexeme,
   result_ir::{self, KeywordNamespace, MapEntry, Value},
 };
+use layout_solver::Chunk;
 
 #[derive(Debug)]
 pub struct ClojureResultPrinter {
@@ -93,105 +99,6 @@ impl ClojureResultPrinter {
   }
 }
 
-mod printer {
-  use std::io::{self, Write};
-
-  use super::fragments::Fragment;
-  use crate::style::Style;
-
-  pub enum Command<'a> {
-    NewLine,
-    Space(u16),
-    SetStyle(Style),
-    ResetStyle(Style),
-    Text(&'a str),
-  }
-
-  impl<'a> Command<'a> {
-    fn is_set_style(&self) -> bool {
-      matches!(self, Command::SetStyle(_))
-    }
-  }
-
-  const SPACES_LEN: usize = 64;
-  static SPACES: [u8; SPACES_LEN] = [b' '; SPACES_LEN];
-
-  pub fn print<'a, W, I>(
-    writer: &mut W,
-    input: I,
-    use_color: bool,
-  ) -> io::Result<()>
-  where
-    W: Write,
-    I: Iterator<Item = &'a Command<'a>>,
-  {
-    use Command as C;
-
-    let mut current_color = None;
-    let mut it = input.peekable();
-
-    while let Some(command) = it.next() {
-      match command {
-        C::NewLine => writeln!(writer)?,
-        C::Space(amount) => {
-          let mut remaining = *amount as usize;
-          while remaining > SPACES_LEN {
-            writer.write_all(&SPACES)?;
-            remaining -= SPACES_LEN;
-          }
-          if remaining > 0 {
-            writer.write_all(&SPACES[0..remaining])?;
-          }
-        }
-        C::SetStyle(style) => {
-          if use_color {
-            let new_color = style.to_ansi_color();
-            match current_color {
-              Some(old_color) if old_color == new_color => (),
-              _ => {
-                write!(writer, "{}", new_color.render_fg())?;
-                current_color = Some(new_color);
-              }
-            }
-          }
-        }
-        C::ResetStyle(style) => {
-          if use_color
-            && it.peek().map(|next| !next.is_set_style()).unwrap_or(true)
-          {
-            write!(writer, "{}", anstyle::Reset.render())?;
-            current_color = None;
-          }
-        }
-        C::Text(text) => writer.write_all(text.as_bytes())?,
-      }
-    }
-    Ok(())
-  }
-
-  pub trait BuildInput<'a> {
-    fn add_new_line(&mut self);
-    fn add_spaces(&mut self, amount: u16);
-    fn add_fragment(&mut self, fragment: &'a Fragment<'a>);
-  }
-
-  impl<'a> BuildInput<'a> for Vec<Command<'a>> {
-    fn add_new_line(&mut self) {
-      self.push(Command::NewLine);
-    }
-    fn add_spaces(&mut self, amount: u16) {
-      self.push(Command::Space(amount))
-    }
-    fn add_fragment(&mut self, fragment: &'a Fragment<'a>) {
-      self.push(Command::SetStyle(fragment.style));
-      self.push(Command::Text(fragment.text.as_str()));
-      self.push(Command::ResetStyle(fragment.style));
-    }
-  }
-}
-
-use layout_solver::Chunk;
-
 fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
   let mut chunks = Vec::new();
   chunks_from_value(&mut chunks, value);
@@ -200,9 +107,9 @@ fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
 }
 
 fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
-  use crate::style::Style as S;
   use fragments::*;
   use layout_solver::*;
+  use style::Style as S;
   use Value as V;
 
   match value {
@@ -283,9 +190,9 @@ fn chunks_from_value_seq<'a>(
   opening_delim: &'static str,
   closing_delim: &'static str,
 ) {
-  use crate::style::Style as S;
   use fragments::*;
   use layout_solver::*;
+  use style::Style as S;
 
   chunks.push(
     TextBuilder::new()
@@ -320,9 +227,9 @@ fn chunks_from_value_seq<'a>(
 }
 
 fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
-  use crate::style::Style as S;
   use fragments::*;
   use layout_solver::*;
+  use style::Style as S;
 
   chunks.push(TextBuilder::new().add("{", S::CollectionDelimiter).build());
 
@@ -342,160 +249,4 @@ fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
   }
 
   chunks.push(TextBuilder::new().add("}", S::CollectionDelimiter).build());
-}
-
-mod layout_solver {
-
-  use super::fragments::{Fragment, FragmentText};
-  use super::printer::Command;
-  use crate::style::Style;
-
-  #[derive(Clone, Debug)]
-  pub enum Chunk<'a> {
-    /// Marks horizontal
-    PushAnchor,
-    //
-    // XXX(soija) FIXME: Instead using a stacked anchors use indexed ones and
-    //            remove the pop.
-    //
-    /// Removes the latest anchor
-    PopAnchor,
-    /// Inserts space, except at the start of the line
-    SoftSpace,
-    /// Unconditional line break
-    HardBreak,
-    /// Unbreakable strip of fragments
-    Text(Box<[Fragment<'a>]>),
-  }
-
-  #[derive(Default)]
-  pub struct TextBuilder<'a> {
-    fragments: Vec<Fragment<'a>>,
-  }
-
-  impl<'a> TextBuilder<'a> {
-    pub fn new() -> Self {
-      Self::default()
-    }
-
-    pub fn add<T: Into<FragmentText<'a>>>(
-      mut self,
-      text: T,
-      style: Style,
-    ) -> Self {
-      self.fragments.push(Fragment::new(style, text));
-      self
-    }
-
-    pub fn apply<F>(self, mut func: F) -> Self
-    where
-      F: FnOnce(Self) -> Self,
-    {
-      func(self)
-    }
-
-    pub fn build(mut self) -> Chunk<'a> {
-      self.fragments.shrink_to_fit();
-      Chunk::Text(self.fragments.into_boxed_slice())
-    }
-  }
-
-  pub fn solve<'a>(
-    chunks: &'a [Chunk<'a>],
-    printer_input: &mut Vec<Command<'a>>,
-  ) {
-    use super::printer::BuildInput;
-    use Chunk as C;
-
-    let mut col = 0_u16;
-    let mut anchors = vec![0_u16];
-
-    for c in chunks {
-      match c {
-        C::Text(fragments) => {
-          for f in fragments.iter() {
-            printer_input.add_fragment(f);
-            col += f.width() as u16;
-          }
-        }
-        C::SoftSpace => {
-          printer_input.add_spaces(1);
-          col += 1;
-        }
-        C::HardBreak => {
-          printer_input.add_new_line();
-          col = *anchors.last().unwrap();
-          printer_input.add_spaces(col);
-        }
-        C::PushAnchor => {
-          anchors.push(col);
-        }
-        C::PopAnchor => {
-          anchors.pop();
-        }
-      }
-    }
-  }
-}
-
-mod fragments {
-
-  use std::borrow::Borrow;
-
-  use crate::style::Style;
-
-  #[derive(Clone, Debug)]
-  pub struct Fragment<'a> {
-    pub style: Style,
-    pub text: FragmentText<'a>,
-  }
-
-  impl<'a> Fragment<'a> {
-    pub fn new<T>(style: Style, text: T) -> Self
-    where
-      T: Into<FragmentText<'a>>,
-    {
-      Self {
-        style,
-        text: text.into(),
-      }
-    }
-
-    pub fn width(&self) -> usize {
-      self.text.as_str().chars().count()
-    }
-  }
-
-  #[derive(Clone, Debug)]
-  pub enum FragmentText<'a> {
-    Borrowed(&'a str),
-    Owned(Box<str>),
-  }
-
-  impl<'a> FragmentText<'a> {
-    pub fn as_str(&'a self) -> &'a str {
-      self.borrow()
-    }
-  }
-
-  impl<'a> From<&'a str> for FragmentText<'a> {
-    fn from(s: &'a str) -> Self {
-      FragmentText::Borrowed(s)
-    }
-  }
-
-  impl<'a> From<String> for FragmentText<'a> {
-    fn from(s: String) -> Self {
-      FragmentText::Owned(s.into_boxed_str())
-    }
-  }
-
-  impl<'a> Borrow<str> for FragmentText<'a> {
-    fn borrow(&self) -> &str {
-      match self {
-        FragmentText::Borrowed(s) => s,
-        FragmentText::Owned(s) => s.borrow(),
-      }
-    }
-  }
 }
