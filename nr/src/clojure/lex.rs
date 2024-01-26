@@ -17,6 +17,8 @@ use thiserror::Error;
 
 use super::pest_grammar::*;
 
+use Lexeme as L;
+
 #[derive(Debug, Error)]
 pub enum Error {
   #[error("Pest error: {0}")]
@@ -45,116 +47,153 @@ impl FormIx {
 
 #[derive(Debug)]
 pub enum Lexeme<'a> {
-  Whitespace,
-  Comment,
+  Whitespace {
+    source: &'a str,
+  },
+  Comment {
+    source: &'a str,
+  },
   Meta {
     form_ix: FormIx,
     data_ix: FormIx,
-    prefix: &'a str,
+    source: &'a str,
   },
   Discard {
     form_ix: FormIx,
+    source: &'a str,
   },
   Quote {
     form_ix: FormIx,
+    source: &'a str,
   },
   VarQuote {
     form_ix: FormIx,
+    source: &'a str,
   },
   Synquote {
     form_ix: FormIx,
+    source: &'a str,
   },
   Unquote {
     form_ix: FormIx,
+    source: &'a str,
   },
   SplicingUnquote {
     form_ix: FormIx,
+    source: &'a str,
   },
   Nil {
     form_ix: FormIx,
+    source: &'a str,
   },
   Boolean {
     form_ix: FormIx,
     value: bool,
+    source: &'a str,
   },
   Numeric {
     form_ix: FormIx,
-    literal: &'a str,
     class: NumberClass,
     value: NumericValue<'a>,
+    source: &'a str,
   },
   Char {
     form_ix: FormIx,
     syntax: CharSyntax,
     value: char,
+    source: &'a str,
   },
   String {
     form_ix: FormIx,
-    literal: &'a str,
     value: Box<[StringFragment<'a>]>,
+    source: &'a str,
   },
   Regex {
     form_ix: FormIx,
-    value: &'a str,
+    source: &'a str,
   },
   Symbol {
     form_ix: FormIx,
     namespace: Option<&'a str>,
     name: &'a str,
+    source: &'a str,
   },
   SymbolicValue {
     form_ix: FormIx,
     value: SymbolicValue<'a>,
+    source: &'a str,
   },
   Keyword {
     form_ix: FormIx,
     alias: bool,
     namespace: Option<&'a str>,
     name: &'a str,
+    source: &'a str,
   },
   StartList {
     form_ix: FormIx,
+    source: &'a str,
   },
   EndList {
     form_ix: FormIx,
+    source: &'a str,
   },
   StartVector {
     form_ix: FormIx,
+    source: &'a str,
   },
   EndVector {
     form_ix: FormIx,
+    source: &'a str,
   },
   StartSet {
     form_ix: FormIx,
+    source: &'a str,
   },
   EndSet {
     form_ix: FormIx,
+    source: &'a str,
+  },
+  MapQualifier {
+    form_ix: FormIx,
+    source: &'a str,
   },
   StartMap {
     form_ix: FormIx,
     alias: bool,
     namespace: Option<&'a str>,
+    source: &'a str,
   },
   EndMap {
     form_ix: FormIx,
+    source: &'a str,
   },
   StartAnonymousFn {
     form_ix: FormIx,
+    source: &'a str,
   },
   EndAnonymousFn {
     form_ix: FormIx,
+    source: &'a str,
+  },
+  ReaderConditionalPrefix {
+    form_ix: FormIx,
+    source: &'a str,
   },
   StartReaderConditional {
     form_ix: FormIx,
     splicing: bool,
+    source: &'a str,
   },
   EndReaderConditional {
     form_ix: FormIx,
+    source: &'a str,
   },
   TaggedLiteral {
     form_ix: FormIx,
     tag_ix: FormIx,
     arg_ix: FormIx,
+    source: &'a str,
   },
   Residual(Pair<'a>),
 }
@@ -247,17 +286,29 @@ impl<'a> Helper<'a> {
       .unwrap_or_else(|| FormIx::root(self.form_count))
   }
 
+  fn whitespace(&mut self, pair: Pair<'a>) {
+    self.push(L::Whitespace {
+      source: pair.as_str(),
+    });
+  }
+
+  fn comment(&mut self, pair: Pair<'a>) {
+    self.push(L::Comment {
+      source: pair.as_str(),
+    });
+  }
+
   fn top_level(&mut self, parent: Pair<'a>) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::form => {
           let current = self.next_form_ix(None);
           self.form(child, current);
         }
         Rule::EOI => (),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -265,13 +316,13 @@ impl<'a> Helper<'a> {
   fn form(&mut self, parent: Pair<'a>, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::quote_unquote_form => self.quote_unquote_form(child, current),
         Rule::preform => self.preforms(child, current),
         Rule::form => self.form(child, current),
         Rule::expr => self.expr(child, current),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -280,18 +331,33 @@ impl<'a> Helper<'a> {
     let child_ix = self.next_form_ix(Some(parent_ix));
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::quote_unquote_prefix => self.push(match child.as_str() {
-          "'" => Lexeme::Quote { form_ix: parent_ix },
-          "#'" => Lexeme::VarQuote { form_ix: parent_ix },
-          "`" => Lexeme::Synquote { form_ix: parent_ix },
-          "~@" => Lexeme::SplicingUnquote { form_ix: parent_ix },
-          "~" => Lexeme::Unquote { form_ix: parent_ix },
+          "'" => L::Quote {
+            form_ix: parent_ix,
+            source: child.as_str(),
+          },
+          "#'" => L::VarQuote {
+            form_ix: parent_ix,
+            source: child.as_str(),
+          },
+          "`" => L::Synquote {
+            form_ix: parent_ix,
+            source: child.as_str(),
+          },
+          "~@" => L::SplicingUnquote {
+            form_ix: parent_ix,
+            source: child.as_str(),
+          },
+          "~" => L::Unquote {
+            form_ix: parent_ix,
+            source: child.as_str(),
+          },
           _ => unreachable!("quote-unquote prefix case analysis"),
         }),
         Rule::form => self.form(child, child_ix),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -299,11 +365,11 @@ impl<'a> Helper<'a> {
   fn preforms(&mut self, parent: Pair<'a>, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::discarded_form => self.discarded_form(child),
         Rule::meta_form => self.meta_form(child, current),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -312,12 +378,15 @@ impl<'a> Helper<'a> {
     let form_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
-        Rule::discard_prefix => self.push(Lexeme::Discard { form_ix }),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
+        Rule::discard_prefix => self.push(L::Discard {
+          form_ix,
+          source: child.as_str(),
+        }),
         Rule::preform => self.preforms(child, form_ix),
         Rule::form => self.form(child, form_ix),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -326,15 +395,15 @@ impl<'a> Helper<'a> {
     let data_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
-        Rule::meta_prefix => self.push(Lexeme::Meta {
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
+        Rule::meta_prefix => self.push(L::Meta {
           form_ix,
           data_ix,
-          prefix: child.as_str(),
+          source: child.as_str(),
         }),
         Rule::form => self.form(child, data_ix),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -342,17 +411,22 @@ impl<'a> Helper<'a> {
   fn expr(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
-        Rule::nil => self.push(Lexeme::Nil { form_ix }),
-        Rule::boolean => self.push(Lexeme::Boolean {
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
+        Rule::nil => self.push(L::Nil {
+          form_ix,
+          source: child.as_str(),
+        }),
+        Rule::boolean => self.push(L::Boolean {
           form_ix,
           value: child.as_str() == "true",
+          source: child.as_str(),
         }),
         Rule::number => self.number(child, form_ix),
         Rule::char => self.char(child, form_ix),
         Rule::string => self.string(child, form_ix),
         Rule::regex => self.regex(child, form_ix),
+        // XXX(soija) FIXME: Capture the `##` prefix for the symbolic value.
         Rule::symbolic_value => self.symbolic_value(child, form_ix),
         Rule::symbol => self.symbol(child, form_ix),
         Rule::keyword => self.keyword(child, form_ix),
@@ -363,15 +437,16 @@ impl<'a> Helper<'a> {
         Rule::map => self.map(child, form_ix),
         Rule::reader_conditional => self.reader_conditional(child, form_ix),
         Rule::tagged_literal => self.tagged_literal(child, form_ix),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
 
   fn char(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let source = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::char_name => self.push(Lexeme::Char {
+        Rule::char_name => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::Name,
           value: match child.as_str() {
@@ -382,24 +457,27 @@ impl<'a> Helper<'a> {
             "backspace" => '\u{08}',
             _ => unreachable!("char name case analysis"),
           },
+          source,
         }),
-        Rule::char_octal => self.push(Lexeme::Char {
+        Rule::char_octal => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::Octal,
           value: char::from_u32(
             u32::from_str_radix(child.as_str(), 8).unwrap(),
           )
           .unwrap(),
+          source,
         }),
-        Rule::char_code_point => self.push(Lexeme::Char {
+        Rule::char_code_point => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::CodePoint,
           value: char::from_u32(
             u32::from_str_radix(child.as_str(), 16).unwrap(),
           )
           .unwrap(),
+          source,
         }),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -425,7 +503,7 @@ impl<'a> Helper<'a> {
         Rule::unsigned_int => {
           self.unsigned_int(child, form_ix, literal, positive)
         }
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -438,20 +516,20 @@ impl<'a> Helper<'a> {
     big: bool,
   ) {
     self.push(if big {
-      Lexeme::Numeric {
+      L::Numeric {
         form_ix,
-        literal,
         class: NumberClass::BigDecimal,
         value: NumericValue::Float {
           value: &literal[..literal.len() - 1],
         },
+        source: literal,
       }
     } else {
-      Lexeme::Numeric {
+      L::Numeric {
         form_ix,
-        literal,
         class: NumberClass::Double,
         value: NumericValue::Float { value: literal },
+        source: literal,
       }
     })
   }
@@ -470,12 +548,12 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::numerator => numerator = Some(child.as_str()),
         Rule::denominator => denominator = Some(child.as_str()),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
-    self.push(Lexeme::Numeric {
+    self.push(L::Numeric {
       form_ix,
-      literal,
+      source: literal,
       class: NumberClass::Ratio,
       value: NumericValue::Fraction {
         positive,
@@ -496,9 +574,9 @@ impl<'a> Helper<'a> {
     for child in parent.into_inner() {
       match child.as_rule() {
         Rule::radix => radix = Some(child.as_str()),
-        Rule::radix_digits => self.push(Lexeme::Numeric {
+        Rule::radix_digits => self.push(L::Numeric {
           form_ix,
-          literal,
+          source: literal,
           class: NumberClass::Long,
           value: NumericValue::Int {
             positive,
@@ -506,7 +584,7 @@ impl<'a> Helper<'a> {
             value: child.as_str(),
           },
         }),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -544,12 +622,12 @@ impl<'a> Helper<'a> {
           })
         }
         Rule::bigint_suffix => class = NumberClass::BigInt,
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
-    self.push(Lexeme::Numeric {
+    self.push(L::Numeric {
       form_ix,
-      literal,
+      source: literal,
       class,
       value: value.unwrap(),
     })
@@ -587,13 +665,13 @@ impl<'a> Helper<'a> {
           let code = u32::from_str_radix(value, 16).unwrap();
           fragments.push(StringFragment::Escaped { code })
         }
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
     fragments.shrink_to_fit();
-    self.push(Lexeme::String {
+    self.push(L::String {
       form_ix,
-      literal,
+      source: literal,
       value: fragments.into_boxed_slice(),
     });
   }
@@ -601,11 +679,11 @@ impl<'a> Helper<'a> {
   fn regex(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::regex_content => self.push(Lexeme::Regex {
+        Rule::regex_content => self.push(L::Regex {
           form_ix,
-          value: child.as_str(),
+          source: child.as_str(),
         }),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -613,9 +691,9 @@ impl<'a> Helper<'a> {
   fn symbolic_value(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => (),
-        Rule::WHITESPACE => (),
-        Rule::unqualified_symbol => self.push(Lexeme::SymbolicValue {
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
+        Rule::unqualified_symbol => self.push(L::SymbolicValue {
           form_ix,
           value: match child.as_str() {
             "Inf" => SymbolicValue::PosInf,
@@ -623,30 +701,34 @@ impl<'a> Helper<'a> {
             "NaN" => SymbolicValue::NaN,
             _ => SymbolicValue::Other(child.as_str()),
           },
+          source: child.as_str(),
         }),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
 
   fn symbol(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let source = parent.as_str();
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
         Rule::namespace => namespace = Some(child.as_str()),
         Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(Lexeme::Symbol {
+          self.push(L::Symbol {
             form_ix,
             namespace,
             name: child.as_str(),
+            source,
           })
         }
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
 
   fn keyword(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let source = parent.as_str();
     let mut namespace = None;
     let mut alias = false;
     for child in parent.into_inner() {
@@ -654,51 +736,80 @@ impl<'a> Helper<'a> {
         Rule::keyword_prefix => alias = child.as_str() == "::",
         Rule::namespace => namespace = Some(child.as_str()),
         Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(Lexeme::Keyword {
+          self.push(L::Keyword {
             form_ix,
             alias,
             namespace,
             name: child.as_str(),
+            source,
           })
         }
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
 
   fn list(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
-      Lexeme::StartList { form_ix: parent_ix },
-      Lexeme::EndList { form_ix: parent_ix },
+      L::StartList {
+        form_ix: parent_ix,
+        source: &source[..1],
+      },
+      L::EndList {
+        form_ix: parent_ix,
+        source: &source[source.len() - 1..],
+      },
     );
   }
 
   fn vector(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
-      Lexeme::StartVector { form_ix: parent_ix },
-      Lexeme::EndVector { form_ix: parent_ix },
+      L::StartVector {
+        form_ix: parent_ix,
+        source: &source[..1],
+      },
+      L::EndVector {
+        form_ix: parent_ix,
+        source: &source[source.len() - 1..],
+      },
     );
   }
 
   fn anonymous_fn(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
-      Lexeme::StartAnonymousFn { form_ix: parent_ix },
-      Lexeme::EndAnonymousFn { form_ix: parent_ix },
+      L::StartAnonymousFn {
+        form_ix: parent_ix,
+        source: &source[..2],
+      },
+      L::EndAnonymousFn {
+        form_ix: parent_ix,
+        source: &source[source.len() - 1..],
+      },
     );
   }
 
   fn set(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+    let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
-      Lexeme::StartSet { form_ix: parent_ix },
-      Lexeme::EndSet { form_ix: parent_ix },
+      L::StartSet {
+        form_ix: parent_ix,
+        source: &source[..2],
+      },
+      L::EndSet {
+        form_ix: parent_ix,
+        source: &source[source.len() - 1..],
+      },
     );
   }
 
@@ -707,29 +818,40 @@ impl<'a> Helper<'a> {
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::map_qualifier => {
+          self.push(L::MapQualifier {
+            form_ix,
+            source: child.as_str(),
+          });
           for child2 in child.into_inner() {
             match child2.as_rule() {
               Rule::map_qualifier_prefix => alias = child2.as_str() == "#::",
               Rule::namespace => namespace = Some(child2.as_str()),
-              _ => self.push(Lexeme::Residual(child2)),
+              _ => self.push(L::Residual(child2)),
             }
           }
         }
-        Rule::unqualified_map => self.body(
-          child,
-          form_ix,
-          Lexeme::StartMap {
+        Rule::unqualified_map => {
+          let source = child.as_str();
+          self.body(
+            child,
             form_ix,
-            alias,
-            namespace,
-          },
-          Lexeme::EndMap { form_ix },
-        ),
+            L::StartMap {
+              form_ix,
+              alias,
+              namespace,
+              source: &source[..1],
+            },
+            L::EndMap {
+              form_ix,
+              source: &source[source.len() - 1..],
+            },
+          )
+        }
         Rule::discarded_form => self.discarded_form(child),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -738,17 +860,27 @@ impl<'a> Helper<'a> {
     let mut splicing = false;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::reader_conditional_prefix => splicing = child.as_str() == "#?@",
-        Rule::reader_conditional_body => self.body(
-          child,
-          form_ix,
-          Lexeme::StartReaderConditional { form_ix, splicing },
-          Lexeme::EndMap { form_ix },
-        ),
+        Rule::reader_conditional_body => {
+          let source = child.as_str();
+          self.body(
+            child,
+            form_ix,
+            L::StartReaderConditional {
+              form_ix,
+              splicing,
+              source: &source[1..],
+            },
+            L::EndReaderConditional {
+              form_ix,
+              source: &source[source.len() - 1..],
+            },
+          )
+        }
         Rule::discarded_form => self.discarded_form(child),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }
@@ -763,14 +895,14 @@ impl<'a> Helper<'a> {
     self.push(start_lexeme);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::form => {
           let child_ix = self.next_form_ix(Some(parent_ix));
           self.form(child, child_ix)
         }
         Rule::discarded_form => self.discarded_form(child),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
     self.push(end_lexeme);
@@ -779,28 +911,29 @@ impl<'a> Helper<'a> {
   fn tagged_literal(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     let tag_ix = self.next_form_ix(Some(form_ix));
     let arg_ix = self.next_form_ix(Some(form_ix));
-    self.push(Lexeme::TaggedLiteral {
+    self.push(L::TaggedLiteral {
       form_ix,
       tag_ix,
       arg_ix,
+      source: parent.as_str(),
     });
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.push(Lexeme::Comment),
-        Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+        Rule::COMMENT => self.comment(child),
+        Rule::WHITESPACE => self.whitespace(child),
         Rule::tagged_literal_tag => {
           for child2 in child.into_inner() {
             match child2.as_rule() {
-              Rule::COMMENT => self.push(Lexeme::Comment),
-              Rule::WHITESPACE => self.push(Lexeme::Whitespace),
+              Rule::COMMENT => self.comment(child2),
+              Rule::WHITESPACE => self.whitespace(child2),
               Rule::preform => self.preforms(child2, tag_ix),
               Rule::symbol => self.symbol(child2, tag_ix),
-              _ => self.push(Lexeme::Residual(child2)),
+              _ => self.push(L::Residual(child2)),
             }
           }
         }
         Rule::form => self.form(child, arg_ix),
-        _ => self.push(Lexeme::Residual(child)),
+        _ => self.push(L::Residual(child)),
       }
     }
   }

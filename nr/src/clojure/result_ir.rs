@@ -82,7 +82,7 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   let mut b = Builder::new();
   for lexeme in lexemes {
     match lexeme {
-      Whitespace => (), // ignore
+      Whitespace { .. } => (), // ignore
       StartList { .. } => b.start_list()?,
       EndList { .. } => b.complete_list()?,
       StartSet { .. } => b.start_set()?,
@@ -93,8 +93,8 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       EndMap { .. } => b.complete_map()?,
       Nil { .. } => b.add_nil()?,
       Boolean { value, .. } => b.add_boolean(*value)?,
-      Numeric { literal, .. } => b.add_number(literal)?,
-      String { literal, .. } => b.add_string(literal)?,
+      Numeric { source, .. } => b.add_number(source)?,
+      String { source, .. } => b.add_string(source)?,
       Symbol {
         namespace, name, ..
       } => b.add_symbol(name, *namespace)?,
