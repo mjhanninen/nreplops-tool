@@ -35,10 +35,10 @@ pub enum Style {
 }
 
 impl Style {
-  pub fn to_ansi_color(&self) -> AnsiColor {
+  pub fn to_ansi_color(self) -> AnsiColor {
     use AnsiColor as A;
     use Style as S;
-    match *self {
+    match self {
       S::Whitespace => A::BrightBlack,
       S::CollectionDelimiter => A::White,
       S::SymbolDecoration => A::BrightBlack,
