@@ -34,6 +34,9 @@ pub enum Style {
   NilValue,
   SymbolicValueDecoration,
   SymbolicValue,
+  TaggedLiteralDecoration,
+  TaggedLiteralNamespace,
+  TaggedLiteralName,
 }
 
 impl Style {
@@ -56,6 +59,9 @@ impl Style {
       S::NilValue => A::Red,
       S::SymbolicValueDecoration => A::BrightBlack,
       S::SymbolicValue => A::Red,
+      S::TaggedLiteralDecoration => A::BrightBlack,
+      S::TaggedLiteralNamespace => A::BrightBlack,
+      S::TaggedLiteralName => A::Red,
     }
   }
 }

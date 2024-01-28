@@ -112,12 +112,6 @@ pub enum Lexeme<'a> {
     form_ix: FormIx,
     source: &'a str,
   },
-  Symbol {
-    form_ix: FormIx,
-    namespace: Option<&'a str>,
-    name: &'a str,
-    source: &'a str,
-  },
   SymbolicValuePrefix {
     form_ix: FormIx,
     source: &'a str,
@@ -125,6 +119,18 @@ pub enum Lexeme<'a> {
   SymbolicValue {
     form_ix: FormIx,
     value: SymbolicValue<'a>,
+    source: &'a str,
+  },
+  Symbol {
+    form_ix: FormIx,
+    namespace: Option<&'a str>,
+    name: &'a str,
+    source: &'a str,
+  },
+  Tag {
+    form_ix: FormIx,
+    namespace: Option<&'a str>,
+    name: &'a str,
     source: &'a str,
   },
   Keyword {
@@ -734,6 +740,25 @@ impl<'a> Helper<'a> {
     }
   }
 
+  fn tag(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+    let source = parent.as_str();
+    let mut namespace = None;
+    for child in parent.into_inner() {
+      match child.as_rule() {
+        Rule::namespace => namespace = Some(child.as_str()),
+        Rule::qualified_symbol | Rule::unqualified_symbol => {
+          self.push(L::Tag {
+            form_ix,
+            namespace,
+            name: child.as_str(),
+            source,
+          })
+        }
+        _ => self.push(L::Residual(child)),
+      }
+    }
+  }
+
   fn keyword(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     let source = parent.as_str();
     let mut namespace = None;
@@ -922,7 +947,10 @@ impl<'a> Helper<'a> {
       form_ix,
       tag_ix,
       arg_ix,
-      source: parent.as_str(),
+      // XXX(soija) Aw, this is a hack.  We want to capture only the prefix as
+      //            the rest of the tagged literal is captured be the following
+      //            lexemes.
+      source: &parent.as_str()[..1],
     });
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -934,7 +962,7 @@ impl<'a> Helper<'a> {
               Rule::COMMENT => self.comment(child2),
               Rule::WHITESPACE => self.whitespace(child2),
               Rule::preform => self.preforms(child2, tag_ix),
-              Rule::symbol => self.symbol(child2, tag_ix),
+              Rule::symbol => self.tag(child2, tag_ix),
               _ => self.push(L::Residual(child2)),
             }
           }

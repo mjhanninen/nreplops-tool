@@ -69,7 +69,7 @@ mod printer;
 mod style;
 
 use crate::clojure::{
-  lex::Lexeme,
+  lex::{self, Lexeme},
   result_ir::{self, KeywordNamespace, MapEntry, Value},
 };
 use layout_solver::Chunk;
@@ -112,6 +112,7 @@ fn unformatted_layout<'a, I>(
   use printer::BuildInput;
   use style::Style as S;
   use Lexeme as L;
+
   for l in lexemes {
     match *l {
       L::Whitespace { source } => {
@@ -157,6 +158,18 @@ fn unformatted_layout<'a, I>(
           printer_input.add_styled(S::KeywordDecoration, "/");
         }
         printer_input.add_styled(S::KeywordName, name);
+      }
+      L::TaggedLiteral { source, tag_ix, .. } => {
+        printer_input.add_styled(S::TaggedLiteralDecoration, source);
+      }
+      L::Tag {
+        namespace, name, ..
+      } => {
+        if let Some(s) = namespace {
+          printer_input.add_styled(S::TaggedLiteralNamespace, s);
+          printer_input.add_styled(S::TaggedLiteralDecoration, "/");
+        }
+        printer_input.add_styled(S::TaggedLiteralName, name);
       }
       L::StartList { source, .. }
       | L::EndList { source, .. }
@@ -254,6 +267,28 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
         .add(*name, S::KeywordName)
         .build(),
     ),
+    V::TaggedLiteral {
+      namespace,
+      name,
+      value,
+    } => {
+      chunks.push(
+        TextBuilder::new()
+          .add("#", S::TaggedLiteralDecoration)
+          .apply(|b| {
+            if let Some(s) = namespace {
+              b.add(*s, S::TaggedLiteralNamespace)
+                .add("/", S::TaggedLiteralDecoration)
+            } else {
+              b
+            }
+          })
+          .add(*name, S::TaggedLiteralName)
+          .build(),
+      );
+      chunks.push(Chunk::SoftSpace);
+      chunks_from_value(chunks, value);
+    }
     V::List { values } => chunks_from_value_seq(chunks, values, true, "(", ")"),
     V::Vector { values } => {
       chunks_from_value_seq(chunks, values, false, "[", "]")
