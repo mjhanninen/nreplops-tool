@@ -96,14 +96,14 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   for lexeme in lexemes {
     let is_complete = match lexeme {
       Whitespace { .. } | SymbolicValuePrefix { .. } => false, // ignore
-      StartList { .. } => b.start(ContainerType::List)?,
-      EndList { .. } => b.end(ContainerType::List)?,
-      StartSet { .. } => b.start(ContainerType::Set)?,
-      EndSet { .. } => b.end(ContainerType::Set)?,
-      StartVector { .. } => b.start(ContainerType::Vector)?,
-      EndVector { .. } => b.end(ContainerType::Vector)?,
-      StartMap { .. } => b.start(ContainerType::Map)?,
-      EndMap { .. } => b.end(ContainerType::Map)?,
+      StartList { .. } => b.start(CompositeType::List)?,
+      EndList { .. } => b.end(CompositeType::List)?,
+      StartSet { .. } => b.start(CompositeType::Set)?,
+      EndSet { .. } => b.end(CompositeType::Set)?,
+      StartVector { .. } => b.start(CompositeType::Vector)?,
+      EndVector { .. } => b.end(CompositeType::Vector)?,
+      StartMap { .. } => b.start(CompositeType::Map)?,
+      EndMap { .. } => b.end(CompositeType::Map)?,
       Nil { .. } => b.add_nil()?,
       Boolean { value, .. } => b.add_boolean(*value)?,
       Numeric { source, .. } => b.add_number(source)?,
@@ -124,7 +124,7 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
         name,
         ..
       } => b.add_keyword(name, *namespace, *alias)?,
-      TaggedLiteral { .. } => b.start(ContainerType::TaggedLiteral)?,
+      TaggedLiteral { .. } => b.start(CompositeType::TaggedLiteral)?,
       unhandled => todo!("Missing rule for:\n{:#?}", unhandled),
     };
     if is_complete {
@@ -135,13 +135,13 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
 }
 
 struct Builder<'a> {
-  stack: Vec<ContainerBuilder<'a>>,
+  stack: Vec<CompositeBuilder<'a>>,
 }
 
 impl<'a> Builder<'a> {
   fn new() -> Self {
     Self {
-      stack: vec![ContainerBuilder::new(ContainerType::TopLevel)],
+      stack: vec![CompositeBuilder::new(CompositeType::TopLevel)],
     }
   }
 
@@ -154,7 +154,7 @@ impl<'a> Builder<'a> {
     // asserted the type of the other ones when popping them out of the
     // builder stack.
     let b = self.stack.pop().unwrap();
-    if b.container_type() == ContainerType::TopLevel {
+    if b.composite_type() == CompositeType::TopLevel {
       b.build()
     } else {
       Err(BuildError::RunawayCollection)
@@ -163,14 +163,14 @@ impl<'a> Builder<'a> {
 
   fn start(
     &mut self,
-    container_type: ContainerType,
+    composite_type: CompositeType,
   ) -> Result<bool, BuildError> {
-    self.stack.push(ContainerBuilder::new(container_type));
+    self.stack.push(CompositeBuilder::new(composite_type));
     Ok(false)
   }
 
-  fn end(&mut self, container_type: ContainerType) -> Result<bool, BuildError> {
-    if self.stack.last().unwrap().container_type() == container_type {
+  fn end(&mut self, composite_type: CompositeType) -> Result<bool, BuildError> {
+    if self.stack.last().unwrap().composite_type() == composite_type {
       Ok(true)
     } else {
       Err(BuildError::InconsistentCollections)
@@ -236,8 +236,8 @@ impl<'a> Builder<'a> {
   }
 }
 
-trait BuildContainer<'a> {
-  fn container_type(&self) -> ContainerType;
+trait BuildComposite<'a> {
+  fn composite_type(&self) -> CompositeType;
 
   /// Adds a contained value to the value being built.  Returns `true` if value
   /// being built is complete and should be popped out.
@@ -246,9 +246,9 @@ trait BuildContainer<'a> {
   fn build(self) -> Result<Value<'a>, BuildError>;
 }
 
-/// The types of value containers we recognize at the level of syntax.
+/// The types of comosite values we recognize at the level of syntax.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ContainerType {
+enum CompositeType {
   List,
   Vector,
   Set,
@@ -257,8 +257,9 @@ enum ContainerType {
   ///
   /// The tag is guaranteed to be a symbol whereas the value can be any value.
   TaggedLiteral,
-  /// The top-level of the program (or the result).  Currently limited to hold
-  /// no more nor less than a single value.
+  /// The top-level of the program (or the result)
+  ///
+  /// Currently limited to hold no more nor less than a single value.
   TopLevel,
 }
 
@@ -266,17 +267,17 @@ enum ContainerType {
 // BuildContainer<'a> + a>` is that moving the contained values out of turned
 // out to be surprisingly clunky. The extra boilerplate introduced by this
 // is annoying but at least it is concentrated in one place.
-enum ContainerBuilder<'a> {
+enum CompositeBuilder<'a> {
   TopLevel(TopLevelBuilder<'a>),
   Seq(SeqBuilder<'a>),
   Map(MapBuilder<'a>),
   TaggedLiteral(TaggedLiteralBuilder<'a>),
 }
 
-impl<'a> ContainerBuilder<'a> {
-  fn new(container_type: ContainerType) -> Self {
-    use ContainerType as T;
-    match container_type {
+impl<'a> CompositeBuilder<'a> {
+  fn new(composite_type: CompositeType) -> Self {
+    use CompositeType as T;
+    match composite_type {
       T::TopLevel => Self::TopLevel(TopLevelBuilder::new()),
       T::List => Self::Seq(SeqBuilder::new(SeqType::List)),
       T::Vector => Self::Seq(SeqBuilder::new(SeqType::Vector)),
@@ -287,31 +288,31 @@ impl<'a> ContainerBuilder<'a> {
   }
 }
 
-impl<'a> BuildContainer<'a> for ContainerBuilder<'a> {
-  fn container_type(&self) -> ContainerType {
+impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
     match self {
-      ContainerBuilder::Seq(b) => b.container_type(),
-      ContainerBuilder::Map(b) => b.container_type(),
-      ContainerBuilder::TopLevel(b) => b.container_type(),
-      ContainerBuilder::TaggedLiteral(b) => b.container_type(),
+      CompositeBuilder::Seq(b) => b.composite_type(),
+      CompositeBuilder::Map(b) => b.composite_type(),
+      CompositeBuilder::TopLevel(b) => b.composite_type(),
+      CompositeBuilder::TaggedLiteral(b) => b.composite_type(),
     }
   }
 
   fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
     match self {
-      ContainerBuilder::Seq(b) => b.add(value),
-      ContainerBuilder::Map(b) => b.add(value),
-      ContainerBuilder::TopLevel(b) => b.add(value),
-      ContainerBuilder::TaggedLiteral(b) => b.add(value),
+      CompositeBuilder::Seq(b) => b.add(value),
+      CompositeBuilder::Map(b) => b.add(value),
+      CompositeBuilder::TopLevel(b) => b.add(value),
+      CompositeBuilder::TaggedLiteral(b) => b.add(value),
     }
   }
 
   fn build(self) -> Result<Value<'a>, BuildError> {
     match self {
-      ContainerBuilder::Seq(b) => b.build(),
-      ContainerBuilder::Map(b) => b.build(),
-      ContainerBuilder::TopLevel(b) => b.build(),
-      ContainerBuilder::TaggedLiteral(b) => b.build(),
+      CompositeBuilder::Seq(b) => b.build(),
+      CompositeBuilder::Map(b) => b.build(),
+      CompositeBuilder::TopLevel(b) => b.build(),
+      CompositeBuilder::TaggedLiteral(b) => b.build(),
     }
   }
 }
@@ -330,12 +331,12 @@ impl<'a> SeqBuilder<'a> {
   }
 }
 
-impl<'a> BuildContainer<'a> for SeqBuilder<'a> {
-  fn container_type(&self) -> ContainerType {
+impl<'a> BuildComposite<'a> for SeqBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
     match self.seq_type {
-      SeqType::List => ContainerType::List,
-      SeqType::Vector => ContainerType::Vector,
-      SeqType::Set => ContainerType::Set,
+      SeqType::List => CompositeType::List,
+      SeqType::Vector => CompositeType::Vector,
+      SeqType::Set => CompositeType::Set,
     }
   }
 
@@ -377,9 +378,9 @@ enum TaggedLiteralBuilder<'a> {
   Invalid,
 }
 
-impl<'a> BuildContainer<'a> for TaggedLiteralBuilder<'a> {
-  fn container_type(&self) -> ContainerType {
-    ContainerType::TaggedLiteral
+impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
+    CompositeType::TaggedLiteral
   }
 
   fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
@@ -434,9 +435,9 @@ impl<'a> MapBuilder<'a> {
   }
 }
 
-impl<'a> BuildContainer<'a> for MapBuilder<'a> {
-  fn container_type(&self) -> ContainerType {
-    ContainerType::Map
+impl<'a> BuildComposite<'a> for MapBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
+    CompositeType::Map
   }
 
   fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
@@ -471,9 +472,9 @@ impl<'a> TopLevelBuilder<'a> {
   }
 }
 
-impl<'a> BuildContainer<'a> for TopLevelBuilder<'a> {
-  fn container_type(&self) -> ContainerType {
-    ContainerType::TopLevel
+impl<'a> BuildComposite<'a> for TopLevelBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
+    CompositeType::TopLevel
   }
 
   fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
