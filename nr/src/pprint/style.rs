@@ -32,6 +32,8 @@ pub enum Style {
   NumberValue,
   BooleanValue,
   NilValue,
+  SymbolicValueDecoration,
+  SymbolicValue,
 }
 
 impl Style {
@@ -52,6 +54,8 @@ impl Style {
       S::NumberValue => A::White,
       S::BooleanValue => A::White,
       S::NilValue => A::Red,
+      S::SymbolicValueDecoration => A::BrightBlack,
+      S::SymbolicValue => A::Red,
     }
   }
 }

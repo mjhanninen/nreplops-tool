@@ -129,6 +129,21 @@ fn unformatted_layout<'a, I>(
         printer_input.add_styled(S::StringValue, &source[1..source.len() - 1]);
         printer_input.add_styled(S::StringDecoration, "\"");
       }
+      L::SymbolicValuePrefix { source, .. } => {
+        printer_input.add_styled(S::SymbolicValueDecoration, source)
+      }
+      L::SymbolicValue { source, .. } => {
+        printer_input.add_styled(S::SymbolicValue, source)
+      }
+      L::Symbol {
+        namespace, name, ..
+      } => {
+        if let Some(s) = namespace {
+          printer_input.add_styled(S::SymbolNamespace, s);
+          printer_input.add_styled(S::SymbolDecoration, "/");
+        }
+        printer_input.add_styled(S::SymbolName, name);
+      }
       L::Keyword {
         alias,
         namespace,
@@ -142,15 +157,6 @@ fn unformatted_layout<'a, I>(
           printer_input.add_styled(S::KeywordDecoration, "/");
         }
         printer_input.add_styled(S::KeywordName, name);
-      }
-      L::Symbol {
-        namespace, name, ..
-      } => {
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::SymbolNamespace, s);
-          printer_input.add_styled(S::SymbolDecoration, "/");
-        }
-        printer_input.add_styled(S::SymbolName, name);
       }
       L::StartList { source, .. }
       | L::EndList { source, .. }
@@ -184,6 +190,13 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
     V::Nil => {
       chunks.push(TextBuilder::new().add("nil", S::NilValue).build());
     }
+    V::Boolean { value } => {
+      chunks.push(
+        TextBuilder::new()
+          .add(if *value { "true" } else { "false" }, S::BooleanValue)
+          .build(),
+      );
+    }
     V::Number { literal } => {
       chunks.push(TextBuilder::new().add(*literal, S::NumberValue).build());
     }
@@ -199,12 +212,13 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
       );
       chunks.push(TextBuilder::new().add("\"", S::StringDecoration).build());
     }
-    V::Boolean { value } => {
+    V::SymbolicValue { literal } => {
       chunks.push(
         TextBuilder::new()
-          .add(if *value { "true" } else { "false" }, S::BooleanValue)
+          .add("##", S::SymbolicValueDecoration)
           .build(),
       );
+      chunks.push(TextBuilder::new().add(*literal, S::SymbolicValue).build());
     }
     V::Symbol { namespace, name } => {
       chunks.push(

@@ -118,6 +118,10 @@ pub enum Lexeme<'a> {
     name: &'a str,
     source: &'a str,
   },
+  SymbolicValuePrefix {
+    form_ix: FormIx,
+    source: &'a str,
+  },
   SymbolicValue {
     form_ix: FormIx,
     value: SymbolicValue<'a>,
@@ -426,7 +430,6 @@ impl<'a> Helper<'a> {
         Rule::char => self.char(child, form_ix),
         Rule::string => self.string(child, form_ix),
         Rule::regex => self.regex(child, form_ix),
-        // XXX(soija) FIXME: Capture the `##` prefix for the symbolic value.
         Rule::symbolic_value => self.symbolic_value(child, form_ix),
         Rule::symbol => self.symbol(child, form_ix),
         Rule::keyword => self.keyword(child, form_ix),
@@ -693,6 +696,10 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         Rule::COMMENT => self.comment(child),
         Rule::WHITESPACE => self.whitespace(child),
+        Rule::symbolic_value_prefix => self.push(L::SymbolicValuePrefix {
+          form_ix,
+          source: child.as_str(),
+        }),
         Rule::unqualified_symbol => self.push(L::SymbolicValue {
           form_ix,
           value: match child.as_str() {

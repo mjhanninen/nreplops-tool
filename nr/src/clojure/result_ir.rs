@@ -30,6 +30,9 @@ pub enum Value<'a> {
   Boolean {
     value: bool,
   },
+  SymbolicValue {
+    literal: &'a str,
+  },
   Symbol {
     namespace: Option<&'a str>,
     name: &'a str,
@@ -82,7 +85,7 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   let mut b = Builder::new();
   for lexeme in lexemes {
     match lexeme {
-      Whitespace { .. } => (), // ignore
+      Whitespace { .. } | SymbolicValuePrefix { .. } => (), // ignore
       StartList { .. } => b.start_list()?,
       EndList { .. } => b.complete_list()?,
       StartSet { .. } => b.start_set()?,
@@ -95,6 +98,7 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       Boolean { value, .. } => b.add_boolean(*value)?,
       Numeric { source, .. } => b.add_number(source)?,
       String { source, .. } => b.add_string(source)?,
+      SymbolicValue { source, .. } => b.add_symbolic_value(source)?,
       Symbol {
         namespace, name, ..
       } => b.add_symbol(name, *namespace)?,
@@ -200,6 +204,10 @@ impl<'a> Builder<'a> {
 
   fn add_string(&mut self, literal: &'a str) -> Result<(), BuildError> {
     self.add_to_topmost(Value::String { literal })
+  }
+
+  fn add_symbolic_value(&mut self, literal: &'a str) -> Result<(), BuildError> {
+    self.add_to_topmost(Value::SymbolicValue { literal })
   }
 
   fn add_symbol(
