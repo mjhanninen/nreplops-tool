@@ -20,6 +20,7 @@ pest_derive = "^2.7"
 regex = "^1.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
+terminal_size = "0.3.0"
 thiserror = "1.0"
 toml = "^0.8"
 
