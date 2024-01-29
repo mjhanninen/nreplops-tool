@@ -18,6 +18,7 @@ use std::{
   collections::HashMap,
   fmt, fs,
   io::{self, IsTerminal, Write},
+  os::fd::AsRawFd,
   path::{self, Path},
   rc::Rc,
 };
@@ -31,23 +32,26 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub enum Output {
-  StdOut {
-    terminal: bool,
-  },
-  StdErr {
-    terminal: bool,
-  },
+  StdOut(StdType),
+  StdErr(StdType),
   File {
     file: Rc<RefCell<io::BufWriter<fs::File>>>,
     path: Box<Path>,
   },
 }
 
+#[derive(Clone, Debug)]
+pub enum StdType {
+  Terminal(u16),
+  TerminalWithoutWidth,
+  Pipe,
+}
+
 impl Output {
   pub fn writer(&self) -> OutputWriter<'_> {
     match *self {
-      Output::StdOut { .. } => OutputWriter::StdOut,
-      Output::StdErr { .. } => OutputWriter::StdErr,
+      Output::StdOut(..) => OutputWriter::StdOut,
+      Output::StdErr(..) => OutputWriter::StdErr,
       Output::File { ref file, ref path } => OutputWriter::File {
         file: file.borrow_mut(),
         path,
@@ -56,10 +60,20 @@ impl Output {
   }
 
   pub fn is_terminal(&self) -> bool {
-    match self {
-      Output::StdOut { terminal } => *terminal,
-      Output::StdErr { terminal } => *terminal,
+    match *self {
+      Output::StdOut(StdType::Terminal(..))
+      | Output::StdOut(StdType::TerminalWithoutWidth)
+      | Output::StdErr(StdType::Terminal(..))
+      | Output::StdErr(StdType::TerminalWithoutWidth) => true,
       _ => false,
+    }
+  }
+
+  pub fn width(&self) -> Option<u16> {
+    match *self {
+      Output::StdOut(StdType::Terminal(width))
+      | Output::StdErr(StdType::Terminal(width)) => Some(width),
+      _ => None,
     }
   }
 
@@ -169,12 +183,25 @@ impl Outputs {
       None => (),
     }
 
-    let stdout = Output::StdOut {
-      terminal: io::stdout().is_terminal(),
-    };
-    let stderr = Output::StdErr {
-      terminal: io::stderr().is_terminal(),
-    };
+    fn determine_std_type<S>(s: S) -> StdType
+    where
+      S: IsTerminal + AsRawFd,
+    {
+      use terminal_size::{terminal_size_using_fd, Width};
+      if s.is_terminal() {
+        if let Some((Width(w), _)) = terminal_size_using_fd(s.as_raw_fd()) {
+          StdType::Terminal(w)
+        } else {
+          StdType::TerminalWithoutWidth
+        }
+      } else {
+        StdType::Pipe
+      }
+    }
+
+    let stderr = Output::StdErr(determine_std_type(io::stderr()));
+    let stdout = Output::StdOut(determine_std_type(io::stdout()));
+
     let mut nrepl_stdout = None;
     let mut nrepl_stderr = None;
     let mut nrepl_results = None;
@@ -200,10 +227,11 @@ impl Outputs {
           Src::Results => {
             let pretty = args.pretty.to_bool(output.is_terminal());
             let color = args.color.to_bool(output.is_terminal());
+            let width = output.width().unwrap_or(80);
             nrepl_results = Some(NreplResultsSink {
               output: output.clone(),
               formatter: if pretty || color {
-                Some(ClojureResultPrinter::new(pretty, color))
+                Some(ClojureResultPrinter::new(pretty, color, width))
               } else {
                 None
               },

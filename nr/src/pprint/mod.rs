@@ -78,11 +78,16 @@ use layout_solver::Chunk;
 pub struct ClojureResultPrinter {
   pub pretty: bool,
   pub color: bool,
+  pub width: u16,
 }
 
 impl ClojureResultPrinter {
-  pub fn new(pretty: bool, color: bool) -> Self {
-    Self { pretty, color }
+  pub fn new(pretty: bool, color: bool, width: u16) -> Self {
+    Self {
+      pretty,
+      color,
+      width,
+    }
   }
 
   pub fn print(
