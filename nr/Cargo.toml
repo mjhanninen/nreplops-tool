@@ -12,7 +12,6 @@ edition = "2021"
 default-run = "nr"
 
 [dependencies]
-anstream = { version = "0.6.11", default_features = false, features = ["auto"] }
 anstyle = "1.0.4"
 clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
 dns-lookup = "^2.0"
