@@ -316,6 +316,16 @@ fn chunks_from_value_seq<'a>(
   use layout_solver::*;
   use style::Style as S;
 
+  let only_simple_values = values.iter().all(|v| {
+    !matches!(
+      v,
+      Value::List { .. }
+        | Value::Vector { .. }
+        | Value::Set { .. }
+        | Value::Map { .. }
+    )
+  });
+
   chunks.push(
     TextBuilder::new()
       .add(opening_delim, S::CollectionDelimiter)
@@ -335,7 +345,11 @@ fn chunks_from_value_seq<'a>(
     chunks.push(Chunk::PushAnchor);
     chunks_from_value(chunks, first);
     for value in it {
-      chunks.push(Chunk::HardBreak);
+      if only_simple_values {
+        chunks.push(Chunk::SoftSpace);
+      } else {
+        chunks.push(Chunk::HardBreak);
+      }
       chunks_from_value(chunks, value);
     }
     chunks.push(Chunk::PopAnchor);
