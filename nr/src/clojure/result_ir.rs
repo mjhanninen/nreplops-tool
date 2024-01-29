@@ -93,22 +93,17 @@ pub enum BuildError {
 pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   use Lexeme::*;
   let mut b = Builder::new();
+
   for lexeme in lexemes {
-    let is_complete = match lexeme {
+    let mut composite_ready = match lexeme {
       Whitespace { .. } | SymbolicValuePrefix { .. } => false, // ignore
-      StartList { .. } => b.start(CompositeType::List)?,
-      EndList { .. } => b.end(CompositeType::List)?,
-      StartSet { .. } => b.start(CompositeType::Set)?,
-      EndSet { .. } => b.end(CompositeType::Set)?,
-      StartVector { .. } => b.start(CompositeType::Vector)?,
-      EndVector { .. } => b.end(CompositeType::Vector)?,
-      StartMap { .. } => b.start(CompositeType::Map)?,
-      EndMap { .. } => b.end(CompositeType::Map)?,
-      Nil { .. } => b.add_nil()?,
-      Boolean { value, .. } => b.add_boolean(*value)?,
-      Numeric { source, .. } => b.add_number(source)?,
-      String { source, .. } => b.add_string(source)?,
-      SymbolicValue { source, .. } => b.add_symbolic_value(source)?,
+      Nil { .. } => b.add_to_composite(Value::nil())?,
+      Boolean { value, .. } => b.add_to_composite(Value::boolean(*value))?,
+      Numeric { source, .. } => b.add_to_composite(Value::number(source))?,
+      String { source, .. } => b.add_to_composite(Value::string(source))?,
+      SymbolicValue { source, .. } => {
+        b.add_to_composite(Value::symbolic_value(source))?
+      }
       // NB: The tagged literal builder expects that the tag is passed on as a
       //     symbol.  This way we don't need to add a separate "tag" value that
       //     would stick out of the enum like a sore thumb.
@@ -117,21 +112,77 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       }
       | Tag {
         namespace, name, ..
-      } => b.add_symbol(name, *namespace)?,
+      } => b.add_to_composite(Value::symbol(name, *namespace))?,
       Keyword {
         alias,
         namespace,
         name,
         ..
-      } => b.add_keyword(name, *namespace, *alias)?,
+      } => b.add_to_composite(Value::keyword(name, *namespace, *alias))?,
+      StartList { .. } => b.start(CompositeType::List)?,
+      EndList { .. } => b.end(CompositeType::List)?,
+      StartSet { .. } => b.start(CompositeType::Set)?,
+      EndSet { .. } => b.end(CompositeType::Set)?,
+      StartVector { .. } => b.start(CompositeType::Vector)?,
+      EndVector { .. } => b.end(CompositeType::Vector)?,
+      StartMap { .. } => b.start(CompositeType::Map)?,
+      EndMap { .. } => b.end(CompositeType::Map)?,
       TaggedLiteral { .. } => b.start(CompositeType::TaggedLiteral)?,
       unhandled => todo!("Missing rule for:\n{:#?}", unhandled),
     };
-    if is_complete {
-      while b.finalize_current_value()? {}
+
+    while composite_ready {
+      composite_ready = b.build_composite()?;
     }
   }
-  b.build()
+
+  b.build_top_level()
+}
+
+impl<'a> Value<'a> {
+  fn nil() -> Value<'a> {
+    Value::Nil
+  }
+
+  fn boolean(value: bool) -> Value<'a> {
+    Value::Boolean { value }
+  }
+
+  fn number(literal: &'a str) -> Value<'a> {
+    Value::Number { literal }
+  }
+
+  fn string(literal: &'a str) -> Value<'a> {
+    Value::String { literal }
+  }
+
+  fn symbolic_value(literal: &'a str) -> Value<'a> {
+    Value::SymbolicValue { literal }
+  }
+
+  fn symbol(name: &'a str, namespace: Option<&'a str>) -> Value<'a> {
+    Value::Symbol { name, namespace }
+  }
+
+  fn keyword(
+    name: &'a str,
+    namespace: Option<&'a str>,
+    alias: bool,
+  ) -> Value<'a> {
+    use KeywordNamespace as N;
+    Value::Keyword {
+      name,
+      namespace: if let Some(n) = namespace {
+        if alias {
+          N::Alias(n)
+        } else {
+          N::Namespace(n)
+        }
+      } else {
+        N::None
+      },
+    }
+  }
 }
 
 struct Builder<'a> {
@@ -142,22 +193,6 @@ impl<'a> Builder<'a> {
   fn new() -> Self {
     Self {
       stack: vec![CompositeBuilder::new(CompositeType::TopLevel)],
-    }
-  }
-
-  fn add_to_topmost(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
-    self.stack.last_mut().unwrap().add(value)
-  }
-
-  fn build(mut self) -> Result<Value<'a>, BuildError> {
-    // We can unwrap safely ⇐ last one is a top-level builder and we have
-    // asserted the type of the other ones when popping them out of the
-    // builder stack.
-    let b = self.stack.pop().unwrap();
-    if b.composite_type() == CompositeType::TopLevel {
-      b.build()
-    } else {
-      Err(BuildError::RunawayCollection)
     }
   }
 
@@ -177,62 +212,25 @@ impl<'a> Builder<'a> {
     }
   }
 
-  fn finalize_current_value(&mut self) -> Result<bool, BuildError> {
+  fn add_to_composite(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+    self.stack.last_mut().unwrap().add(value)
+  }
+
+  fn build_composite(&mut self) -> Result<bool, BuildError> {
     let b = self.stack.pop().unwrap();
-    self.stack.last_mut().unwrap().add(b.build()?)
+    self.add_to_composite(b.build()?)
   }
 
-  fn add_nil(&mut self) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::Nil)
-  }
-
-  fn add_boolean(&mut self, value: bool) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::Boolean { value })
-  }
-
-  fn add_number(&mut self, literal: &'a str) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::Number { literal })
-  }
-
-  fn add_string(&mut self, literal: &'a str) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::String { literal })
-  }
-
-  fn add_symbolic_value(
-    &mut self,
-    literal: &'a str,
-  ) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::SymbolicValue { literal })
-  }
-
-  fn add_symbol(
-    &mut self,
-    name: &'a str,
-    namespace: Option<&'a str>,
-  ) -> Result<bool, BuildError> {
-    self.add_to_topmost(Value::Symbol { name, namespace })
-  }
-
-  fn add_keyword(
-    &mut self,
-    name: &'a str,
-    namespace: Option<&'a str>,
-    alias: bool,
-  ) -> Result<bool, BuildError> {
-    use KeywordNamespace as N;
-    let value = Value::Keyword {
-      name,
-      namespace: if let Some(n) = namespace {
-        if alias {
-          N::Alias(n)
-        } else {
-          N::Namespace(n)
-        }
-      } else {
-        N::None
-      },
-    };
-    self.add_to_topmost(value)
+  fn build_top_level(mut self) -> Result<Value<'a>, BuildError> {
+    // We can unwrap safely ⇐ last one is a top-level builder and we have
+    // asserted the type of the other ones when popping them out of the
+    // builder stack.
+    let b = self.stack.pop().unwrap();
+    if b.composite_type() == CompositeType::TopLevel {
+      b.build()
+    } else {
+      Err(BuildError::RunawayCollection)
+    }
   }
 }
 
