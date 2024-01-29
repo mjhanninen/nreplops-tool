@@ -21,20 +21,77 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub enum Chunk<'a> {
-  /// Marks horizontal
-  PushAnchor,
-  //
-  // XXX(soija) FIXME: Instead using a stacked anchors use indexed ones and
-  //            remove the pop.
-  //
-  /// Removes the latest anchor
-  PopAnchor,
+  /// Set the given `anchor` at the current horizontal position offset by the
+  /// `offset` amount.
+  SetAnchor { anchor: Anchor },
   /// Inserts space, except at the start of the line
   SoftSpace,
-  /// Unconditional line break
-  HardBreak,
+  /// Break the line unconditionally and start the new line at the `anchor`
+  /// position.
+  HardBreak { anchor: Anchor },
   /// Unbreakable strip of fragments
   Text(Box<[Fragment<'a>]>),
+}
+
+#[derive(Debug)]
+pub struct Chunks<'a> {
+  anchor_count: usize,
+  chunks: Box<[Chunk<'a>]>,
+}
+
+#[derive(Debug, Default)]
+pub struct ChunkBuilder<'a> {
+  anchor_count: usize,
+  chunks: Vec<Chunk<'a>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct Anchor(usize);
+
+impl<'a> ChunkBuilder<'a> {
+  pub fn new() -> Self {
+    Default::default()
+  }
+
+  fn alloc_anchor(&mut self) -> Anchor {
+    let ix = self.anchor_count;
+    self.anchor_count += 1;
+    Anchor(ix)
+  }
+
+  pub fn set_anchor(&mut self) -> Anchor {
+    let anchor = self.alloc_anchor();
+    self.chunks.push(Chunk::SetAnchor { anchor });
+    anchor
+  }
+
+  pub fn break_hard(&mut self, anchor: Anchor) {
+    self.chunks.push(Chunk::HardBreak { anchor });
+  }
+
+  pub fn add_soft_space(&mut self) {
+    self.chunks.push(Chunk::SoftSpace);
+  }
+
+  pub fn add_text<T>(&mut self, text: T)
+  where
+    T: Into<Box<[Fragment<'a>]>>,
+  {
+    self.chunks.push(Chunk::Text(text.into()))
+  }
+
+  pub fn build(self) -> Chunks<'a> {
+    let ChunkBuilder {
+      anchor_count,
+      mut chunks,
+    } = self;
+    chunks.shrink_to_fit();
+    Chunks {
+      anchor_count,
+      chunks: chunks.into_boxed_slice(),
+    }
+  }
 }
 
 #[derive(Default)]
@@ -63,41 +120,49 @@ impl<'a> TextBuilder<'a> {
     func(self)
   }
 
-  pub fn build(mut self) -> Chunk<'a> {
+  pub fn build(mut self) -> Box<[Fragment<'a>]> {
     self.fragments.shrink_to_fit();
-    Chunk::Text(self.fragments.into_boxed_slice())
+    self.fragments.into_boxed_slice()
   }
 }
 
-pub fn solve<'a>(chunks: &[Chunk<'a>], printer_input: &mut Vec<Command<'a>>) {
+impl<'a> Into<Box<[Fragment<'a>]>> for TextBuilder<'a> {
+  fn into(self) -> Box<[Fragment<'a>]> {
+    self.build()
+  }
+}
+
+pub fn solve<'a>(chunks: &Chunks<'a>, printer_input: &mut Vec<Command<'a>>) {
   use super::printer::BuildInput;
   use Chunk as C;
 
-  let mut col = 0_u16;
-  let mut anchors = vec![0_u16];
+  let Chunks {
+    anchor_count,
+    chunks,
+  } = chunks;
 
-  for c in chunks {
+  let mut column = 0_u16;
+  let mut anchors = vec![0_u16; *anchor_count];
+
+  for c in chunks.iter() {
     match c {
       C::Text(fragments) => {
         for f in fragments.iter() {
           printer_input.add_fragment(f);
-          col += f.width() as u16;
+          column += f.width() as u16;
         }
       }
       C::SoftSpace => {
         printer_input.add_spaces(1);
-        col += 1;
+        column += 1;
       }
-      C::HardBreak => {
+      C::HardBreak { anchor } => {
         printer_input.add_new_line();
-        col = *anchors.last().unwrap();
-        printer_input.add_spaces(col);
+        column = anchors[anchor.0];
+        printer_input.add_spaces(column);
       }
-      C::PushAnchor => {
-        anchors.push(col);
-      }
-      C::PopAnchor => {
-        anchors.pop();
+      C::SetAnchor { anchor } => {
+        anchors[anchor.0] = column;
       }
     }
   }

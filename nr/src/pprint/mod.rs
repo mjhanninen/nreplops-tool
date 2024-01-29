@@ -72,7 +72,7 @@ use crate::clojure::{
   lex::{self, Lexeme},
   result_ir::{self, KeywordNamespace, MapEntry, Value},
 };
-use layout_solver::Chunk;
+use layout_solver::{Chunk, ChunkBuilder, Chunks};
 
 #[derive(Debug)]
 pub struct ClojureResultPrinter {
@@ -191,14 +191,13 @@ fn unformatted_layout<'a, I>(
   }
 }
 
-fn clojure_chunks<'a>(value: &Value<'a>) -> Box<[Chunk<'a>]> {
-  let mut chunks = Vec::new();
-  chunks_from_value(&mut chunks, value);
-  chunks.shrink_to_fit();
-  chunks.into_boxed_slice()
+fn clojure_chunks<'a>(value: &Value<'a>) -> Chunks<'a> {
+  let mut builder = ChunkBuilder::new();
+  chunks_from_value(&mut builder, value);
+  builder.build()
 }
 
-fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
+fn chunks_from_value<'a>(builder: &mut ChunkBuilder<'a>, value: &Value<'a>) {
   use fragments::*;
   use layout_solver::*;
   use style::Style as S;
@@ -206,40 +205,35 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
 
   match value {
     V::Nil => {
-      chunks.push(TextBuilder::new().add("nil", S::NilValue).build());
+      builder.add_text(TextBuilder::new().add("nil", S::NilValue));
     }
     V::Boolean { value } => {
-      chunks.push(
+      builder.add_text(
         TextBuilder::new()
-          .add(if *value { "true" } else { "false" }, S::BooleanValue)
-          .build(),
+          .add(if *value { "true" } else { "false" }, S::BooleanValue),
       );
     }
     V::Number { literal } => {
-      chunks.push(TextBuilder::new().add(*literal, S::NumberValue).build());
+      builder.add_text(TextBuilder::new().add(*literal, S::NumberValue));
     }
     V::String { literal } => {
-      chunks.push(TextBuilder::new().add("\"", S::StringDecoration).build());
-      chunks.push(
+      builder.add_text(TextBuilder::new().add("\"", S::StringDecoration));
+      builder.add_text(
         TextBuilder::new()
           // XXX(soija) This subrange is a hack. FIXME: Make the string value
           //            (and the corresponding string lexeme) to expose the
           //            string *content* directly.
-          .add(&literal[1..literal.len() - 1], S::StringValue)
-          .build(),
+          .add(&literal[1..literal.len() - 1], S::StringValue),
       );
-      chunks.push(TextBuilder::new().add("\"", S::StringDecoration).build());
+      builder.add_text(TextBuilder::new().add("\"", S::StringDecoration));
     }
     V::SymbolicValue { literal } => {
-      chunks.push(
-        TextBuilder::new()
-          .add("##", S::SymbolicValueDecoration)
-          .build(),
-      );
-      chunks.push(TextBuilder::new().add(*literal, S::SymbolicValue).build());
+      builder
+        .add_text(TextBuilder::new().add("##", S::SymbolicValueDecoration));
+      builder.add_text(TextBuilder::new().add(*literal, S::SymbolicValue));
     }
     V::Symbol { namespace, name } => {
-      chunks.push(
+      builder.add_text(
         TextBuilder::new()
           .apply(|b| {
             if let Some(n) = namespace {
@@ -248,11 +242,10 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
               b
             }
           })
-          .add(*name, S::SymbolName)
-          .build(),
+          .add(*name, S::SymbolName),
       );
     }
-    V::Keyword { namespace, name } => chunks.push(
+    V::Keyword { namespace, name } => builder.add_text(
       TextBuilder::new()
         .apply(|b| {
           use KeywordNamespace as K;
@@ -269,15 +262,14 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
               .add("/", S::KeywordDecoration),
           }
         })
-        .add(*name, S::KeywordName)
-        .build(),
+        .add(*name, S::KeywordName),
     ),
     V::TaggedLiteral {
       namespace,
       name,
       value,
     } => {
-      chunks.push(
+      builder.add_text(
         TextBuilder::new()
           .add("#", S::TaggedLiteralDecoration)
           .apply(|b| {
@@ -288,25 +280,26 @@ fn chunks_from_value<'a>(chunks: &mut Vec<Chunk<'a>>, value: &Value<'a>) {
               b
             }
           })
-          .add(*name, S::TaggedLiteralName)
-          .build(),
+          .add(*name, S::TaggedLiteralName),
       );
-      chunks.push(Chunk::SoftSpace);
-      chunks_from_value(chunks, value);
+      builder.add_soft_space();
+      chunks_from_value(builder, value);
     }
-    V::List { values } => chunks_from_value_seq(chunks, values, true, "(", ")"),
+    V::List { values } => {
+      chunks_from_value_seq(builder, values, true, "(", ")")
+    }
     V::Vector { values } => {
-      chunks_from_value_seq(chunks, values, false, "[", "]")
+      chunks_from_value_seq(builder, values, false, "[", "]")
     }
     V::Set { values } => {
-      chunks_from_value_seq(chunks, values, false, "#{", "}")
+      chunks_from_value_seq(builder, values, false, "#{", "}")
     }
-    V::Map { entries } => chunks_from_map(chunks, entries),
+    V::Map { entries } => chunks_from_map(builder, entries),
   }
 }
 
 fn chunks_from_value_seq<'a>(
-  chunks: &mut Vec<Chunk<'a>>,
+  builder: &mut ChunkBuilder<'a>,
   values: &[Value<'a>],
   anchor_after_first: bool,
   opening_delim: &'static str,
@@ -326,63 +319,61 @@ fn chunks_from_value_seq<'a>(
     )
   });
 
-  chunks.push(
-    TextBuilder::new()
-      .add(opening_delim, S::CollectionDelimiter)
-      .build(),
-  );
+  builder
+    .add_text(TextBuilder::new().add(opening_delim, S::CollectionDelimiter));
 
   let mut it = values.iter();
 
   if anchor_after_first {
     if let Some(first) = it.next() {
-      chunks_from_value(chunks, first);
-      chunks.push(Chunk::SoftSpace);
+      chunks_from_value(builder, first);
+      builder.add_soft_space();
     }
   }
 
   if let Some(first) = it.next() {
-    chunks.push(Chunk::PushAnchor);
-    chunks_from_value(chunks, first);
+    let anchor = builder.set_anchor();
+    chunks_from_value(builder, first);
+
     for value in it {
       if only_simple_values {
-        chunks.push(Chunk::SoftSpace);
+        builder.add_soft_space();
       } else {
-        chunks.push(Chunk::HardBreak);
+        builder.break_hard(anchor);
       }
-      chunks_from_value(chunks, value);
+      chunks_from_value(builder, value);
     }
-    chunks.push(Chunk::PopAnchor);
   }
 
-  chunks.push(
-    TextBuilder::new()
-      .add(closing_delim, S::CollectionDelimiter)
-      .build(),
-  );
+  builder
+    .add_text(TextBuilder::new().add(closing_delim, S::CollectionDelimiter));
 }
 
-fn chunks_from_map<'a>(chunks: &mut Vec<Chunk<'a>>, entries: &[MapEntry<'a>]) {
+fn chunks_from_map<'a>(
+  builder: &mut ChunkBuilder<'a>,
+  entries: &[MapEntry<'a>],
+) {
   use fragments::*;
   use layout_solver::*;
   use style::Style as S;
 
-  chunks.push(TextBuilder::new().add("{", S::CollectionDelimiter).build());
+  builder.add_text(TextBuilder::new().add("{", S::CollectionDelimiter));
 
   let mut it = entries.iter();
   if let Some(first) = it.next() {
-    chunks.push(Chunk::PushAnchor);
-    chunks_from_value(chunks, &first.key);
-    chunks.push(Chunk::SoftSpace);
-    chunks_from_value(chunks, &first.value);
+    let anchor = builder.set_anchor();
+
+    chunks_from_value(builder, &first.key);
+    builder.add_soft_space();
+    chunks_from_value(builder, &first.value);
+
     for entry in it {
-      chunks.push(Chunk::HardBreak);
-      chunks_from_value(chunks, &entry.key);
-      chunks.push(Chunk::SoftSpace);
-      chunks_from_value(chunks, &entry.value);
+      builder.break_hard(anchor);
+      chunks_from_value(builder, &entry.key);
+      builder.add_soft_space();
+      chunks_from_value(builder, &entry.value);
     }
-    chunks.push(Chunk::PopAnchor);
   }
 
-  chunks.push(TextBuilder::new().add("}", S::CollectionDelimiter).build());
+  builder.add_text(TextBuilder::new().add("}", S::CollectionDelimiter));
 }
