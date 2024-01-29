@@ -6,6 +6,7 @@ license = "Apache-2.0"
 repository = "https://github.com/mjhanninen/nreplops-tool"
 readme = "README.md"
 edition = "2021"
+publish = false
 
 [dependencies]
 nreplops-tool = { path = "../nr" }
