@@ -76,7 +76,13 @@ where
           }
         }
       }
-      C::ResetStyle(style) => {
+      // On console "having a style" means here "having a foreground color from
+      // the ANSI 16 palette".  Hence, we don't bother to check which and what
+      // kind of span we are closing.  Instead we just check if the following
+      // text has "style" as well and, if so, don't bother even resetting the
+      // current one.  If we were generating HTML, we would probably want to
+      // emit a correct closing tag here.
+      C::ResetStyle(_style) => {
         if use_color
           && it.peek().map(|next| !next.is_set_style()).unwrap_or(true)
         {

@@ -60,13 +60,13 @@ impl Output {
   }
 
   pub fn is_terminal(&self) -> bool {
-    match *self {
+    matches!(
+      self,
       Output::StdOut(StdType::Terminal(..))
-      | Output::StdOut(StdType::TerminalWithoutWidth)
-      | Output::StdErr(StdType::Terminal(..))
-      | Output::StdErr(StdType::TerminalWithoutWidth) => true,
-      _ => false,
-    }
+        | Output::StdOut(StdType::TerminalWithoutWidth)
+        | Output::StdErr(StdType::Terminal(..))
+        | Output::StdErr(StdType::TerminalWithoutWidth)
+    )
   }
 
   pub fn width(&self) -> Option<u16> {

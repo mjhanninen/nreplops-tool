@@ -134,7 +134,7 @@ impl<'a> TextBuilder<'a> {
     self
   }
 
-  pub fn apply<F>(self, mut func: F) -> Self
+  pub fn apply<F>(self, func: F) -> Self
   where
     F: FnOnce(Self) -> Self,
   {
@@ -147,6 +147,8 @@ impl<'a> TextBuilder<'a> {
   }
 }
 
+// Unfortunately we cannot implement the dual `From<...>` rule.
+#[allow(clippy::from_over_into)]
 impl<'a> Into<Box<[Fragment<'a>]>> for TextBuilder<'a> {
   fn into(self) -> Box<[Fragment<'a>]> {
     self.build()

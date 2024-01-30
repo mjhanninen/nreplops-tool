@@ -13,9 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#![allow(unused)]
-
-use anstyle::{AnsiColor, Style as Anstyle};
+use anstyle::AnsiColor;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Style {

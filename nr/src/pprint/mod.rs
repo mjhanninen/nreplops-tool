@@ -59,8 +59,6 @@
 // solver.
 //
 
-#![allow(unused)]
-
 use std::io::{self, Write};
 
 mod fragments;
@@ -69,10 +67,10 @@ mod printer;
 mod style;
 
 use crate::clojure::{
-  lex::{self, Lexeme},
+  lex::Lexeme,
   result_ir::{self, MapEntry, Value},
 };
-use layout_solver::{Chunk, ChunkBuilder, Chunks};
+use layout_solver::{ChunkBuilder, Chunks};
 
 #[derive(Debug)]
 pub struct ClojureResultPrinter {
@@ -164,7 +162,7 @@ fn unformatted_layout<'a, I>(
         }
         printer_input.add_styled(S::KeywordName, name);
       }
-      L::TaggedLiteral { source, tag_ix, .. } => {
+      L::TaggedLiteral { source, .. } => {
         printer_input.add_styled(S::TaggedLiteralDecoration, source);
       }
       L::Tag {
@@ -208,11 +206,7 @@ fn rigid_width(value: &Value) -> Option<usize> {
     //            value and, if any, add the prerix width.  However this means
     //            that we could not use the breakpoint before the contained
     //            value that the literal offers.
-    V::TaggedLiteral {
-      namespace,
-      name,
-      value,
-    } => None,
+    V::TaggedLiteral { .. } => None,
     V::Keyword {
       namespace,
       name,
@@ -238,7 +232,6 @@ fn clojure_chunks<'a>(value: &Value<'a>) -> Chunks<'a> {
 }
 
 fn chunks_from_value<'a>(builder: &mut ChunkBuilder<'a>, value: &Value<'a>) {
-  use fragments::*;
   use layout_solver::*;
   use style::Style as S;
   use Value as V;
@@ -343,7 +336,6 @@ fn chunks_from_value_seq<'a>(
   opening_delim: &'static str,
   closing_delim: &'static str,
 ) {
-  use fragments::*;
   use layout_solver::*;
   use style::Style as S;
 
@@ -391,7 +383,6 @@ fn chunks_from_map<'a>(
   builder: &mut ChunkBuilder<'a>,
   entries: &[MapEntry<'a>],
 ) {
-  use fragments::*;
   use layout_solver::*;
   use style::Style as S;
 
