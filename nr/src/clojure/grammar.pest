@@ -213,7 +213,7 @@ control_char = {
 //
 
 symbolic_value = { symbolic_value_prefix ~ unqualified_symbol }
-symbolic_value_prefix = _{ "##" }
+symbolic_value_prefix = { "##" }
 
 //
 // Symbols

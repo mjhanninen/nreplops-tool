@@ -29,6 +29,7 @@ pub mod host_options;
 pub mod hosts_files;
 pub mod nrepl;
 pub mod outputs;
+pub mod pprint;
 pub mod routes;
 pub mod socket;
 pub mod sources;

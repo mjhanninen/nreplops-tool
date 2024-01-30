@@ -29,6 +29,8 @@ use crate::{
   version::{Version, VersionRange},
 };
 
+pub use self::tristate::Tristate;
+
 #[derive(Debug)]
 pub struct Args {
   pub version_range: Option<VersionRange>,
@@ -39,6 +41,8 @@ pub struct Args {
   pub results_to: Option<IoArg>,
   pub source_args: Vec<SourceArg>,
   pub template_args: Vec<TemplateArg>,
+  pub pretty: Tristate,
+  pub color: Tristate,
 }
 
 impl Args {
@@ -168,6 +172,19 @@ impl TryFrom<Cli> for Args {
       .map(IoArg::try_from)
       .transpose()
       .map_err(|_| Error::BadStdIn)?;
+    //
+    // XXX(soija) Is this correct? `--stdin` determines what gets sent to the
+    //            server as stdin and `stdin_reserved` means that the source is
+    //            read from the local stdin.  So, I think, it should be okay to
+    //
+    //                cat program.clj | nr --stdin input.txt
+    //
+    //            which should be more or less equivalent to
+    //
+    //                nr --file program.clj --stdin input.txt
+    //
+    //            Right?
+    //
     if stdin_from.is_some() && stdin_reserved {
       return Err(Error::StdInConflict);
     }
@@ -191,6 +208,15 @@ impl TryFrom<Cli> for Args {
         wait_for: cli.wait_port_file.map(time::Duration::from_secs),
       }
     };
+
+    fn tristate(on: bool, off: bool) -> Tristate {
+      use Tristate::*;
+      match (on, off) {
+        (true, false) => On,
+        (false, true) => Off,
+        _ => Auto,
+      }
+    }
 
     Ok(Self {
       version_range: assert_version,
@@ -231,6 +257,8 @@ impl TryFrom<Cli> for Args {
       },
       source_args,
       template_args: args,
+      pretty: tristate(cli.pretty_print, cli.no_pretty_print),
+      color: tristate(cli.color, cli.no_color),
     })
   }
 }
@@ -309,6 +337,85 @@ impl TryFrom<&ffi::OsString> for IoArg {
 #[derive(Debug, thiserror::Error)]
 #[error("bad file agument: {0}")]
 pub struct IoParseError(String);
+
+mod tristate {
+
+  use std::{fmt, str};
+
+  #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+  pub enum Tristate {
+    On,
+    Off,
+    Auto,
+  }
+
+  impl Tristate {
+    pub fn to_bool(&self, default: bool) -> bool {
+      use Tristate::*;
+      match self {
+        On => true,
+        Off => false,
+        Auto => default,
+      }
+    }
+  }
+
+  impl fmt::Display for Tristate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+      use Tristate::*;
+      write!(
+        f,
+        "{}",
+        match self {
+          On => "on",
+          Off => "off",
+          Auto => "auto",
+        }
+      )
+    }
+  }
+
+  impl str::FromStr for Tristate {
+    type Err = ParseTristateSwitchError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+      use Tristate::*;
+      match s {
+        "on" => Ok(On),
+        "off" => Ok(Off),
+        "auto" => Ok(Auto),
+        _ => Err(ParseTristateSwitchError),
+      }
+    }
+  }
+
+  #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+  pub struct ParseTristateSwitchError;
+
+  #[cfg(test)]
+  mod test {
+    use super::*;
+    use Tristate::*;
+
+    #[test]
+    fn parse_tristate_switch() {
+      assert_eq!("on".parse::<Tristate>(), Ok(On));
+      assert_eq!("off".parse::<Tristate>(), Ok(Off));
+      assert_eq!("auto".parse::<Tristate>(), Ok(Auto));
+
+      assert_eq!("".parse::<Tristate>(), Err(ParseTristateSwitchError));
+      assert_eq!(" on".parse::<Tristate>(), Err(ParseTristateSwitchError));
+      assert_eq!(
+        "whatever".parse::<Tristate>(),
+        Err(ParseTristateSwitchError)
+      );
+    }
+  }
+}
+
+//
+// Clap cli
+//
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -420,6 +527,30 @@ struct Cli {
     value_parser = not_implemented::<u32>,
   )]
   _timeout: Option<u32>,
+
+  /// Enforce result value pretty-printing
+  #[arg(
+    long,
+    visible_aliases = &["pretty", "pprint"],
+    conflicts_with = "no_pretty_print",
+  )]
+  pretty_print: bool,
+
+  /// Prevent result value pretty-printing
+  #[arg(
+    long,
+    visible_aliases = &["no-pretty", "no-pprint"],
+    conflicts_with = "pretty_print",
+  )]
+  no_pretty_print: bool,
+
+  /// Enforce colored output
+  #[arg(long, conflicts_with = "no_color")]
+  color: bool,
+
+  /// Prevent colored output
+  #[arg(long, conflicts_with = "color")]
+  no_color: bool,
 }
 
 fn parse_version_range(s: &str) -> Result<VersionRange, &'static str> {

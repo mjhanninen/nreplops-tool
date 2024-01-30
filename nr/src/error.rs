@@ -15,7 +15,10 @@
 
 use std::io;
 
-use crate::version::{Version, VersionRange};
+use crate::{
+  clojure::lex,
+  version::{Version, VersionRange},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -33,6 +36,10 @@ pub enum Error {
   CannotReadFile(String),
   #[error("cannot write file {0}")]
   CannotWriteFile(String),
+  #[error("broken stdout pipe")]
+  CannotWriteStdOut,
+  #[error("broken stderr pipe")]
+  CannotWriteStdErr,
   #[error("bad port file {0}")]
   CannotParsePortFile(String),
   #[error("cannot resolve the IP address for the domain {0}")]
@@ -82,4 +89,8 @@ pub enum Error {
   HostDisconnected,
   #[error("host sent unexptected response")]
   UnexptectedResponse,
+
+  // Related to parsing Clojure
+  #[error("failed to parse result: {0}")]
+  FailedToParseResult(Box<lex::Error>),
 }

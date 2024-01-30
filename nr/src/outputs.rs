@@ -17,35 +17,73 @@ use std::{
   cell::{RefCell, RefMut},
   collections::HashMap,
   fmt, fs,
-  io::{self, Write},
+  io::{self, IsTerminal, Write},
+  os::fd::AsRawFd,
   path::{self, Path},
   rc::Rc,
 };
 
 use crate::{
   cli::{self, IoArg},
+  clojure::lex,
   error::Error,
+  pprint::ClojureResultPrinter,
 };
 
 #[derive(Clone, Debug)]
 pub enum Output {
-  StdOut,
-  StdErr,
+  StdOut(StdType),
+  StdErr(StdType),
   File {
     file: Rc<RefCell<io::BufWriter<fs::File>>>,
     path: Box<Path>,
   },
 }
 
+#[derive(Clone, Debug)]
+pub enum StdType {
+  Terminal(u16),
+  TerminalWithoutWidth,
+  Pipe,
+}
+
 impl Output {
   pub fn writer(&self) -> OutputWriter<'_> {
     match *self {
-      Output::StdOut => OutputWriter::StdOut,
-      Output::StdErr => OutputWriter::StdErr,
+      Output::StdOut(..) => OutputWriter::StdOut,
+      Output::StdErr(..) => OutputWriter::StdErr,
       Output::File { ref file, ref path } => OutputWriter::File {
         file: file.borrow_mut(),
         path,
       },
+    }
+  }
+
+  pub fn is_terminal(&self) -> bool {
+    matches!(
+      self,
+      Output::StdOut(StdType::Terminal(..))
+        | Output::StdOut(StdType::TerminalWithoutWidth)
+        | Output::StdErr(StdType::Terminal(..))
+        | Output::StdErr(StdType::TerminalWithoutWidth)
+    )
+  }
+
+  pub fn width(&self) -> Option<u16> {
+    match *self {
+      Output::StdOut(StdType::Terminal(width))
+      | Output::StdErr(StdType::Terminal(width)) => Some(width),
+      _ => None,
+    }
+  }
+
+  pub fn generate_error(&self, _: io::Error) -> Error {
+    match self {
+      Output::StdOut { .. } => Error::CannotWriteStdOut,
+      Output::StdErr { .. } => Error::CannotWriteStdErr,
+      Output::File { path, .. } => {
+        Error::CannotWriteFile(path.to_string_lossy().to_string())
+      }
     }
   }
 }
@@ -58,16 +96,6 @@ pub enum OutputWriter<'a> {
     file: RefMut<'a, io::BufWriter<fs::File>>,
     path: &'a Path,
   },
-}
-
-impl Output {
-  pub fn target(&self) -> OutputTarget {
-    match self {
-      Output::StdOut => OutputTarget::StdOut,
-      Output::StdErr => OutputTarget::StdErr,
-      Output::File { ref path, .. } => OutputTarget::File(path),
-    }
-  }
 }
 
 impl<'a> Write for OutputWriter<'a> {
@@ -114,7 +142,7 @@ pub struct Outputs {
   // Receives nREPL's standard error
   pub nrepl_stderr: Option<Output>,
   // Receives result forms
-  pub nrepl_results: Option<Output>,
+  pub nrepl_results: Option<NreplResultsSink>,
 }
 
 impl Outputs {
@@ -155,8 +183,25 @@ impl Outputs {
       None => (),
     }
 
-    let stdout = Output::StdOut;
-    let stderr = Output::StdErr;
+    fn determine_std_type<S>(s: S) -> StdType
+    where
+      S: IsTerminal + AsRawFd,
+    {
+      use terminal_size::{terminal_size_using_fd, Width};
+      if s.is_terminal() {
+        if let Some((Width(w), _)) = terminal_size_using_fd(s.as_raw_fd()) {
+          StdType::Terminal(w)
+        } else {
+          StdType::TerminalWithoutWidth
+        }
+      } else {
+        StdType::Pipe
+      }
+    }
+
+    let stderr = Output::StdErr(determine_std_type(io::stderr()));
+    let stdout = Output::StdOut(determine_std_type(io::stdout()));
+
     let mut nrepl_stdout = None;
     let mut nrepl_stderr = None;
     let mut nrepl_results = None;
@@ -179,7 +224,19 @@ impl Outputs {
         match source {
           Src::StdOut => nrepl_stdout = Some(output.clone()),
           Src::StdErr => nrepl_stderr = Some(output.clone()),
-          Src::Results => nrepl_results = Some(output.clone()),
+          Src::Results => {
+            let pretty = args.pretty.to_bool(output.is_terminal());
+            let color = args.color.to_bool(output.is_terminal());
+            let width = output.width().unwrap_or(80);
+            nrepl_results = Some(NreplResultsSink {
+              output: output.clone(),
+              formatter: if pretty || color {
+                Some(ClojureResultPrinter::new(pretty, color, width))
+              } else {
+                None
+              },
+            })
+          }
         }
       }
     }
@@ -208,4 +265,26 @@ enum Dst {
   StdOut,
   StdErr,
   File(Box<Path>),
+}
+
+#[derive(Debug)]
+pub struct NreplResultsSink {
+  output: Output,
+  formatter: Option<ClojureResultPrinter>,
+}
+
+impl NreplResultsSink {
+  pub fn output(&self, clojure: &str) -> Result<(), Error> {
+    if let Some(ref f) = self.formatter {
+      f.print(
+        &mut self.output.writer(),
+        // XXX(soija) I have not thought out the implications of this aggressive
+        //            error handling.
+        &lex::lex(clojure).map_err(|e| Error::FailedToParseResult(e.into()))?,
+      )
+    } else {
+      writeln!(self.output.writer(), "{}", clojure)
+    }
+    .map_err(|e| self.output.generate_error(e))
+  }
 }
