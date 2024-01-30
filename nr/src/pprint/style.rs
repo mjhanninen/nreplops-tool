@@ -61,7 +61,7 @@ impl Style {
       S::SymbolicValue => A::Red,
       S::TaggedLiteralDecoration => A::BrightBlack,
       S::TaggedLiteralNamespace => A::BrightBlack,
-      S::TaggedLiteralName => A::Red,
+      S::TaggedLiteralName => A::Yellow,
     }
   }
 }
