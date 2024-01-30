@@ -191,6 +191,44 @@ fn unformatted_layout<'a, I>(
   }
 }
 
+/// The width of a rigid value, i.e. a value that in no circumstance can be
+/// split or combined to occupy a narrower or wider horizontal span.
+//
+// XXX(soija) In fact, we could call this a natural width and some values
+//            (lists, maps, and the like) just don't have it.
+fn rigid_width(value: &Value) -> Option<usize> {
+  use Value as V;
+  match value {
+    V::Nil => Some(3),
+    V::Number { literal } => Some(literal.len()),
+    V::String { literal } => Some(literal.len()),
+    V::Boolean { value } => Some(if *value { 4 } else { 5 }),
+    V::SymbolicValue { literal } => Some(literal.len() + 2),
+    // XXX(soija) This could be done by taking the rigid width of contained
+    //            value and, if any, add the prerix width.  However this means
+    //            that we could not use the breakpoint before the contained
+    //            value that the literal offers.
+    V::TaggedLiteral {
+      namespace,
+      name,
+      value,
+    } => None,
+    V::Keyword { namespace, name } => Some(
+      match &namespace {
+        KeywordNamespace::None => 1,
+        KeywordNamespace::Alias(a) => 3 + a.len(),
+        KeywordNamespace::Namespace(n) => 2 + n.len(),
+      } + name.len(),
+    ),
+    V::Symbol { namespace, name } => Some(if let Some(n) = namespace {
+      n.len() + 1 + name.len()
+    } else {
+      name.len()
+    }),
+    _ => None,
+  }
+}
+
 fn clojure_chunks<'a>(value: &Value<'a>) -> Chunks<'a> {
   let mut builder = ChunkBuilder::new();
   chunks_from_value(&mut builder, value);
@@ -359,19 +397,45 @@ fn chunks_from_map<'a>(
 
   builder.add_text(TextBuilder::new().add("{", S::CollectionDelimiter));
 
+  let key_width = entries
+    .iter()
+    .fold(Some(0), |acc, e| Some(acc?.max(rigid_width(&e.key)?)));
+
   let mut it = entries.iter();
   if let Some(first) = it.next() {
     let anchor = builder.set_anchor();
 
-    chunks_from_value(builder, &first.key);
-    builder.add_soft_space();
-    chunks_from_value(builder, &first.value);
+    if let Some(key_width) = key_width {
+      let value_anchor = builder.set_relative_anchor(
+        anchor,
+        1 + i16::try_from(key_width).expect("too large keys"),
+      );
 
-    for entry in it {
-      builder.break_hard(anchor);
-      chunks_from_value(builder, &entry.key);
+      chunks_from_value(builder, &first.key);
+
+      builder.jump_to(value_anchor);
+      chunks_from_value(builder, &first.value);
+
+      for entry in it {
+        builder.break_hard(anchor);
+        chunks_from_value(builder, &entry.key);
+
+        builder.jump_to(value_anchor);
+        chunks_from_value(builder, &entry.value);
+      }
+    } else {
+      chunks_from_value(builder, &first.key);
+
       builder.add_soft_space();
-      chunks_from_value(builder, &entry.value);
+      chunks_from_value(builder, &first.value);
+
+      for entry in it {
+        builder.break_hard(anchor);
+        chunks_from_value(builder, &entry.key);
+
+        builder.add_soft_space();
+        chunks_from_value(builder, &entry.value);
+      }
     }
   }
 

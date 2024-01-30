@@ -24,11 +24,18 @@ pub enum Chunk<'a> {
   /// Set the given `anchor` at the current horizontal position offset by the
   /// `offset` amount.
   SetAnchor { anchor: Anchor },
+  SetRelativeAnchor {
+    anchor: Anchor,
+    base: Anchor,
+    offset: i16,
+  },
   /// Inserts space, except at the start of the line
   SoftSpace,
   /// Break the line unconditionally and start the new line at the `anchor`
   /// position.
   HardBreak { anchor: Anchor },
+  /// Jumps horizontally to the `anchor` position.
+  JumpTo { anchor: Anchor },
   /// Unbreakable strip of fragments
   Text(Box<[Fragment<'a>]>),
 }
@@ -66,12 +73,26 @@ impl<'a> ChunkBuilder<'a> {
     anchor
   }
 
+  pub fn set_relative_anchor(&mut self, base: Anchor, offset: i16) -> Anchor {
+    let anchor = self.alloc_anchor();
+    self.chunks.push(Chunk::SetRelativeAnchor {
+      anchor,
+      base,
+      offset,
+    });
+    anchor
+  }
+
   pub fn break_hard(&mut self, anchor: Anchor) {
     self.chunks.push(Chunk::HardBreak { anchor });
   }
 
   pub fn add_soft_space(&mut self) {
     self.chunks.push(Chunk::SoftSpace);
+  }
+
+  pub fn jump_to(&mut self, anchor: Anchor) {
+    self.chunks.push(Chunk::JumpTo { anchor });
   }
 
   pub fn add_text<T>(&mut self, text: T)
@@ -161,8 +182,25 @@ pub fn solve<'a>(chunks: &Chunks<'a>, printer_input: &mut Vec<Command<'a>>) {
         column = anchors[anchor.0];
         printer_input.add_spaces(column);
       }
+      C::JumpTo { anchor } => {
+        let target = anchors[anchor.0];
+        if column < target {
+          let jump = target - column;
+          printer_input.add_spaces(jump);
+          column = target;
+        }
+      }
       C::SetAnchor { anchor } => {
         anchors[anchor.0] = column;
+      }
+      C::SetRelativeAnchor {
+        anchor,
+        base,
+        offset,
+      } => {
+        anchors[anchor.0] = (i16::try_from(anchors[base.0]).unwrap() + offset)
+          .try_into()
+          .unwrap();
       }
     }
   }
