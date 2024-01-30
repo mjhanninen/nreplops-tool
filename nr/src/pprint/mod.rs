@@ -93,7 +93,7 @@ impl ClojureResultPrinter {
     let mut printer_input = Vec::new();
     if self.pretty {
       let value = result_ir::build(lexemes).unwrap();
-      let chunks = pretty_edn::clojure_chunks(&value);
+      let chunks = pretty_edn::convert_to_layout_program(&value);
       layout_solver::solve(&chunks, &mut printer_input);
     } else {
       unformatted_layout(lexemes.iter(), &mut printer_input);

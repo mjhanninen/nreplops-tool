@@ -19,7 +19,7 @@
 use crate::clojure::result_ir::{MapEntry, Value};
 
 use super::{
-  layout_solver::{ChunkBuilder, Chunks, TextBuilder},
+  layout_solver::{Program, ProgramBuilder, TextBuilder},
   style::Style,
 };
 
@@ -27,13 +27,13 @@ use Style as S;
 use TextBuilder as TB;
 use Value as V;
 
-pub fn clojure_chunks<'a>(value: &Value<'a>) -> Chunks<'a> {
-  let mut builder = ChunkBuilder::new();
+pub fn convert_to_layout_program<'a>(value: &Value<'a>) -> Program<'a> {
+  let mut builder = ProgramBuilder::new();
   chunks_from_value(&mut builder, value);
   builder.build()
 }
 
-fn chunks_from_value<'a>(builder: &mut ChunkBuilder<'a>, value: &Value<'a>) {
+fn chunks_from_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
   match value {
     V::Nil => {
       builder.add_text(TB::new().add("nil", S::NilValue));
@@ -126,7 +126,7 @@ fn chunks_from_value<'a>(builder: &mut ChunkBuilder<'a>, value: &Value<'a>) {
 }
 
 fn chunks_from_value_seq<'a>(
-  builder: &mut ChunkBuilder<'a>,
+  builder: &mut ProgramBuilder<'a>,
   values: &[Value<'a>],
   anchor_after_first: bool,
   opening_delim: &'static str,
@@ -171,7 +171,7 @@ fn chunks_from_value_seq<'a>(
 }
 
 fn chunks_from_map<'a>(
-  builder: &mut ChunkBuilder<'a>,
+  builder: &mut ProgramBuilder<'a>,
   entries: &[MapEntry<'a>],
 ) {
   builder.add_text(TB::new().add("{", S::CollectionDelimiter));

@@ -19,8 +19,9 @@ use super::{
   style::Style,
 };
 
+/// An instruction of an optimization program.
 #[derive(Clone, Debug)]
-pub enum Chunk<'a> {
+pub enum Instruction<'a> {
   /// Set the given `anchor` at the current horizontal position offset by the
   /// `offset` amount.
   SetAnchor { anchor: Anchor },
@@ -40,23 +41,24 @@ pub enum Chunk<'a> {
   Text(Box<[Fragment<'a>]>),
 }
 
+/// An optimization program for the layout solver.
 #[derive(Debug)]
-pub struct Chunks<'a> {
+pub struct Program<'a> {
   anchor_count: usize,
-  chunks: Box<[Chunk<'a>]>,
+  instructions: Box<[Instruction<'a>]>,
 }
 
 #[derive(Debug, Default)]
-pub struct ChunkBuilder<'a> {
+pub struct ProgramBuilder<'a> {
   anchor_count: usize,
-  chunks: Vec<Chunk<'a>>,
+  instructions: Vec<Instruction<'a>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Anchor(usize);
 
-impl<'a> ChunkBuilder<'a> {
+impl<'a> ProgramBuilder<'a> {
   pub fn new() -> Self {
     Default::default()
   }
@@ -69,13 +71,13 @@ impl<'a> ChunkBuilder<'a> {
 
   pub fn set_anchor(&mut self) -> Anchor {
     let anchor = self.alloc_anchor();
-    self.chunks.push(Chunk::SetAnchor { anchor });
+    self.instructions.push(Instruction::SetAnchor { anchor });
     anchor
   }
 
   pub fn set_relative_anchor(&mut self, base: Anchor, offset: i16) -> Anchor {
     let anchor = self.alloc_anchor();
-    self.chunks.push(Chunk::SetRelativeAnchor {
+    self.instructions.push(Instruction::SetRelativeAnchor {
       anchor,
       base,
       offset,
@@ -84,33 +86,33 @@ impl<'a> ChunkBuilder<'a> {
   }
 
   pub fn break_hard(&mut self, anchor: Anchor) {
-    self.chunks.push(Chunk::HardBreak { anchor });
+    self.instructions.push(Instruction::HardBreak { anchor });
   }
 
   pub fn add_soft_space(&mut self) {
-    self.chunks.push(Chunk::SoftSpace);
+    self.instructions.push(Instruction::SoftSpace);
   }
 
   pub fn jump_to(&mut self, anchor: Anchor) {
-    self.chunks.push(Chunk::JumpTo { anchor });
+    self.instructions.push(Instruction::JumpTo { anchor });
   }
 
   pub fn add_text<T>(&mut self, text: T)
   where
     T: Into<Box<[Fragment<'a>]>>,
   {
-    self.chunks.push(Chunk::Text(text.into()))
+    self.instructions.push(Instruction::Text(text.into()))
   }
 
-  pub fn build(self) -> Chunks<'a> {
-    let ChunkBuilder {
+  pub fn build(self) -> Program<'a> {
+    let ProgramBuilder {
       anchor_count,
-      mut chunks,
+      mut instructions,
     } = self;
-    chunks.shrink_to_fit();
-    Chunks {
+    instructions.shrink_to_fit();
+    Program {
       anchor_count,
-      chunks: chunks.into_boxed_slice(),
+      instructions: instructions.into(),
     }
   }
 }
@@ -143,7 +145,7 @@ impl<'a> TextBuilder<'a> {
 
   pub fn build(mut self) -> Box<[Fragment<'a>]> {
     self.fragments.shrink_to_fit();
-    self.fragments.into_boxed_slice()
+    self.fragments.into()
   }
 }
 
@@ -155,13 +157,13 @@ impl<'a> Into<Box<[Fragment<'a>]>> for TextBuilder<'a> {
   }
 }
 
-pub fn solve<'a>(chunks: &Chunks<'a>, printer_input: &mut Vec<Command<'a>>) {
+pub fn solve<'a>(chunks: &Program<'a>, printer_input: &mut Vec<Command<'a>>) {
   use super::printer::BuildInput;
-  use Chunk as C;
+  use Instruction as C;
 
-  let Chunks {
+  let Program {
     anchor_count,
-    chunks,
+    instructions: chunks,
   } = chunks;
 
   let mut column = 0_u16;
