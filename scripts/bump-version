@@ -56,7 +56,25 @@ sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION
   || die "failed to update CHANGELOG.md"
 
 # Commit and release tag
-git add nr/Cargo.toml Cargo.lock CHANGELOG.md
-git commit -m "Bump version to ${VERSION}"
-git tag -a -m "Release ${VERSION}" "v${VERSION}"
-git show HEAD
+if [[ "${DRY_RUN:-}" == "1" ]]; then
+
+  git diff
+  ESC="$(echo -e "\e")"
+  cat <<EOF
+${ESC}[0;33mNOTE: This is a dry-run.  In actual run the above changes would have been
+      committed with the following commands:
+
+        git add nr/Cargo.toml Cargo.lock CHANGELOG.md
+        git commit -m "Bump version to ${VERSION}"
+        git tag -a -m "Release ${VERSION}" "v${VERSION}"
+${ESC}[0m
+EOF
+
+else
+
+  git add nr/Cargo.toml Cargo.lock CHANGELOG.md
+  git commit -m "Bump version to ${VERSION}"
+  git tag -a -m "Release ${VERSION}" "v${VERSION}"
+  git show HEAD
+
+fi
