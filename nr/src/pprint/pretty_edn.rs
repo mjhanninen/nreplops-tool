@@ -27,13 +27,15 @@ use Style as S;
 use TextBuilder as TB;
 use Value as V;
 
+/// Convert the given result value into a program to be passed on to the layout
+/// solver.
 pub fn convert_to_layout_program<'a>(value: &Value<'a>) -> Program<'a> {
   let mut builder = ProgramBuilder::new();
-  chunks_from_value(&mut builder, value);
+  program_value(&mut builder, value);
   builder.build()
 }
 
-fn chunks_from_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
+fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
   match value {
     V::Nil => {
       builder.add_text(TB::new().add("nil", S::NilValue));
@@ -110,22 +112,17 @@ fn chunks_from_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
           .add(*name, S::TaggedLiteralName),
       );
       builder.add_soft_space();
-      chunks_from_value(builder, value);
+      program_value(builder, value);
     }
-    V::List { values } => {
-      chunks_from_value_seq(builder, values, true, "(", ")")
-    }
-    V::Vector { values } => {
-      chunks_from_value_seq(builder, values, false, "[", "]")
-    }
-    V::Set { values } => {
-      chunks_from_value_seq(builder, values, false, "#{", "}")
-    }
-    V::Map { entries } => chunks_from_map(builder, entries),
+    V::List { values } => program_seq(builder, values, true, "(", ")"),
+    V::Vector { values } => program_seq(builder, values, false, "[", "]"),
+    V::Set { values } => program_seq(builder, values, false, "#{", "}"),
+    V::Map { entries } => program_map(builder, entries),
   }
 }
 
-fn chunks_from_value_seq<'a>(
+/// Generate a program for a delimited sequence of values.
+fn program_seq<'a>(
   builder: &mut ProgramBuilder<'a>,
   values: &[Value<'a>],
   anchor_after_first: bool,
@@ -148,14 +145,14 @@ fn chunks_from_value_seq<'a>(
 
   if anchor_after_first {
     if let Some(first) = it.next() {
-      chunks_from_value(builder, first);
+      program_value(builder, first);
       builder.add_soft_space();
     }
   }
 
   if let Some(first) = it.next() {
     let anchor = builder.set_anchor();
-    chunks_from_value(builder, first);
+    program_value(builder, first);
 
     for value in it {
       if only_simple_values {
@@ -163,17 +160,15 @@ fn chunks_from_value_seq<'a>(
       } else {
         builder.break_hard(anchor);
       }
-      chunks_from_value(builder, value);
+      program_value(builder, value);
     }
   }
 
   builder.add_text(TB::new().add(closing_delim, S::CollectionDelimiter));
 }
 
-fn chunks_from_map<'a>(
-  builder: &mut ProgramBuilder<'a>,
-  entries: &[MapEntry<'a>],
-) {
+/// Generate program for a map structure.
+fn program_map<'a>(builder: &mut ProgramBuilder<'a>, entries: &[MapEntry<'a>]) {
   builder.add_text(TB::new().add("{", S::CollectionDelimiter));
 
   let key_width = entries
@@ -190,30 +185,30 @@ fn chunks_from_map<'a>(
         1 + i16::try_from(key_width).expect("too large keys"),
       );
 
-      chunks_from_value(builder, &first.key);
+      program_value(builder, &first.key);
 
       builder.jump_to(value_anchor);
-      chunks_from_value(builder, &first.value);
+      program_value(builder, &first.value);
 
       for entry in it {
         builder.break_hard(anchor);
-        chunks_from_value(builder, &entry.key);
+        program_value(builder, &entry.key);
 
         builder.jump_to(value_anchor);
-        chunks_from_value(builder, &entry.value);
+        program_value(builder, &entry.value);
       }
     } else {
-      chunks_from_value(builder, &first.key);
+      program_value(builder, &first.key);
 
       builder.add_soft_space();
-      chunks_from_value(builder, &first.value);
+      program_value(builder, &first.value);
 
       for entry in it {
         builder.break_hard(anchor);
-        chunks_from_value(builder, &entry.key);
+        program_value(builder, &entry.key);
 
         builder.add_soft_space();
-        chunks_from_value(builder, &entry.value);
+        program_value(builder, &entry.value);
       }
     }
   }
@@ -228,10 +223,14 @@ fn chunks_from_map<'a>(
 //            (lists, maps, and the like) just don't have it.
 fn rigid_width(value: &Value) -> Option<usize> {
   match value {
-    V::Nil => Some(3),
+    V::Nil => Some(ascii_len("nil")),
     V::Number { literal } => Some(literal.len()),
     V::String { literal } => Some(literal.len()),
-    V::Boolean { value } => Some(if *value { 4 } else { 5 }),
+    V::Boolean { value } => Some(if *value {
+      ascii_len("true")
+    } else {
+      ascii_len("false")
+    }),
     V::SymbolicValue { literal } => Some(literal.len() + 2),
     // XXX(soija) This could be done by taking the rigid width of contained
     //            value and, if any, add the prerix width.  However this means
@@ -254,4 +253,19 @@ fn rigid_width(value: &Value) -> Option<usize> {
     }),
     _ => None,
   }
+}
+
+/// Returns the length of the given ASCII string.  Panics, if `s` contains
+/// non-ASCII characters.
+const fn ascii_len(s: &str) -> usize {
+  let mut i = 0;
+  let b = s.as_bytes();
+  let n = s.len();
+  while i < n {
+    if b[i] > 0x7F {
+      panic!("non-ascii str");
+    }
+    i += 1;
+  }
+  s.len()
 }

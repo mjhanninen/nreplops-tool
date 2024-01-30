@@ -157,19 +157,19 @@ impl<'a> Into<Box<[Fragment<'a>]>> for TextBuilder<'a> {
   }
 }
 
-pub fn solve<'a>(chunks: &Program<'a>, printer_input: &mut Vec<Command<'a>>) {
+pub fn solve<'a>(program: &Program<'a>, printer_input: &mut Vec<Command<'a>>) {
   use super::printer::BuildInput;
   use Instruction as C;
 
   let Program {
     anchor_count,
-    instructions: chunks,
-  } = chunks;
+    instructions,
+  } = program;
 
   let mut column = 0_u16;
   let mut anchors = vec![0_u16; *anchor_count];
 
-  for c in chunks.iter() {
+  for c in instructions.iter() {
     match c {
       C::Text(fragments) => {
         for f in fragments.iter() {
