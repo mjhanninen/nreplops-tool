@@ -70,7 +70,7 @@ mod style;
 
 use crate::clojure::{
   lex::{self, Lexeme},
-  result_ir::{self, KeywordNamespace, MapEntry, Value},
+  result_ir::{self, MapEntry, Value},
 };
 use layout_solver::{Chunk, ChunkBuilder, Chunks};
 
@@ -213,12 +213,14 @@ fn rigid_width(value: &Value) -> Option<usize> {
       name,
       value,
     } => None,
-    V::Keyword { namespace, name } => Some(
-      match &namespace {
-        KeywordNamespace::None => 1,
-        KeywordNamespace::Alias(a) => 3 + a.len(),
-        KeywordNamespace::Namespace(n) => 2 + n.len(),
-      } + name.len(),
+    V::Keyword {
+      namespace,
+      name,
+      alias,
+    } => Some(
+      if *alias { 2 } else { 1 }
+        + namespace.map(|s| s.len() + 1).unwrap_or(0)
+        + name.len(),
     ),
     V::Symbol { namespace, name } => Some(if let Some(n) = namespace {
       n.len() + 1 + name.len()
@@ -283,21 +285,19 @@ fn chunks_from_value<'a>(builder: &mut ChunkBuilder<'a>, value: &Value<'a>) {
           .add(*name, S::SymbolName),
       );
     }
-    V::Keyword { namespace, name } => builder.add_text(
+    V::Keyword {
+      namespace,
+      name,
+      alias,
+    } => builder.add_text(
       TextBuilder::new()
+        .add(if *alias { "::" } else { ":" }, S::KeywordDecoration)
         .apply(|b| {
-          use KeywordNamespace as K;
-          match namespace {
-            K::None => b.add(":", S::KeywordDecoration),
-            K::Alias(a) => b
-              .add("::", S::KeywordDecoration)
-              .add(*a, S::KeywordNamespace)
-              .add("/", S::KeywordDecoration),
-
-            K::Namespace(n) => b
-              .add(":", S::KeywordDecoration)
-              .add(*n, S::KeywordNamespace)
-              .add("/", S::KeywordDecoration),
+          if let Some(n) = namespace {
+            b.add(*n, S::KeywordNamespace)
+              .add("/", S::KeywordDecoration)
+          } else {
+            b
           }
         })
         .add(*name, S::KeywordName),

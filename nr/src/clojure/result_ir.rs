@@ -38,8 +38,9 @@ pub enum Value<'a> {
     name: &'a str,
   },
   Keyword {
-    namespace: KeywordNamespace<'a>,
+    namespace: Option<&'a str>,
     name: &'a str,
+    alias: bool,
   },
   TaggedLiteral {
     namespace: Option<&'a str>,
@@ -61,13 +62,6 @@ pub enum Value<'a> {
   Map {
     entries: Box<[MapEntry<'a>]>,
   },
-}
-
-#[derive(Debug)]
-pub enum KeywordNamespace<'a> {
-  None,
-  Alias(&'a str),
-  Namespace(&'a str),
 }
 
 #[derive(Debug)]
@@ -97,12 +91,18 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   for lexeme in lexemes {
     let mut composite_ready = match lexeme {
       Whitespace { .. } | SymbolicValuePrefix { .. } => false, // ignore
-      Nil { .. } => b.add_to_composite(Value::nil())?,
-      Boolean { value, .. } => b.add_to_composite(Value::boolean(*value))?,
-      Numeric { source, .. } => b.add_to_composite(Value::number(source))?,
-      String { source, .. } => b.add_to_composite(Value::string(source))?,
+      Nil { .. } => b.add_to_composite(Value::Nil)?,
+      Boolean { value, .. } => {
+        b.add_to_composite(Value::Boolean { value: *value })?
+      }
+      Numeric { source, .. } => {
+        b.add_to_composite(Value::Number { literal: source })?
+      }
+      String { source, .. } => {
+        b.add_to_composite(Value::String { literal: source })?
+      }
       SymbolicValue { source, .. } => {
-        b.add_to_composite(Value::symbolic_value(source))?
+        b.add_to_composite(Value::SymbolicValue { literal: source })?
       }
       // NB: The tagged literal builder expects that the tag is passed on as a
       //     symbol.  This way we don't need to add a separate "tag" value that
@@ -112,13 +112,20 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       }
       | Tag {
         namespace, name, ..
-      } => b.add_to_composite(Value::symbol(name, *namespace))?,
+      } => b.add_to_composite(Value::Symbol {
+        name,
+        namespace: *namespace,
+      })?,
       Keyword {
         alias,
         namespace,
         name,
         ..
-      } => b.add_to_composite(Value::keyword(name, *namespace, *alias))?,
+      } => b.add_to_composite(Value::Keyword {
+        name,
+        namespace: *namespace,
+        alias: *alias,
+      })?,
       StartList { .. } => b.start(CompositeType::List)?,
       EndList { .. } => b.end(CompositeType::List)?,
       StartSet { .. } => b.start(CompositeType::Set)?,
@@ -137,52 +144,6 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   }
 
   b.build_top_level()
-}
-
-impl<'a> Value<'a> {
-  fn nil() -> Value<'a> {
-    Value::Nil
-  }
-
-  fn boolean(value: bool) -> Value<'a> {
-    Value::Boolean { value }
-  }
-
-  fn number(literal: &'a str) -> Value<'a> {
-    Value::Number { literal }
-  }
-
-  fn string(literal: &'a str) -> Value<'a> {
-    Value::String { literal }
-  }
-
-  fn symbolic_value(literal: &'a str) -> Value<'a> {
-    Value::SymbolicValue { literal }
-  }
-
-  fn symbol(name: &'a str, namespace: Option<&'a str>) -> Value<'a> {
-    Value::Symbol { name, namespace }
-  }
-
-  fn keyword(
-    name: &'a str,
-    namespace: Option<&'a str>,
-    alias: bool,
-  ) -> Value<'a> {
-    use KeywordNamespace as N;
-    Value::Keyword {
-      name,
-      namespace: if let Some(n) = namespace {
-        if alias {
-          N::Alias(n)
-        } else {
-          N::Namespace(n)
-        }
-      } else {
-        N::None
-      },
-    }
-  }
 }
 
 struct Builder<'a> {
