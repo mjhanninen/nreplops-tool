@@ -66,6 +66,7 @@ mod layout_solver;
 mod pretty_edn;
 mod printer;
 mod style;
+mod unformatted_edn;
 
 use crate::clojure::{lex::Lexeme, result_ir};
 
@@ -96,92 +97,12 @@ impl ClojureResultPrinter {
       let chunks = pretty_edn::convert_to_layout_program(&value);
       layout_solver::solve(&chunks, &mut printer_input);
     } else {
-      unformatted_layout(lexemes.iter(), &mut printer_input);
+      unformatted_edn::generate_printer_input(
+        lexemes.iter(),
+        &mut printer_input,
+      );
     }
     printer::print(writer, printer_input.iter(), self.color)?;
     writeln!(writer)
-  }
-}
-
-fn unformatted_layout<'a, I>(
-  lexemes: I,
-  printer_input: &mut Vec<printer::Command<'a>>,
-) where
-  I: Iterator<Item = &'a Lexeme<'a>>,
-{
-  use printer::BuildInput;
-  use style::Style as S;
-  use Lexeme as L;
-
-  for l in lexemes {
-    match *l {
-      L::Whitespace { source } => {
-        printer_input.add_styled(S::Whitespace, source)
-      }
-      L::Nil { source, .. } => printer_input.add_styled(S::NilValue, source),
-      L::Boolean { source, .. } => {
-        printer_input.add_styled(S::BooleanValue, source)
-      }
-      L::Numeric { source, .. } => {
-        printer_input.add_styled(S::NumberValue, source)
-      }
-      L::String { source, .. } => {
-        printer_input.add_styled(S::StringDecoration, "\"");
-        printer_input.add_styled(S::StringValue, &source[1..source.len() - 1]);
-        printer_input.add_styled(S::StringDecoration, "\"");
-      }
-      L::SymbolicValuePrefix { source, .. } => {
-        printer_input.add_styled(S::SymbolicValueDecoration, source)
-      }
-      L::SymbolicValue { source, .. } => {
-        printer_input.add_styled(S::SymbolicValue, source)
-      }
-      L::Symbol {
-        namespace, name, ..
-      } => {
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::SymbolNamespace, s);
-          printer_input.add_styled(S::SymbolDecoration, "/");
-        }
-        printer_input.add_styled(S::SymbolName, name);
-      }
-      L::Keyword {
-        alias,
-        namespace,
-        name,
-        ..
-      } => {
-        printer_input
-          .add_styled(S::KeywordDecoration, if alias { "::" } else { ":" });
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::KeywordNamespace, s);
-          printer_input.add_styled(S::KeywordDecoration, "/");
-        }
-        printer_input.add_styled(S::KeywordName, name);
-      }
-      L::TaggedLiteral { source, .. } => {
-        printer_input.add_styled(S::TaggedLiteralDecoration, source);
-      }
-      L::Tag {
-        namespace, name, ..
-      } => {
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::TaggedLiteralNamespace, s);
-          printer_input.add_styled(S::TaggedLiteralDecoration, "/");
-        }
-        printer_input.add_styled(S::TaggedLiteralName, name);
-      }
-      L::StartList { source, .. }
-      | L::EndList { source, .. }
-      | L::StartVector { source, .. }
-      | L::EndVector { source, .. }
-      | L::StartSet { source, .. }
-      | L::EndSet { source, .. }
-      | L::StartMap { source, .. }
-      | L::EndMap { source, .. } => {
-        printer_input.add_styled(S::CollectionDelimiter, source)
-      }
-      ref unhandled => todo!("no rule for: {:?}", unhandled),
-    }
   }
 }
