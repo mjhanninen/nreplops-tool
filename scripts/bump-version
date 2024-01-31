@@ -2,17 +2,27 @@
 
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+ESC="$(echo -e "\e")"
 
 die() {
   echo "Error:" "$@" >&2
   exit 1
 }
 
-[[ "${1-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+: ${DRY_RUN:=0}
+
+[[ "${1-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] \
   || die "usage is scripts/bump-version <version>"
 
 VERSION="$1"
+
+if [[ -z "${BASH_REMATCH[1]}" ]]; then
+  RELEASE=1
+else
+  RELEASE=0
+fi
+
+cd "$(git rev-parse --show-toplevel)"
 
 [[ -z "$(git status --porcelain)" ]] \
   || die "repository is not in a clean state"
@@ -44,29 +54,38 @@ cargo audit --deny warnings --deny unmaintained --deny unsound --deny yanked \
   || die "audit failed; fix libs"
 
 # Bump Cargo.{toml,lock}
-sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+"$/version = "'"$VERSION"'"/' nr/Cargo.toml \
+sed -i -Ee 's/^version = "[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?"$/version = "'"$VERSION"'"/' nr/Cargo.toml \
   && git status --porcelain | grep -q '^ M nr/Cargo.toml$' \
   && cargo check \
   || die "failed to update nr/Cargo.toml"
 
-# Bump CHANGELOG.md
-sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION"'}/' CHANGELOG.md \
-  && sed -i -Ee 's/^## \[Unreleased\]\[unreleased\]$/## [Unreleased][unreleased]\n\n[unreleased]: https:\/\/github.com\/mjhanninen\/nreplops-tool\/compare\/v'"$VERSION"'...main\n\n## [Version '"$VERSION"'][v'"$VERSION"']/' CHANGELOG.md \
-  && git status --porcelain | grep -q '^ M CHANGELOG.md$' \
-  || die "failed to update CHANGELOG.md"
+# Bump CHANGELOG.md; only when doing an actual release
+if [[ "$RELEASE" == "1" ]]; then
+
+  sed -i -Ee 's/^\[unreleased\]:(.*)\.\.\.main *$/[v'"$VERSION"']:\1...v'"$VERSION"'}/' CHANGELOG.md \
+    && sed -i -Ee 's/^## \[Unreleased\]\[unreleased\]$/## [Unreleased][unreleased]\n\n[unreleased]: https:\/\/github.com\/mjhanninen\/nreplops-tool\/compare\/v'"$VERSION"'...main\n\n## [Version '"$VERSION"'][v'"$VERSION"']/' CHANGELOG.md \
+    && git status --porcelain | grep -q '^ M CHANGELOG.md$' \
+    || die "failed to update CHANGELOG.md"
+
+fi
+
+if [[ $RELEASE == 1 ]]; then
+  TAG_MESSAGE="Release ${VERSION}"
+else
+  TAG_MESSAGE="Release candidate ${VERSION}"
+fi
 
 # Commit and release tag
-if [[ "${DRY_RUN:-}" == "1" ]]; then
+if [[ "${DRY_RUN:-}" == 1 ]]; then
 
   git diff
-  ESC="$(echo -e "\e")"
   cat <<EOF
 ${ESC}[0;33mNOTE: This is a dry-run.  In actual run the above changes would have been
       committed with the following commands:
 
         git add nr/Cargo.toml Cargo.lock CHANGELOG.md
         git commit -m "Bump version to ${VERSION}"
-        git tag -a -m "Release ${VERSION}" "v${VERSION}"
+        git tag -a -m "$TAG_MESSAGE" "v${VERSION}"
 ${ESC}[0m
 EOF
 
@@ -74,7 +93,7 @@ else
 
   git add nr/Cargo.toml Cargo.lock CHANGELOG.md
   git commit -m "Bump version to ${VERSION}"
-  git tag -a -m "Release ${VERSION}" "v${VERSION}"
+  git tag -a -m "$TAG_MESSAGE" "v${VERSION}"
   git show HEAD
 
 fi
