@@ -12,6 +12,11 @@
 [jet]: https://github.com/borkdude/jet
 [jq]: https://github.com/stedolan/jq
 
+## Outstanding bugs
+
+- Numeric keywords (e.g. `:42`) fail to parse
+- Pretty printing fails on var quotes (e.g. `#'foo`). Definitions return these.
+
 ## nREPL session features
 
 - `^C` interrupts evaluation (now: runaway)
@@ -62,8 +67,6 @@
 - `--stdin-to <sink>` for echoing sent input to `<sink>`
 - `--log-to <sink>` write an execution log to a file
 - `--log` write an execution log to a file named by the source file
-- Pretty-printed output: on/off/auto, defaults to auto
-- Colored output: on/off/auto, defaults to auto, match with jq colors
 - JSON encoded output
 - YAML encoded output
 - Table output
