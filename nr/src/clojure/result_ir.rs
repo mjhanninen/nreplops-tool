@@ -47,6 +47,10 @@ pub enum Value<'a> {
     name: &'a str,
     value: Box<Value<'a>>,
   },
+  VarQuoted {
+    namespace: Option<&'a str>,
+    name: &'a str,
+  },
   List {
     values: Box<[Value<'a>]>,
   },
@@ -58,7 +62,6 @@ pub enum Value<'a> {
   Set {
     values: Box<[Value<'a>]>,
   },
-
   Map {
     entries: Box<[MapEntry<'a>]>,
   },
@@ -82,6 +85,7 @@ pub enum BuildError {
   IncompleteTaggedLiteral,
   UnexpectedLiteralTag,
   ExpectedSymbolForLiteralTag,
+  ExpectedSymbolForVarQuote,
 }
 
 pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
@@ -135,6 +139,7 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       StartMap { .. } => b.start(CompositeType::Map)?,
       EndMap { .. } => b.end(CompositeType::Map)?,
       TaggedLiteral { .. } => b.start(CompositeType::TaggedLiteral)?,
+      VarQuote { .. } => b.start(CompositeType::VarQuoted)?,
       unhandled => todo!("Missing rule for:\n{:#?}", unhandled),
     };
 
@@ -216,6 +221,8 @@ enum CompositeType {
   ///
   /// The tag is guaranteed to be a symbol whereas the value can be any value.
   TaggedLiteral,
+  /// A varquoted symbol
+  VarQuoted,
   /// The top-level of the program (or the result)
   ///
   /// Currently limited to hold no more nor less than a single value.
@@ -226,11 +233,15 @@ enum CompositeType {
 // BuildContainer<'a> + a>` is that moving the contained values out of turned
 // out to be surprisingly clunky. The extra boilerplate introduced by this
 // is annoying but at least it is concentrated in one place.
+//
+// XXX(soija) Okay, this keeps growing and is getting unbearably clunky.
+//
 enum CompositeBuilder<'a> {
   TopLevel(TopLevelBuilder<'a>),
   Seq(SeqBuilder<'a>),
   Map(MapBuilder<'a>),
   TaggedLiteral(TaggedLiteralBuilder<'a>),
+  VarQuoted(VarQuotedBuilder<'a>),
 }
 
 impl<'a> CompositeBuilder<'a> {
@@ -241,8 +252,9 @@ impl<'a> CompositeBuilder<'a> {
       T::List => Self::Seq(SeqBuilder::new(SeqType::List)),
       T::Vector => Self::Seq(SeqBuilder::new(SeqType::Vector)),
       T::Set => Self::Seq(SeqBuilder::new(SeqType::Set)),
-      T::Map => Self::Map(MapBuilder::new()),
+      T::Map => Self::Map(Default::default()),
       T::TaggedLiteral => Self::TaggedLiteral(Default::default()),
+      T::VarQuoted => Self::VarQuoted(Default::default()),
     }
   }
 }
@@ -254,6 +266,7 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
       CompositeBuilder::Map(b) => b.composite_type(),
       CompositeBuilder::TopLevel(b) => b.composite_type(),
       CompositeBuilder::TaggedLiteral(b) => b.composite_type(),
+      CompositeBuilder::VarQuoted(b) => b.composite_type(),
     }
   }
 
@@ -263,6 +276,7 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
       CompositeBuilder::Map(b) => b.add(value),
       CompositeBuilder::TopLevel(b) => b.add(value),
       CompositeBuilder::TaggedLiteral(b) => b.add(value),
+      CompositeBuilder::VarQuoted(b) => b.add(value),
     }
   }
 
@@ -272,6 +286,7 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
       CompositeBuilder::Map(b) => b.build(),
       CompositeBuilder::TopLevel(b) => b.build(),
       CompositeBuilder::TaggedLiteral(b) => b.build(),
+      CompositeBuilder::VarQuoted(b) => b.build(),
     }
   }
 }
@@ -360,6 +375,9 @@ impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
         };
         Ok(true)
       }
+      // XXX(soija) This is probably a wrong error here.  We should probably
+      //            panic (unreachable) here.  FIXME: Write a test case and
+      //            figure this out.
       _ => Err(BuildError::ExpectedValueForTaggedLiteral),
     }
   }
@@ -377,7 +395,49 @@ impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
         value: value.into(),
       })
     } else {
+      // XXX(soija) This is probably a wrong error here.  FIXME: Write a test
+      //            case and figure this out.
       Err(BuildError::IncompleteTaggedLiteral)
+    }
+  }
+}
+
+#[derive(Default)]
+enum VarQuotedBuilder<'a> {
+  #[default]
+  Empty,
+  WithSymbol {
+    namespace: Option<&'a str>,
+    name: &'a str,
+  },
+  Invalid,
+}
+
+impl<'a> BuildComposite<'a> for VarQuotedBuilder<'a> {
+  fn composite_type(&self) -> CompositeType {
+    CompositeType::VarQuoted
+  }
+
+  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+    use VarQuotedBuilder as B;
+    match std::mem::replace(self, VarQuotedBuilder::Invalid) {
+      B::Empty => match value {
+        Value::Symbol { namespace, name } => {
+          *self = VarQuotedBuilder::WithSymbol { namespace, name };
+          Ok(true)
+        }
+        _ => Err(BuildError::ExpectedSymbolForVarQuote),
+      },
+      _ => unreachable!("should have triggered error or build"),
+    }
+  }
+
+  fn build(self) -> Result<Value<'a>, BuildError> {
+    if let VarQuotedBuilder::WithSymbol { namespace, name } = self {
+      Ok(Value::VarQuoted { namespace, name })
+    } else {
+      // But what if we ran out of lexemes?
+      unreachable!("should not have been triggered unless ready");
     }
   }
 }
@@ -386,12 +446,6 @@ impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
 struct MapBuilder<'a> {
   key: Option<Value<'a>>,
   entries: Vec<MapEntry<'a>>,
-}
-
-impl<'a> MapBuilder<'a> {
-  fn new() -> Self {
-    Default::default()
-  }
 }
 
 impl<'a> BuildComposite<'a> for MapBuilder<'a> {

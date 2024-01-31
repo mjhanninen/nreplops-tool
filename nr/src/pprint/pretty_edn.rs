@@ -93,6 +93,19 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
         })
         .add(*name, S::KeywordName),
     ),
+    V::VarQuoted { namespace, name } => builder.add_text(
+      TB::new()
+        .add("#'", S::VarQuoteDecoration)
+        .apply(|b| {
+          if let Some(n) = namespace {
+            b.add(*n, S::VarQuoteNamespace)
+              .add("/", S::VarQuoteDecoration)
+          } else {
+            b
+          }
+        })
+        .add(*name, S::VarQuoteName),
+    ),
     V::TaggedLiteral {
       namespace,
       name,

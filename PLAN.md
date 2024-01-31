@@ -15,7 +15,6 @@
 ## Outstanding bugs
 
 - Numeric keywords (e.g. `:42`) fail to parse
-- Pretty printing fails on var quotes (e.g. `#'foo`). Definitions return these.
 
 ## nREPL session features
 

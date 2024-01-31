@@ -32,6 +32,8 @@ pub fn generate_printer_input<'a, I>(
 ) where
   I: Iterator<Item = &'a Lexeme<'a>>,
 {
+  let mut last_var_quote: Option<u32> = None;
+
   for l in lexemes {
     match *l {
       L::Whitespace { source } => {
@@ -56,13 +58,27 @@ pub fn generate_printer_input<'a, I>(
         printer_input.add_styled(S::SymbolicValue, source)
       }
       L::Symbol {
-        namespace, name, ..
+        form_ix,
+        namespace,
+        name,
+        ..
       } => {
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::SymbolNamespace, s);
-          printer_input.add_styled(S::SymbolDecoration, "/");
+        let is_var_quoted = last_var_quote
+          .map(|ix| ix == form_ix.parent)
+          .unwrap_or(false);
+        if is_var_quoted {
+          if let Some(s) = namespace {
+            printer_input.add_styled(S::VarQuoteNamespace, s);
+            printer_input.add_styled(S::VarQuoteDecoration, "/");
+          }
+          printer_input.add_styled(S::VarQuoteName, name);
+        } else {
+          if let Some(s) = namespace {
+            printer_input.add_styled(S::SymbolNamespace, s);
+            printer_input.add_styled(S::SymbolDecoration, "/");
+          }
+          printer_input.add_styled(S::SymbolName, name);
         }
-        printer_input.add_styled(S::SymbolName, name);
       }
       L::Keyword {
         alias,
@@ -77,6 +93,10 @@ pub fn generate_printer_input<'a, I>(
           printer_input.add_styled(S::KeywordDecoration, "/");
         }
         printer_input.add_styled(S::KeywordName, name);
+      }
+      L::VarQuote { form_ix, source } => {
+        printer_input.add_styled(S::VarQuoteDecoration, source);
+        last_var_quote = Some(form_ix.ix);
       }
       L::TaggedLiteral { source, .. } => {
         printer_input.add_styled(S::TaggedLiteralDecoration, source);
