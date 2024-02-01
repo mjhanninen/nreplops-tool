@@ -13,7 +13,7 @@ nr - The nREPL ops tool
 | **nr** \[_options_] _file_ \[_args_]
 | **nr** \[_options_] **-f** _file_ ...\ \[_args_]
 | **nr** \[_options_] **-e** _expr_ ...\ \[_args_]
-| **nr** \[_options_] **-!** _file_ \[_args_]
+| **nr** \[_options_] **-!**\ \[_version-requirement_] _file_ \[_args_]
 | **nr** **\--wait-port-file** _seconds_
 | **nr** **\--version**
 | **nr** \[**-h**|**\--help**]
@@ -22,14 +22,18 @@ nr - The nREPL ops tool
 
 ## General options
 
-**-!** \[_version_|_version-range_]
+**-!** \[_version-requirement_]
 
-:   Runs in the shebang mode.
+:   Activates shebang mode, altering the tool's behavior in certain ways.
 
-    The flag takes an optional version assertion.  This can be either a minimum
-    point version in a non-breaking version range (e.g., **\-!\ 0.2** for
-    versions >= 0.2.0 and < 0.3.0) or a specific version range (e.g.,
-    **\-!\ 1.2.3..4.5.6** for versions >= 1.2.3 and < 4.5.6).
+    This flag allows for an optional version requirement to ensure the tool's
+    version complies.
+
+    The version requirement can be a single version, where the tool's version
+    must be at least that version, adhering to semantic versioning principles.
+    For major version 0, minor version updates are considered breaking. The
+    requirement can also be an explicit version range, with the end version
+    excluded.
 
 **\--timeout** _seconds_
 
@@ -200,6 +204,16 @@ nr - The nREPL ops tool
     evaluated only for their side-effects.
 
     This option conflicts with the **\--results** option.
+
+**\--pretty**, **\--no-pretty**
+
+:   Controls pretty-printing of evaluation results. By default, output is
+    pretty-printed to the terminal and unformatted for pipes or files.
+
+**\--color**, **\--no-color**
+
+:   Controls output colorization. By default, output is colored for terminal and
+    plain for pipes or files.
 
 # EXIT STATUS
 
