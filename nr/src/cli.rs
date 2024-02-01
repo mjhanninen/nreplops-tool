@@ -257,7 +257,7 @@ impl TryFrom<Cli> for Args {
       },
       source_args,
       template_args: args,
-      pretty: tristate(cli.pretty_print, cli.no_pretty_print),
+      pretty: tristate(cli.pretty, cli.no_pretty),
       color: tristate(cli.color, cli.no_color),
     })
   }
@@ -529,26 +529,18 @@ struct Cli {
   _timeout: Option<u32>,
 
   /// Enforce result value pretty-printing
-  #[arg(
-    long,
-    visible_aliases = &["pretty", "pprint"],
-    conflicts_with = "no_pretty_print",
-  )]
-  pretty_print: bool,
+  #[arg(long, conflicts_with = "no_pretty")]
+  pretty: bool,
 
-  /// Prevent result value pretty-printing
-  #[arg(
-    long,
-    visible_aliases = &["no-pretty", "no-pprint"],
-    conflicts_with = "pretty_print",
-  )]
-  no_pretty_print: bool,
+  /// Enforce unformatted result values
+  #[arg(long, conflicts_with = "pretty")]
+  no_pretty: bool,
 
   /// Enforce colored output
   #[arg(long, conflicts_with = "no_color")]
   color: bool,
 
-  /// Prevent colored output
+  /// Enforce plain output
   #[arg(long, conflicts_with = "color")]
   no_color: bool,
 }
