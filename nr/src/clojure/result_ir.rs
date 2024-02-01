@@ -16,6 +16,10 @@
 //! Data structures and tools for our internal representation of Clojure result
 //! values.
 
+// XXX(soija) This whole thing is a hot mess.  Redesign it BUT NOT BEFORE trying
+//            to use it for splitting and rewriting the forms that are sent to
+//            the nREPL server.
+
 use super::lex::Lexeme;
 
 #[derive(Debug)]
