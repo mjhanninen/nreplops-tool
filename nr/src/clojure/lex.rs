@@ -18,6 +18,7 @@ use thiserror::Error;
 use super::pest_grammar::*;
 
 use Lexeme as L;
+use Rule as R;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -262,7 +263,7 @@ type Lexemes<'a> = Vec<Lexeme<'a>>;
 #[allow(clippy::result_large_err)]
 pub fn lex(input: &str) -> Result<Lexemes, Error> {
   let mut helper = Helper::default();
-  let mut pairs = Grammar::parse(Rule::top_level, input)?;
+  let mut pairs = Grammar::parse(R::top_level, input)?;
   let Some(top_level_pair) = pairs.next() else {
     panic!("at least one top-level");
   };
@@ -311,13 +312,13 @@ impl<'a> Helper<'a> {
   fn top_level(&mut self, parent: Pair<'a>) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::form => {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::form => {
           let current = self.next_form_ix(None);
           self.form(child, current);
         }
-        Rule::EOI => (),
+        R::EOI => (),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -326,12 +327,12 @@ impl<'a> Helper<'a> {
   fn form(&mut self, parent: Pair<'a>, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::quote_unquote_form => self.quote_unquote_form(child, current),
-        Rule::preform => self.preforms(child, current),
-        Rule::form => self.form(child, current),
-        Rule::expr => self.expr(child, current),
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::quote_unquote_form => self.quote_unquote_form(child, current),
+        R::preform => self.preforms(child, current),
+        R::form => self.form(child, current),
+        R::expr => self.expr(child, current),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -341,9 +342,9 @@ impl<'a> Helper<'a> {
     let child_ix = self.next_form_ix(Some(parent_ix));
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::quote_unquote_prefix => self.push(match child.as_str() {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::quote_unquote_prefix => self.push(match child.as_str() {
           "'" => L::Quote {
             form_ix: parent_ix,
             source: child.as_str(),
@@ -366,7 +367,7 @@ impl<'a> Helper<'a> {
           },
           _ => unreachable!("quote-unquote prefix case analysis"),
         }),
-        Rule::form => self.form(child, child_ix),
+        R::form => self.form(child, child_ix),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -375,10 +376,10 @@ impl<'a> Helper<'a> {
   fn preforms(&mut self, parent: Pair<'a>, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::discarded_form => self.discarded_form(child),
-        Rule::meta_form => self.meta_form(child, current),
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::discarded_form => self.discarded_form(child),
+        R::meta_form => self.meta_form(child, current),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -388,14 +389,14 @@ impl<'a> Helper<'a> {
     let form_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::discard_prefix => self.push(L::Discard {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::discard_prefix => self.push(L::Discard {
           form_ix,
           source: child.as_str(),
         }),
-        Rule::preform => self.preforms(child, form_ix),
-        Rule::form => self.form(child, form_ix),
+        R::preform => self.preforms(child, form_ix),
+        R::form => self.form(child, form_ix),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -405,14 +406,14 @@ impl<'a> Helper<'a> {
     let data_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::meta_prefix => self.push(L::Meta {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::meta_prefix => self.push(L::Meta {
           form_ix,
           data_ix,
           source: child.as_str(),
         }),
-        Rule::form => self.form(child, data_ix),
+        R::form => self.form(child, data_ix),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -421,31 +422,31 @@ impl<'a> Helper<'a> {
   fn expr(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::nil => self.push(L::Nil {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::nil => self.push(L::Nil {
           form_ix,
           source: child.as_str(),
         }),
-        Rule::boolean => self.push(L::Boolean {
+        R::boolean => self.push(L::Boolean {
           form_ix,
           value: child.as_str() == "true",
           source: child.as_str(),
         }),
-        Rule::number => self.number(child, form_ix),
-        Rule::char => self.char(child, form_ix),
-        Rule::string => self.string(child, form_ix),
-        Rule::regex => self.regex(child, form_ix),
-        Rule::symbolic_value => self.symbolic_value(child, form_ix),
-        Rule::symbol => self.symbol(child, form_ix),
-        Rule::keyword => self.keyword(child, form_ix),
-        Rule::list => self.list(child, form_ix),
-        Rule::vector => self.vector(child, form_ix),
-        Rule::anonymous_fn => self.anonymous_fn(child, form_ix),
-        Rule::set => self.set(child, form_ix),
-        Rule::map => self.map(child, form_ix),
-        Rule::reader_conditional => self.reader_conditional(child, form_ix),
-        Rule::tagged_literal => self.tagged_literal(child, form_ix),
+        R::number => self.number(child, form_ix),
+        R::char => self.char(child, form_ix),
+        R::string => self.string(child, form_ix),
+        R::regex => self.regex(child, form_ix),
+        R::symbolic_value => self.symbolic_value(child, form_ix),
+        R::symbol => self.symbol(child, form_ix),
+        R::keyword => self.keyword(child, form_ix),
+        R::list => self.list(child, form_ix),
+        R::vector => self.vector(child, form_ix),
+        R::anonymous_fn => self.anonymous_fn(child, form_ix),
+        R::set => self.set(child, form_ix),
+        R::map => self.map(child, form_ix),
+        R::reader_conditional => self.reader_conditional(child, form_ix),
+        R::tagged_literal => self.tagged_literal(child, form_ix),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -455,7 +456,7 @@ impl<'a> Helper<'a> {
     let source = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::char_name => self.push(L::Char {
+        R::char_name => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::Name,
           value: match child.as_str() {
@@ -468,7 +469,7 @@ impl<'a> Helper<'a> {
           },
           source,
         }),
-        Rule::char_octal => self.push(L::Char {
+        R::char_octal => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::Octal,
           value: char::from_u32(
@@ -477,7 +478,7 @@ impl<'a> Helper<'a> {
           .unwrap(),
           source,
         }),
-        Rule::char_code_point => self.push(L::Char {
+        R::char_code_point => self.push(L::Char {
           form_ix,
           syntax: CharSyntax::CodePoint,
           value: char::from_u32(
@@ -496,22 +497,20 @@ impl<'a> Helper<'a> {
     let literal = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::sign => positive = child.as_str() == "+",
-        Rule::unsigned_bigfloat => {
+        R::sign => positive = child.as_str() == "+",
+        R::unsigned_bigfloat => {
           self.unsigned_floats(child, form_ix, literal, true)
         }
-        Rule::unsigned_float => {
+        R::unsigned_float => {
           self.unsigned_floats(child, form_ix, literal, false)
         }
-        Rule::unsigned_ratio => {
+        R::unsigned_ratio => {
           self.unsigned_ratio(child, form_ix, literal, positive)
         }
-        Rule::unsigned_radix_int => {
+        R::unsigned_radix_int => {
           self.unsigned_radix_int(child, form_ix, literal, positive)
         }
-        Rule::unsigned_int => {
-          self.unsigned_int(child, form_ix, literal, positive)
-        }
+        R::unsigned_int => self.unsigned_int(child, form_ix, literal, positive),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -555,8 +554,8 @@ impl<'a> Helper<'a> {
     let mut denominator = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::numerator => numerator = Some(child.as_str()),
-        Rule::denominator => denominator = Some(child.as_str()),
+        R::numerator => numerator = Some(child.as_str()),
+        R::denominator => denominator = Some(child.as_str()),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -582,8 +581,8 @@ impl<'a> Helper<'a> {
     let mut radix = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::radix => radix = Some(child.as_str()),
-        Rule::radix_digits => self.push(L::Numeric {
+        R::radix => radix = Some(child.as_str()),
+        R::radix_digits => self.push(L::Numeric {
           form_ix,
           source: literal,
           class: NumberClass::Long,
@@ -609,28 +608,28 @@ impl<'a> Helper<'a> {
     let mut value = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::oct_digits => {
+        R::oct_digits => {
           value = Some(NumericValue::Int {
             positive,
             radix: 8,
             value: child.as_str(),
           })
         }
-        Rule::hex_digits => {
+        R::hex_digits => {
           value = Some(NumericValue::Int {
             positive,
             radix: 16,
             value: child.as_str(),
           })
         }
-        Rule::unsigned_dec => {
+        R::unsigned_dec => {
           value = Some(NumericValue::Int {
             positive,
             radix: 10,
             value: child.as_str(),
           })
         }
-        Rule::bigint_suffix => class = NumberClass::BigInt,
+        R::bigint_suffix => class = NumberClass::BigInt,
         _ => self.push(L::Residual(child)),
       }
     }
@@ -647,10 +646,10 @@ impl<'a> Helper<'a> {
     let literal = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::unescaped => fragments.push(StringFragment::Unescaped {
+        R::unescaped => fragments.push(StringFragment::Unescaped {
           value: child.as_str(),
         }),
-        Rule::esc_char => {
+        R::esc_char => {
           let value = &child.as_str()[1..];
           let code = match value {
             "b" => 0x08,
@@ -664,12 +663,12 @@ impl<'a> Helper<'a> {
           };
           fragments.push(StringFragment::Escaped { code })
         }
-        Rule::esc_octet => {
+        R::esc_octet => {
           let value = &child.as_str()[1..];
           let code = u32::from_str_radix(value, 8).unwrap();
           fragments.push(StringFragment::Escaped { code })
         }
-        Rule::esc_code_point => {
+        R::esc_code_point => {
           let value = &child.as_str()[2..];
           let code = u32::from_str_radix(value, 16).unwrap();
           fragments.push(StringFragment::Escaped { code })
@@ -688,7 +687,7 @@ impl<'a> Helper<'a> {
   fn regex(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::regex_content => self.push(L::Regex {
+        R::regex_content => self.push(L::Regex {
           form_ix,
           source: child.as_str(),
         }),
@@ -700,13 +699,13 @@ impl<'a> Helper<'a> {
   fn symbolic_value(&mut self, parent: Pair<'a>, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::symbolic_value_prefix => self.push(L::SymbolicValuePrefix {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::symbolic_value_prefix => self.push(L::SymbolicValuePrefix {
           form_ix,
           source: child.as_str(),
         }),
-        Rule::unqualified_symbol => self.push(L::SymbolicValue {
+        R::unqualified_symbol => self.push(L::SymbolicValue {
           form_ix,
           value: match child.as_str() {
             "Inf" => SymbolicValue::PosInf,
@@ -726,15 +725,13 @@ impl<'a> Helper<'a> {
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::namespace => namespace = Some(child.as_str()),
-        Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(L::Symbol {
-            form_ix,
-            namespace,
-            name: child.as_str(),
-            source,
-          })
-        }
+        R::namespace => namespace = Some(child.as_str()),
+        R::qualified_symbol | R::unqualified_symbol => self.push(L::Symbol {
+          form_ix,
+          namespace,
+          name: child.as_str(),
+          source,
+        }),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -745,15 +742,13 @@ impl<'a> Helper<'a> {
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::namespace => namespace = Some(child.as_str()),
-        Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(L::Tag {
-            form_ix,
-            namespace,
-            name: child.as_str(),
-            source,
-          })
-        }
+        R::namespace => namespace = Some(child.as_str()),
+        R::qualified_symbol | R::unqualified_symbol => self.push(L::Tag {
+          form_ix,
+          namespace,
+          name: child.as_str(),
+          source,
+        }),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -765,17 +760,15 @@ impl<'a> Helper<'a> {
     let mut alias = false;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::keyword_prefix => alias = child.as_str() == "::",
-        Rule::namespace => namespace = Some(child.as_str()),
-        Rule::qualified_symbol | Rule::unqualified_symbol => {
-          self.push(L::Keyword {
-            form_ix,
-            alias,
-            namespace,
-            name: child.as_str(),
-            source,
-          })
-        }
+        R::keyword_prefix => alias = child.as_str() == "::",
+        R::namespace => namespace = Some(child.as_str()),
+        R::qualified_symbol | R::unqualified_symbol => self.push(L::Keyword {
+          form_ix,
+          alias,
+          namespace,
+          name: child.as_str(),
+          source,
+        }),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -850,22 +843,22 @@ impl<'a> Helper<'a> {
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::map_qualifier => {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::map_qualifier => {
           self.push(L::MapQualifier {
             form_ix,
             source: child.as_str(),
           });
           for child2 in child.into_inner() {
             match child2.as_rule() {
-              Rule::map_qualifier_prefix => alias = child2.as_str() == "#::",
-              Rule::namespace => namespace = Some(child2.as_str()),
+              R::map_qualifier_prefix => alias = child2.as_str() == "#::",
+              R::namespace => namespace = Some(child2.as_str()),
               _ => self.push(L::Residual(child2)),
             }
           }
         }
-        Rule::unqualified_map => {
+        R::unqualified_map => {
           let source = child.as_str();
           self.body(
             child,
@@ -882,7 +875,7 @@ impl<'a> Helper<'a> {
             },
           )
         }
-        Rule::discarded_form => self.discarded_form(child),
+        R::discarded_form => self.discarded_form(child),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -892,10 +885,10 @@ impl<'a> Helper<'a> {
     let mut splicing = false;
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::reader_conditional_prefix => splicing = child.as_str() == "#?@",
-        Rule::reader_conditional_body => {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::reader_conditional_prefix => splicing = child.as_str() == "#?@",
+        R::reader_conditional_body => {
           let source = child.as_str();
           self.body(
             child,
@@ -911,7 +904,7 @@ impl<'a> Helper<'a> {
             },
           )
         }
-        Rule::discarded_form => self.discarded_form(child),
+        R::discarded_form => self.discarded_form(child),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -927,13 +920,13 @@ impl<'a> Helper<'a> {
     self.push(start_lexeme);
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::form => {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::form => {
           let child_ix = self.next_form_ix(Some(parent_ix));
           self.form(child, child_ix)
         }
-        Rule::discarded_form => self.discarded_form(child),
+        R::discarded_form => self.discarded_form(child),
         _ => self.push(L::Residual(child)),
       }
     }
@@ -954,20 +947,20 @@ impl<'a> Helper<'a> {
     });
     for child in parent.into_inner() {
       match child.as_rule() {
-        Rule::COMMENT => self.comment(child),
-        Rule::WHITESPACE => self.whitespace(child),
-        Rule::tagged_literal_tag => {
+        R::COMMENT => self.comment(child),
+        R::WHITESPACE => self.whitespace(child),
+        R::tagged_literal_tag => {
           for child2 in child.into_inner() {
             match child2.as_rule() {
-              Rule::COMMENT => self.comment(child2),
-              Rule::WHITESPACE => self.whitespace(child2),
-              Rule::preform => self.preforms(child2, tag_ix),
-              Rule::symbol => self.tag(child2, tag_ix),
+              R::COMMENT => self.comment(child2),
+              R::WHITESPACE => self.whitespace(child2),
+              R::preform => self.preforms(child2, tag_ix),
+              R::symbol => self.tag(child2, tag_ix),
               _ => self.push(L::Residual(child2)),
             }
           }
         }
-        Rule::form => self.form(child, arg_ix),
+        R::form => self.form(child, arg_ix),
         _ => self.push(L::Residual(child)),
       }
     }
