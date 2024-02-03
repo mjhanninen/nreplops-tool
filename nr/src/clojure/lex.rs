@@ -48,15 +48,28 @@ impl FormIx {
 
 #[derive(Debug)]
 pub enum Lexeme<'a> {
+  /// Whitespace
   Whitespace {
     source: &'a str,
   },
+  /// Comment
   Comment {
+    /// The original source for the comment line.
+    ///
+    /// Effectively the end of the line starting from the comment marker up to
+    /// but excluding the line break.  Note that in addition to `;` the comment
+    /// marker can be `#!`.
     source: &'a str,
   },
+  /// Meta data prefix (`^` or `#^`)
   Meta {
+    /// The form to which the meta data is attached.  In essence, the form that
+    /// owns the meta data.
     form_ix: FormIx,
+    /// The form which contains the meta data itself.
     data_ix: FormIx,
+    /// The original source for the meta data prefix.  Effectively either `"^"`
+    /// or `"#^"`.
     source: &'a str,
   },
   Discard {
