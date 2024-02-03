@@ -50,6 +50,9 @@ cargo clippy --all --all-features \
 cargo build --locked --all-features \
   || die "cargo build failed; fix your stuff"
 
+clojure -X:test \
+  || die "clojure integration tests failed; fix your stuff"
+
 cargo audit --deny warnings --deny unmaintained --deny unsound --deny yanked \
   || die "audit failed; fix libs"
 

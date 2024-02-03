@@ -22,10 +22,6 @@
 
 (use-fixtures :each nrepl-server-fixture)
 
-(defn uuid
-  []
-  (str (java.util.UUID/randomUUID)))
-
 (defonce state (atom {}))
 
 (deftest host-disconnects
@@ -33,7 +29,7 @@
     ;; Okay, some non-obvious latching mechanism here to ensure proper
     ;; synchronization between the processes before cutting off the nREPL
     ;; server.
-    (let [sid (uuid)
+    (let [sid (random-uuid)
           latch (promise)
           _ (swap! state assoc sid latch)
           nr (future
