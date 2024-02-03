@@ -41,6 +41,10 @@ quote_unquote_prefix = { "'" | "#'" | "`" | "~@" | "~" }
 
 preform = { meta_form | discarded_form }
 
+// XXX(soija) Given that the "form" reulf now takes optional preforms as prefix
+//            itself, could  we drop the preform form the "discarded_form" rule?
+//            FIXME: Test and drop.
+
 discarded_form = { discard_prefix ~ preform* ~ form }
 discard_prefix = { "#_" }
 
