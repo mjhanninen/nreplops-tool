@@ -12,9 +12,9 @@
 [jet]: https://github.com/borkdude/jet
 [jq]: https://github.com/stedolan/jq
 
-## Outstanding bugs
+## Outstanding known bugs
 
-- Numeric keywords (e.g. `:42`) fail to parse
+None 😎
 
 ## nREPL session features
 
