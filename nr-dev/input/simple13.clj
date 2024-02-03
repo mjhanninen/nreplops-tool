@@ -2,6 +2,8 @@
 
 #'foo
 #' foo
+#'; comment allowed
+foo
 #'
 ;; comment allowed
 foo

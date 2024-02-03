@@ -2,6 +2,11 @@
 
 #inst"2022-01-01"
 #inst "2022-01-01"
+
+#; intermittent comments …
+inst ; … are allowed.
+"2022-01-01"
+
 #
 ;; intermittent comments …
 inst
