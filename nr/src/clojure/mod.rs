@@ -17,3 +17,6 @@ pub mod lex;
 pub mod result_ir;
 
 mod pest_grammar;
+
+#[cfg(test)]
+mod lex_test;
