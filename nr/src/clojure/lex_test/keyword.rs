@@ -140,50 +140,61 @@ fn just_slash_keyword_with_namespace() {
   }
 }
 
-// XXX(soija) FIXME: These are valid input but our lexer cannot handle them
-//           yet.
+#[test]
+fn unqualified_begins_with_number() {
+  assert_lexemes! {
+    ":42",
+    Lexeme::Keyword {
+      alias: false,
+      namespace: None,
+      name: "42",
+      source: ":42",
+      ..
+    }
+  }
+}
 
-// #[test]
-// fn numeric_keyword() {
-//   assert_lexemes! {
-//     ":42",
-//     Lexeme::Keyword {
-//       alias: false,
-//       namespace: None,
-//       name: "42",
-//       source: ":42",
-//       ..
-//     }
-//   }
-// }
+#[test]
+fn unqualified_begins_with_quote() {
+  assert_lexemes! {
+    ":'foo",
+    Lexeme::Keyword {
+      alias: false,
+      namespace: None,
+      name: "'foo",
+      source: ":'foo",
+      ..
+    }
+  }
+}
 
-// #[test]
-// fn begins_with_quote() {
-//   assert_lexemes! {
-//     ":'foo",
-//     Lexeme::Keyword {
-//       alias: false,
-//       namespace: None,
-//       name: "'foo",
-//       source: ":'foo",
-//       ..
-//     }
-//   }
-// }
+#[test]
+fn unqualified_begins_with_hash() {
+  assert_lexemes! {
+    ":#foo",
+    Lexeme::Keyword {
+      alias: false,
+      namespace: None,
+      name: "#foo",
+      source: ":#foo",
+      ..
+    }
+  }
+}
 
-// #[test]
-// fn begins_with_hash() {
-//   assert_lexemes! {
-//     ":#foo",
-//     Lexeme::Keyword {
-//       alias: false,
-//       namespace: None,
-//       name: "#foo",
-//       source: ":#foo",
-//       ..
-//     }
-//   }
-// }
+#[test]
+fn unqualified_begins_with_hash_quote() {
+  assert_lexemes! {
+    ":#'foo",
+    Lexeme::Keyword {
+      alias: false,
+      namespace: None,
+      name: "#'foo",
+      source: ":#'foo",
+      ..
+    }
+  }
+}
 
 #[test]
 fn plain_alias() {

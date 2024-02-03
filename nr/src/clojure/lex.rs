@@ -775,7 +775,7 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         R::keyword_prefix => alias = child.as_str() == "::",
         R::namespace => namespace = Some(child.as_str()),
-        R::qualified_symbol | R::unqualified_symbol => self.push(L::Keyword {
+        R::qualified_symbol | R::unqualified_keyword => self.push(L::Keyword {
           form_ix,
           alias,
           namespace,
