@@ -15,11 +15,13 @@
 
 use std::{cmp, env, fmt, str};
 
+use Version::*;
+
 pub fn crate_version() -> Version {
   let major = env!("CARGO_PKG_VERSION_MAJOR").parse::<u16>().unwrap();
   let minor = env!("CARGO_PKG_VERSION_MINOR").parse::<u16>().unwrap();
   let patch = env!("CARGO_PKG_VERSION_PATCH").parse::<u16>().unwrap();
-  Version::MajorMinorPatch(major, minor, patch)
+  MajorMinorPatch(major, minor, patch)
 }
 
 #[derive(Clone, Debug)]
@@ -32,21 +34,20 @@ pub enum Version {
 impl Version {
   fn to_triplet(&self) -> (u16, u16, u16) {
     match self {
-      Version::Major(a) => (*a, 0, 0),
-      Version::MajorMinor(a, b) => (*a, *b, 0),
-      Version::MajorMinorPatch(a, b, c) => (*a, *b, *c),
+      Major(x) => (*x, 0, 0),
+      MajorMinor(x, y) => (*x, *y, 0),
+      MajorMinorPatch(x, y, z) => (*x, *y, *z),
     }
   }
 
   pub fn next_breaking(&self) -> Self {
-    use Version::*;
     match self {
       Major(0) => MajorMinorPatch(0, 1, 0),
-      Major(a) => MajorMinorPatch(a + 1, 0, 0),
-      MajorMinor(0, b) => MajorMinorPatch(0, b + 1, 0),
-      MajorMinor(a, _) => MajorMinorPatch(a + 1, 0, 0),
-      MajorMinorPatch(0, b, _) => MajorMinorPatch(0, b + 1, 0),
-      MajorMinorPatch(a, _, _) => MajorMinorPatch(a + 1, 0, 0),
+      Major(x) => MajorMinorPatch(x + 1, 0, 0),
+      MajorMinor(0, y) => MajorMinorPatch(0, y + 1, 0),
+      MajorMinor(x, _) => MajorMinorPatch(x + 1, 0, 0),
+      MajorMinorPatch(0, y, _) => MajorMinorPatch(0, y + 1, 0),
+      MajorMinorPatch(x, _, _) => MajorMinorPatch(x + 1, 0, 0),
     }
   }
 
@@ -63,6 +64,37 @@ impl Version {
       }
     }
     Equal
+  }
+}
+
+trait ToVersion {
+  fn to_ver(self) -> Version;
+}
+
+impl<T> ToVersion for T
+where
+  T: Into<Version>,
+{
+  fn to_ver(self) -> Version {
+    self.into()
+  }
+}
+
+impl From<(u16,)> for Version {
+  fn from((x,): (u16,)) -> Self {
+    Major(x)
+  }
+}
+
+impl From<(u16, u16)> for Version {
+  fn from((x, y): (u16, u16)) -> Self {
+    MajorMinor(x, y)
+  }
+}
+
+impl From<(u16, u16, u16)> for Version {
+  fn from((x, y, z): (u16, u16, u16)) -> Self {
+    MajorMinorPatch(x, y, z)
   }
 }
 
@@ -88,15 +120,15 @@ impl str::FromStr for Version {
     };
     let major = major_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     let Some(minor_str) = it.next() else {
-      return Ok(Version::Major(major));
+      return Ok(Major(major));
     };
     let minor = minor_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     let Some(patch_str) = it.next() else {
-      return Ok(Version::MajorMinor(major, minor))
+      return Ok(MajorMinor(major, minor))
     };
     let patch = patch_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     if it.next().is_none() {
-      Ok(Version::MajorMinorPatch(major, minor, patch))
+      Ok(MajorMinorPatch(major, minor, patch))
     } else {
       Err(ParseVersionError)
     }
@@ -108,11 +140,10 @@ pub struct ParseVersionError;
 
 impl fmt::Display for Version {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    use Version::*;
     match self {
-      Major(a) => write!(f, "{}.0.0", a),
-      MajorMinor(a, b) => write!(f, "{}.{}.0", a, b),
-      MajorMinorPatch(a, b, c) => write!(f, "{}.{}.{}", a, b, c),
+      Major(x) => write!(f, "{}.0.0", x),
+      MajorMinor(x, y) => write!(f, "{}.{}.0", x, y),
+      MajorMinorPatch(x, y, z) => write!(f, "{}.{}.{}", x, y, z),
     }
   }
 }
@@ -206,59 +237,61 @@ impl fmt::Display for VersionRange {
 #[cfg(test)]
 mod test {
 
+  use super::ToVersion;
   use super::*;
 
   #[test]
+  fn to_version_trait() {
+    assert!(matches!((1,).to_ver(), Major(1)));
+    assert!(matches!((1, 2).to_ver(), MajorMinor(1, 2)));
+    assert!(matches!((1, 2, 3).to_ver(), MajorMinorPatch(1, 2, 3)));
+  }
+
+  #[test]
   fn version_equivalence() {
-    use Version::*;
+    assert_eq!((1,).to_ver(), (1,).to_ver());
+    assert_eq!((1,).to_ver(), (1, 0).to_ver());
+    assert_eq!((1,).to_ver(), (1, 0, 0).to_ver());
 
-    assert_eq!(Major(1), Major(1));
-    assert_eq!(Major(1), MajorMinor(1, 0));
-    assert_eq!(Major(1), MajorMinorPatch(1, 0, 0));
+    assert_eq!((1, 2).to_ver(), (1, 2).to_ver());
+    assert_eq!((1, 2).to_ver(), (1, 2, 0).to_ver());
 
-    assert_eq!(MajorMinor(1, 2), MajorMinor(1, 2));
-    assert_eq!(MajorMinor(1, 2), MajorMinorPatch(1, 2, 0));
-
-    assert_eq!(MajorMinorPatch(1, 2, 3), MajorMinorPatch(1, 2, 3));
+    assert_eq!((1, 2, 3).to_ver(), (1, 2, 3).to_ver());
   }
 
   #[test]
   fn version_ordering() {
-    use Version::*;
+    assert!((1,).to_ver() < (2,).to_ver());
+    assert!((2,).to_ver() > (1,).to_ver());
 
-    assert!(Major(1) < Major(2));
-    assert!(Major(2) > Major(1));
+    assert!((1, 2).to_ver() < (1, 3).to_ver());
+    assert!((1, 3).to_ver() > (1, 2).to_ver());
 
-    assert!(MajorMinor(1, 2) < MajorMinor(1, 3));
-    assert!(MajorMinor(1, 3) > MajorMinor(1, 2));
+    assert!((1, 2).to_ver() < (2, 1).to_ver());
+    assert!((2, 1).to_ver() > (1, 2).to_ver());
 
-    assert!(MajorMinor(1, 2) < MajorMinor(2, 1));
-    assert!(MajorMinor(2, 1) > MajorMinor(1, 2));
+    assert!((1,).to_ver() < (1, 2).to_ver());
+    assert!((1, 2).to_ver() < (2,).to_ver());
 
-    assert!(Major(1) < MajorMinor(1, 2));
-    assert!(MajorMinor(1, 2) < Major(2));
+    assert!((1, 2).to_ver() > (1,).to_ver());
+    assert!((2,).to_ver() > (1, 2).to_ver());
 
-    assert!(MajorMinor(1, 2) > Major(1));
-    assert!(Major(2) > MajorMinor(1, 2));
+    assert!((1, 2, 3).to_ver() < (1, 2, 4).to_ver());
+    assert!((1, 2, 4).to_ver() > (1, 2, 3).to_ver());
 
-    assert!(MajorMinorPatch(1, 2, 3) < MajorMinorPatch(1, 2, 4));
-    assert!(MajorMinorPatch(1, 2, 4) > MajorMinorPatch(1, 2, 3));
+    assert!((1, 2).to_ver() < (1, 2, 3).to_ver());
+    assert!((1,).to_ver() < (1, 2, 3).to_ver());
+    assert!((1, 2, 3).to_ver() < (1, 3).to_ver());
+    assert!((1, 2, 3).to_ver() < (2,).to_ver());
 
-    assert!(MajorMinor(1, 2) < MajorMinorPatch(1, 2, 3));
-    assert!(Major(1) < MajorMinorPatch(1, 2, 3));
-    assert!(MajorMinorPatch(1, 2, 3) < MajorMinor(1, 3));
-    assert!(MajorMinorPatch(1, 2, 3) < Major(2));
-
-    assert!(MajorMinorPatch(1, 2, 3) > MajorMinor(1, 2));
-    assert!(MajorMinorPatch(1, 2, 3) > Major(1));
-    assert!(MajorMinor(1, 3) > MajorMinorPatch(1, 2, 3));
-    assert!(Major(2) > MajorMinorPatch(1, 2, 3));
+    assert!((1, 2, 3).to_ver() > (1, 2).to_ver());
+    assert!((1, 2, 3).to_ver() > (1,).to_ver());
+    assert!((1, 3).to_ver() > (1, 2, 3).to_ver());
+    assert!((2,).to_ver() > (1, 2, 3).to_ver());
   }
 
   #[test]
   fn parse_good_version_strings() {
-    use Version::*;
-
     assert!(match "1".parse::<Version>() {
       Ok(Major(1)) => true,
       _ => false,
@@ -297,17 +330,13 @@ mod test {
 
   #[test]
   fn display_version_string() {
-    use Version::*;
-
-    assert_eq!(format!("{}", Major(123)), "123.0.0");
-    assert_eq!(format!("{}", MajorMinor(123, 456)), "123.456.0");
-    assert_eq!(format!("{}", MajorMinorPatch(123, 456, 789)), "123.456.789");
+    assert_eq!(format!("{}", (123,).to_ver()), "123.0.0");
+    assert_eq!(format!("{}", (123, 456).to_ver()), "123.456.0");
+    assert_eq!(format!("{}", (123, 456, 789).to_ver()), "123.456.789");
   }
 
   #[test]
   fn parse_good_version_ranges() {
-    use Version::*;
-
     assert!(match "1..=1".parse() {
       Ok(VersionRange {
         start: Some(Major(1)),
