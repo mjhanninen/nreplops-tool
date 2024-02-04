@@ -26,14 +26,14 @@ use clap::Parser;
 use crate::{
   conn_expr::{ConnectionExpr, ConnectionExprSource},
   error::Error,
-  version::{Version, VersionRange},
+  version::{VersionExpr, VersionRange},
 };
 
 pub use self::tristate::Tristate;
 
 #[derive(Debug)]
 pub struct Args {
-  pub version_range: Option<VersionRange>,
+  pub version_requirement: Option<VersionExpr>,
   pub conn_expr_src: ConnectionExprSource,
   pub stdin_from: Option<IoArg>,
   pub stdout_to: Option<IoArg>,
@@ -58,7 +58,7 @@ impl Args {
       if args_os
         .get(pos + 1)
         .and_then(|value| value.to_str())
-        .map(|value| parse_version_range(value).is_err())
+        .map(|value| parse_version_requirement(value).is_err())
         .unwrap_or(true)
       {
         args_os.insert(pos + 1, "..".into());
@@ -219,7 +219,7 @@ impl TryFrom<Cli> for Args {
     }
 
     Ok(Self {
-      version_range: assert_version,
+      version_requirement: assert_version,
       conn_expr_src,
       stdin_from,
       stdout_to: if cli.no_stdout {
@@ -510,11 +510,11 @@ struct Cli {
   /// Run in shebang (#!) mode
   #[arg(
     short = '!',
-    value_name = "VERSION_EXPR",
-    value_parser = parse_version_range,
+    value_name = "VERSION_REQUIREMENT",
+    value_parser = parse_version_requirement,
     conflicts_with_all = &["exprs", "files"],
   )]
-  shebang_guard: Option<Option<VersionRange>>,
+  shebang_guard: Option<Option<VersionExpr>>,
 
   /// Wait .nrepl-port file to appear for SECONDS
   #[arg(long = "wait-port-file", value_name = "SECONDS")]
@@ -545,18 +545,10 @@ struct Cli {
   no_color: bool,
 }
 
-fn parse_version_range(s: &str) -> Result<VersionRange, &'static str> {
-  if let Ok(start) = s.parse::<Version>() {
-    let end = start.next_breaking();
-    Ok(VersionRange {
-      start: Some(start),
-      end: Some(end),
-      inclusive: false,
-    })
-  } else if let Ok(range) = s.parse::<VersionRange>() {
-    Ok(range)
-  } else {
-    Err("bad version or version range")
+fn parse_version_requirement(s: &str) -> Result<VersionExpr, &'static str> {
+  match s.parse::<VersionExpr>() {
+    Ok(e) if e.sound() => Ok(e),
+    _ => Err("bad version requirement"),
   }
 }
 

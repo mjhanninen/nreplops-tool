@@ -17,15 +17,15 @@ use std::io;
 
 use crate::{
   clojure::lex,
-  version::{Version, VersionRange},
+  version::{Version, VersionExpr},
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-  #[error("too old nr ({0}), the script requires version {1}")]
-  TooOldVersion(Version, VersionRange),
-  #[error("too new nr ({0}), the script requires version {1}")]
-  TooNewVersion(Version, VersionRange),
+  #[error("too old nr ({0}), script requires {1}")]
+  TooOldVersion(Version, VersionExpr),
+  #[error("too new nr ({0}), script requires {1}")]
+  TooNewVersion(Version, VersionExpr),
   #[error("No input")]
   NoInput,
   #[error("file {0} not found")]
