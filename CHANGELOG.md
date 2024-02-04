@@ -2,10 +2,14 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.1...main
+
+## [Version 0.3.1][v0.3.1]
+
 - Adds support for pretty printing evaluation results.  See the `--pretty` and
   `--color` flags.
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.0...main
+[v0.3.1]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.0...v0.3.1}
 
 ## [Version 0.3.0][v0.3.0]
 
