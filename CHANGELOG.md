@@ -2,6 +2,12 @@
 
 ## [Unreleased][unreleased]
 
+- Fixes a bug in the version requirement check where the end of an inclusive
+  range was handled incorrectly.
+
+  For example, version `1.2.3` was not considered to belong to the range
+  `1.1.1..=1.2` (where `1.2` represents the whole version block `1.2.*`).
+
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.1...main
 
 ## [Version 0.3.1][v0.3.1]
@@ -52,7 +58,7 @@
 - Fixes a thread leakage on the nREPL host.  This was caused by `nr` not
   closing the nREPL session at exit.
 
-- Changes where the hosts files are searched from (**breaking**)
+- **Breaking**: Changes where the hosts files are searched from
 
   The `nreplops-hosts.toml` files are now searched from the following
   directories in the given order:
