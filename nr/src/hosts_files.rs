@@ -58,8 +58,7 @@ struct HostOptionsDe {
   confirm: Option<bool>,
 }
 
-// `HostOptions` is independent of `HostOptionsDe` and, hence, we prefer
-// implementing `Into`.
+// `HostOptions` is independent of `HostOptionsDe` ⇒ prefer just `Into`
 #[allow(clippy::from_over_into)]
 impl Into<HostOptions> for HostOptionsDe {
   fn into(self) -> HostOptions {

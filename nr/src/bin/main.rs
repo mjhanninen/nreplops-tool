@@ -31,6 +31,7 @@ use nreplops_tool::{
 fn main() {
   let args = cli::Args::from_command_line().unwrap_or_else(die);
 
+  // Check version requirement
   if let Some(ref r) = args.version_requirement {
     let v = version::crate_version();
     match v.range_cmp(r) {
@@ -40,27 +41,40 @@ fn main() {
     }
   }
 
+  // Obtain connection expression; possibly waits for the port file to appear
   let conn_expr = args.conn_expr_src.resolve_expr().unwrap_or_else(die);
 
+  // Short-circuit if there is nothing to evaluate; effectively this happens
+  // only when the program is used as a latch for the port file
+  if args.source_args.is_empty() {
+    return;
+  }
+
+  // Load known hosts
   let host_opts_table =
     hosts_files::load_default_hosts_files().unwrap_or_else(die);
+
+  // Load sources (also inject template arguments)
   let sources =
     sources::load_sources(&args.source_args[..], &args.template_args[..])
       .unwrap_or_else(die);
 
-  // Short-circuit if there is nothing to evaluate; effectively this happens
-  // when the program is used only as a latch for the port file.
-  if sources.is_empty() {
-    return;
-  }
+  // Resolve what outputs to collect and where to send them
+  let outputs = outputs::Outputs::try_from_args(&args).unwrap_or_else(die);
 
+  // Resolve the actual connection routes to try
   let conn_routes =
     routes::resolve_routes(&conn_expr, &host_opts_table).unwrap_or_else(die);
-  let outputs = outputs::Outputs::try_from_args(&args).unwrap_or_else(die);
+
+  // XXX(soija) In case we wanted switch to using async this would be the point
+  //            where to transition from sync to async.
+
+  // Connect and form nREPL session
   let socket = socket::connect(conn_routes).unwrap_or_else(die);
   let con = nrepl::Connection::new(socket);
   let mut session = con.session().unwrap_or_else(die);
 
+  // Evaluate the sources within the session
   match eval_sources(&mut session, &sources, &outputs) {
     Ok(_) => {
       session.close().unwrap_or_else(die);
