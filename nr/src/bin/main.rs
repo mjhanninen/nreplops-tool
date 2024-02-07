@@ -23,7 +23,10 @@
 
 use std::{cmp::Ordering, io::Write, process};
 
-use nreplops_tool::{self, error::Error, version, *};
+use nreplops_tool::{
+  self, cli, error::Error, hosts_files, nrepl, outputs, routes, socket,
+  sources, version,
+};
 
 fn main() {
   let args = cli::Args::from_command_line().unwrap_or_else(die);
