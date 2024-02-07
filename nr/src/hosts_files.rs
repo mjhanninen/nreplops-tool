@@ -40,17 +40,18 @@ pub fn load_default_hosts_files() -> Result<HostOptionsTable, Error> {
     let _ = f
       .read_to_string(&mut s)
       .map_err(Error::FailedToLoadDefaultHostConfig)?;
-    let new_hosts: Hosts = toml::from_str(&s).unwrap();
+    let new_hosts: Hosts =
+      toml::from_str(&s).map_err(Error::FailedToParseDefaultHostConfig)?;
     hosts.extend(new_hosts.into_iter().map(|(k, v)| (k, v.into())));
   }
   Ok(hosts)
 }
 
-pub type Hosts = HashMap<HostKey, HostOptionsDe>;
+type Hosts = HashMap<HostKey, HostOptionsDe>;
 
 #[serde_as]
 #[derive(Debug, Deserialize)]
-pub struct HostOptionsDe {
+struct HostOptionsDe {
   name: Option<String>,
   #[serde_as(as = "DisplayFromStr")]
   connection: ConnectionExpr,

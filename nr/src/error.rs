@@ -15,6 +15,8 @@
 
 use std::io;
 
+use toml;
+
 use crate::{
   clojure::lex,
   version::{Version, VersionExpr},
@@ -71,10 +73,10 @@ pub enum Error {
     not supported yet"
   )]
   RecursiveHostKeysNotSupported(String),
-  #[error(
-    "unexpected error while loading for default host configuration: {0}"
-  )]
+  #[error("failed to read host configuration file: {0}")]
   FailedToLoadDefaultHostConfig(io::Error),
+  #[error("failed to parse host configuration file: {0}")]
+  FailedToParseDefaultHostConfig(toml::de::Error),
 
   // Related to nREPL connection
   #[error("failed to connect to host: {0}")]
