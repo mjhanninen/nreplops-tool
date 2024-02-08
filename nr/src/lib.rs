@@ -33,6 +33,7 @@ pub mod pprint;
 pub mod routes;
 pub mod socket;
 pub mod sources;
+pub mod sources_old;
 pub mod version;
 
 mod bencode;

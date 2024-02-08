@@ -16,7 +16,7 @@
 use std::{
   env, ffi,
   io::{self, IsTerminal},
-  path,
+  path::{Path, PathBuf},
   rc::Rc,
   time,
 };
@@ -72,14 +72,21 @@ impl Args {
 #[derive(Debug, PartialEq)]
 pub enum IoArg {
   Pipe,
-  File(path::PathBuf),
+  File(Box<Path>),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum SourceArg {
   Pipe,
-  Expr(String),
-  File(path::PathBuf),
+  Expr {
+    /// The 0-index of this expression among all command-line expressions.
+    ix: usize,
+    /// The expression.
+    expr: Box<str>,
+  },
+  File {
+    path: Box<Path>,
+  },
 }
 
 impl SourceArg {
@@ -92,7 +99,7 @@ impl From<IoArg> for SourceArg {
   fn from(io: IoArg) -> Self {
     match io {
       IoArg::Pipe => SourceArg::Pipe,
-      IoArg::File(p) => SourceArg::File(p),
+      IoArg::File(path) => SourceArg::File { path },
     }
   }
 }
@@ -135,7 +142,11 @@ impl TryFrom<Cli> for Args {
       cli
         .exprs
         .iter()
-        .map(|e| SourceArg::Expr(e.clone()))
+        .enumerate()
+        .map(|(ix, e)| SourceArg::Expr {
+          ix,
+          expr: e.to_string().into_boxed_str(),
+        })
         .collect()
     } else if !cli.files.is_empty() {
       cli
@@ -293,14 +304,14 @@ impl TemplateArg {
 }
 
 impl IoArg {
-  fn from_path(path: impl AsRef<path::Path>) -> Self {
-    IoArg::File(path.as_ref().to_owned())
+  fn from_path(path: impl AsRef<Path>) -> Self {
+    IoArg::File(path.as_ref().to_path_buf().into_boxed_path())
   }
 
   fn parse_from_path(s: impl AsRef<ffi::OsStr>) -> Result<Self, IoParseError> {
     let s = s.as_ref();
-    if let Ok(p) = path::PathBuf::from(s).canonicalize() {
-      Ok(IoArg::File(p))
+    if let Ok(p) = PathBuf::from(s).canonicalize() {
+      Ok(IoArg::File(p.into_boxed_path()))
     } else {
       Err(IoParseError(s.to_string_lossy().into()))
     }
@@ -312,8 +323,8 @@ impl IoArg {
     let s = s.as_ref();
     if s == "-" {
       Ok(IoArg::Pipe)
-    } else if let Ok(p) = path::PathBuf::from(s).canonicalize() {
-      Ok(IoArg::File(p))
+    } else if let Ok(p) = PathBuf::from(s).canonicalize() {
+      Ok(IoArg::File(p.into_boxed_path()))
     } else {
       Err(IoParseError(s.to_string_lossy().into()))
     }
@@ -326,8 +337,8 @@ impl TryFrom<&ffi::OsString> for IoArg {
   fn try_from(s: &ffi::OsString) -> Result<Self, Self::Error> {
     if s == "-" {
       Ok(IoArg::Pipe)
-    } else if let Ok(p) = path::PathBuf::from(s).canonicalize() {
-      Ok(IoArg::File(p))
+    } else if let Ok(p) = PathBuf::from(s).canonicalize() {
+      Ok(IoArg::File(p.into_boxed_path()))
     } else {
       Err(IoParseError(s.to_string_lossy().into()))
     }
@@ -435,7 +446,7 @@ struct Cli {
 
   /// Read server port from FILE
   #[arg(long, value_name = "FILE")]
-  port_file: Option<path::PathBuf>,
+  port_file: Option<PathBuf>,
 
   /// Evaluate within NAMESPACE
   #[arg(long, visible_alias = "namespace", value_name = "NAMESPACE")]
@@ -448,7 +459,7 @@ struct Cli {
     value_name = "EXPRESSION",
     conflicts_with = "files"
   )]
-  exprs: Vec<String>,
+  exprs: Vec<Box<str>>,
 
   /// Evaluate FILE
   #[arg(
@@ -465,7 +476,7 @@ struct Cli {
 
   /// Write server's stdout to FILE
   #[arg(long, visible_aliases = &["out", "output"], value_name = "FILE")]
-  stdout: Option<path::PathBuf>,
+  stdout: Option<PathBuf>,
 
   /// Discard server's stdout
   #[arg(
@@ -477,7 +488,7 @@ struct Cli {
 
   /// Write server's stderr to FILE
   #[arg(long, visible_alias = "err", value_name = "FILE")]
-  stderr: Option<path::PathBuf>,
+  stderr: Option<PathBuf>,
 
   /// Discard server's stderr
   #[arg(
@@ -489,7 +500,7 @@ struct Cli {
 
   /// Write evaluation results to FILE
   #[arg(long, visible_aliases = &["res", "values"], value_name = "FILE")]
-  results: Option<path::PathBuf>,
+  results: Option<PathBuf>,
 
   /// Discard evaluation results
   #[arg(

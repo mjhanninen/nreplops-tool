@@ -25,7 +25,7 @@ use std::{cmp::Ordering, io::Write, process};
 
 use nreplops_tool::{
   self, cli, error::Error, hosts_files, nrepl, outputs, routes, socket,
-  sources, version,
+  sources, sources_old, version,
 };
 
 fn main() {
@@ -54,9 +54,15 @@ fn main() {
   let host_opts_table =
     hosts_files::load_default_hosts_files().unwrap_or_else(die);
 
+  {
+    let res = sources::load_sources(&args.source_args);
+    dbg!(&res);
+    let _ = res;
+  }
+
   // Load sources (also inject template arguments)
   let sources =
-    sources::load_sources(&args.source_args[..], &args.template_args[..])
+    sources_old::load_sources(&args.source_args[..], &args.template_args[..])
       .unwrap_or_else(die);
 
   // Resolve what outputs to collect and where to send them
@@ -95,7 +101,7 @@ fn die<T>(e: Error) -> T {
 
 fn eval_sources(
   session: &mut nrepl::Session,
-  sources: &[sources::Source],
+  sources: &[sources_old::Source],
   outputs: &outputs::Outputs,
 ) -> Result<(), Error> {
   for input in sources.iter() {
