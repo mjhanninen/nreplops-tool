@@ -13,141 +13,403 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+#![allow(unused)]
+
 use std::{
-  borrow::Cow,
-  collections::HashMap,
   fs,
   io::{self, Read},
-  rc::Rc,
+  iter::Peekable,
+  path::Path,
 };
 
-use crate::{cli, error::Error};
+use crate::{
+  cli,
+  clojure::lex::{self, Ix, Lexeme, Token},
+  error::Error,
+};
 
+use Token as T;
+
+/// A single top-level form.
 #[derive(Debug)]
-pub struct Source {
-  pub content: String,
-  pub file: Option<String>,
+pub struct Form {
+  pub fragments: Box<[Fragment]>,
+  pub source: Source,
+}
+
+/// A fragment of a (top-level) form.
+#[derive(Debug)]
+pub enum Fragment {
+  Lexemes(Box<[Lexeme]>),
+  Directive(DirectiveFragment),
+}
+
+/// A template directive.
+#[derive(Debug)]
+pub struct DirectiveFragment {
+  /// The command-line argument providing the value.
+  arg: Option<ArgId>,
+  /// The environment variable providing the value.
+  env: Option<Box<str>>,
+  /// The prompt to display when asking for the value from the user
+  /// interactively.
+  prompt: Option<Box<str>>,
+  /// The placeholder for the value in the command-line help display.
+  placeholder: Option<Box<str>>,
+  /// The description in the command-line help display.
+  description: Option<Box<str>>,
+  /// The default value to be used in case no value is provided.
+  default: Option<Box<[Lexeme]>>,
+  /// Whether to inject the value as a string literal, value, or spliced value.
+  inject_as: InjectAs,
+  /// The starting position of the corresponding tagged literal in the original
+  /// source.  Used in error reporting (e.g. missing  argument value).
+  start: SourcePos,
+}
+
+/// A command-line argument identifier
+#[derive(Debug)]
+pub enum ArgId {
+  /// Positional argument
+  Positional(usize),
+  /// A named argument of the form `--arg NAME=VALUE`.
+  Named(Box<str>),
+}
+
+/// Governs how the input value should be interpreted and processed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InjectAs {
+  /// The value should be escaped and wrapped inside a string literal. The
+  /// resulting lexeme should be injected as-is.
+  String,
+  /// The value should be lexed and the lexemes should be injected as-is.
+  Value,
+  /// The value should be lexed and the lexemes should be "spliced" into the
+  /// containing form in case they represent a container of "congruent" type.
+  /// Otherwise an error should be produced.
+  SplicedValue,
+}
+
+/// The source of the code.
+#[derive(Clone, Debug)]
+pub enum Source {
+  CommandLine { ix: usize },
+  StdIn,
+  File { path: Box<Path> },
+}
+
+/// A location within a single source.
+#[derive(Clone, Debug)]
+pub struct SourcePos {
+  line: u32,
+  column: u32,
+}
+
+impl From<&lex::Source> for SourcePos {
+  fn from(value: &lex::Source) -> Self {
+    Self {
+      line: value.line,
+      column: value.column,
+    }
+  }
 }
 
 pub fn load_sources(
   source_args: &[cli::SourceArg],
-  template_args: &[cli::TemplateArg],
-) -> Result<Vec<Source>, Error> {
-  let context = Context::from(template_args);
+) -> Result<Vec<Form>, Error> {
   let mut result = Vec::new();
   for source_arg in source_args.iter() {
-    let (file, raw_content) = load_content(source_arg)?;
-    let content = render_source(&context, raw_content.as_ref());
-    result.push(Source { content, file });
+    let (source, raw_content) = load_content(source_arg)?;
+    dbg!(&source);
+    dbg!(&raw_content);
+    let _ = source;
+    let _ = raw_content;
+    parse_forms(&source, &raw_content, &mut result)?;
   }
   Ok(result)
 }
 
 fn load_content(
   source_arg: &cli::SourceArg,
-) -> Result<(Option<String>, Cow<'_, str>), Error> {
-  use cli::SourceArg::*;
+) -> Result<(Source, Box<str>), Error> {
+  use cli::SourceArg as A;
   match source_arg {
-    Pipe => {
+    A::Pipe => {
       let stdin = io::stdin();
       let mut handle = stdin.lock();
       let mut buffer = String::new();
       handle
         .read_to_string(&mut buffer)
         .map_err(|_| Error::CannotReadStdIn)?;
-      Ok((None, Cow::Owned(buffer)))
+      Ok((Source::StdIn, buffer.into()))
     }
-    Expr(e) => Ok((None, Cow::Borrowed(e.as_str()))),
-    File(f) => {
-      let mut file = fs::File::open(f)
-        .map_err(|_| Error::CannotReadFile(f.to_string_lossy().to_string()))?;
+    A::Expr { ix, expr } => Ok((Source::CommandLine { ix: *ix }, expr.clone())),
+    A::File { path } => {
+      let Ok(mut file) = fs::File::open(path) else {
+        return Err(Error::CannotReadFile(path.to_string_lossy().to_string()));
+      };
       let mut buffer = String::new();
-      file
-        .read_to_string(&mut buffer)
-        .map_err(|_| Error::CannotReadFile(f.to_string_lossy().to_string()))?;
-      Ok((Some(f.to_string_lossy().to_string()), Cow::Owned(buffer)))
-    }
-  }
-}
-
-// XXX(soija) This needs work
-// This rendering has the following limitations:
-// - does not catch '#nr[...]' exprs without value arg (nREPL catches this though)
-// - is not easy to extend supporting '#nr[<var> <default>]'
-// - let alone '#nr[<var-1> ... <var-n> <default>]'
-// - does not captures values from environment variables (e.g. NR_VAR_1)
-fn render_source(context: &Context, source: &str) -> String {
-  let after_shebang = if source.starts_with("#!") {
-    match source.split_once('\n') {
-      Some((_, remaining)) => remaining,
-      None => "",
-    }
-  } else {
-    source
-  }
-  .trim();
-  if let Some(ref regex) = context.regex {
-    let mut fragments = Vec::<Rc<str>>::new();
-    let mut remaining = after_shebang;
-    while let Some(captures) = regex.captures(remaining) {
-      let full_match = captures.get(0).unwrap();
-      let (upto, after) = remaining.split_at(full_match.end());
-      let (before, _) = upto.split_at(full_match.start());
-      fragments.push(before.to_string().into());
-      let value = context
-        .table
-        .get(captures.get(1).unwrap().as_str())
-        .unwrap();
-      fragments.push(value.clone());
-      remaining = after;
-    }
-    fragments.push(remaining.to_string().into());
-    fragments.join("")
-  } else {
-    after_shebang.into()
-  }
-}
-
-#[derive(Debug)]
-struct Context {
-  table: HashMap<Rc<str>, Rc<str>>,
-  regex: Option<regex::Regex>,
-}
-
-impl From<&[cli::TemplateArg]> for Context {
-  fn from(template_args: &[cli::TemplateArg]) -> Self {
-    let table = template_args.iter().fold(HashMap::new(), |mut m, a| {
-      if let Some(ref n) = a.name {
-        m.insert(n.clone(), a.value.clone());
+      if file.read_to_string(&mut buffer).is_err() {
+        return Err(Error::CannotReadFile(path.to_string_lossy().to_string()));
       }
-      if let Some(i) = a.pos {
-        m.insert((i + 1).to_string().into(), a.value.clone());
+      Ok((Source::File { path: path.clone() }, buffer.into()))
+    }
+  }
+}
+
+fn parse_forms(
+  source: &Source,
+  input: &str,
+  forms: &mut Vec<Form>,
+) -> Result<(), Error> {
+  let mut lexemes = lex::lex(input)
+    .map_err(|e| Error::FailedToParseInput(e.into()))?
+    .into_iter()
+    .filter(|l| !matches!(l.token, T::Whitespace | T::Comment))
+    .peekable();
+  while let Some(form) = try_parse_form(source, &mut lexemes)? {
+    forms.push(form);
+  }
+  Ok(())
+}
+
+fn try_parse_form<I>(
+  source: &Source,
+  lexemes: &mut Peekable<I>,
+) -> Result<Option<Form>, Error>
+where
+  I: Iterator<Item = Lexeme>,
+{
+  let mut collector = FragmentCollector::new();
+  while lexemes.peek().is_some() {
+    collect_form(lexemes, &mut collector)?;
+    if !collector.is_empty() {
+      return Ok(Some(Form {
+        fragments: collector.build(),
+        source: source.clone(),
+      }));
+    }
+  }
+  Ok(None)
+}
+
+#[derive(Default)]
+struct FragmentCollector {
+  unfinished: Vec<Lexeme>,
+  fragments: Vec<Fragment>,
+}
+
+impl FragmentCollector {
+  fn new() -> Self {
+    Self::default()
+  }
+
+  fn collect_lexeme(&mut self, lexeme: Lexeme) {
+    self.unfinished.push(lexeme);
+  }
+
+  fn is_empty(&self) -> bool {
+    self.fragments.is_empty() && self.unfinished.is_empty()
+  }
+
+  fn build(mut self) -> Box<[Fragment]> {
+    if !self.unfinished.is_empty() {
+      self
+        .fragments
+        .push(Fragment::Lexemes(self.unfinished.into_boxed_slice()));
+    }
+    self.fragments.into()
+  }
+}
+
+fn collect_form<I>(
+  lexemes: &mut Peekable<I>,
+  collector: &mut FragmentCollector,
+) -> Result<(), Error>
+where
+  I: Iterator<Item = Lexeme>,
+{
+  if let Some(parent_ix) = lexemes.peek().map(|l| l.parent_ix) {
+    collect_form_recursively(parent_ix, lexemes, collector)
+  } else {
+    Ok(())
+  }
+}
+
+fn collect_form_recursively<I>(
+  parent_ix: Ix,
+  lexemes: &mut Peekable<I>,
+  collector: &mut FragmentCollector,
+) -> Result<(), Error>
+where
+  I: Iterator<Item = Lexeme>,
+{
+  use Action as A;
+
+  #[derive(Debug)]
+  enum Action {
+    Discard,
+    CollectJustThis,
+    CollectCountedChildren(usize),
+    CollectDelimitedChildren,
+  }
+
+  let action = {
+    let lexeme = dbg!(lexemes.peek().unwrap());
+
+    debug_assert_eq!(lexeme.parent_ix, parent_ix);
+
+    match dbg!(&lexeme.token) {
+      T::Discard => A::Discard,
+
+      T::StartList
+      | T::StartVector
+      | T::StartSet
+      | T::StartMap
+      | T::StartAnonymousFn
+      | T::StartReaderConditional => A::CollectDelimitedChildren,
+
+      (T::Quote
+      | T::VarQuote
+      | T::Synquote
+      | T::Unquote
+      | T::SplicingUnquote) => A::CollectCountedChildren(1),
+
+      T::Meta { .. } | T::TaggedLiteral { .. } => A::CollectCountedChildren(2),
+
+      T::Numeric { .. }
+      | T::Char { .. }
+      | T::String { .. }
+      | T::Symbol { .. }
+      | T::Keyword { .. }
+      | T::Tag { .. } => A::CollectJustThis,
+
+      (T::EndList
+      | T::EndVector
+      | T::EndSet
+      | T::EndMap
+      | T::EndAnonymousFn
+      | T::EndReaderConditional) => {
+        panic!("unexpected end lexeme while collecting next form: {lexeme:?}")
       }
-      m
-    });
-    let regex = if table.is_empty() {
-      None
-    } else {
-      let keys = table
-        .keys()
-        .map(|s| regex::escape(s))
-        .collect::<Vec<String>>();
-      let key_union = keys.join("|");
-      let pat = format!(r#"#nr\s*\[\s*({})\s*\]"#, key_union,);
-      // XXX(soija) Once https://github.com/rust-lang/rust/issues/79524 lands, use
-      // intersperse.
-      /*
-      let pat = format!(
-          r#"#nr\s*\[\s*({})\s*\]"#,
-          table
-              .keys()
-              .map(|k| regex::escape(k))
-              .intersperse("|".to_string())
-              .collect::<String>(),
-      );
-      */
-      Some(regex::Regex::new(&pat).unwrap())
-    };
-    Self { table, regex }
+      _ => panic!("unexpected lexeme while collecting next form: {lexeme:?}"),
+    }
+  };
+
+  match dbg!(action) {
+    A::Discard => discard_recursively(lexemes),
+    A::CollectJustThis => collector.collect_lexeme(lexemes.next().unwrap()),
+    A::CollectCountedChildren(n) => {
+      let lexeme = lexemes.next().unwrap();
+      let form_ix = lexeme.form_ix;
+      collector.collect_lexeme(lexeme);
+      for _ in 0..n {
+        collect_form_recursively(form_ix, lexemes, collector)?;
+      }
+    }
+    A::CollectDelimitedChildren => {
+      let start_lexeme = lexemes.next().unwrap();
+      let form_ix = start_lexeme.form_ix;
+      collector.collect_lexeme(start_lexeme);
+      loop {
+        let next = lexemes.peek().unwrap();
+        match next.token {
+          (T::EndList
+          | T::EndVector
+          | T::EndSet
+          | T::EndMap
+          | T::EndAnonymousFn
+          | T::EndReaderConditional)
+            if next.form_ix == form_ix =>
+          {
+            collector.collect_lexeme(lexemes.next().unwrap());
+            break;
+          }
+          _ => collect_form_recursively(form_ix, lexemes, collector)?,
+        }
+      }
+    }
+  }
+
+  Ok(())
+}
+
+fn discard_recursively<I>(lexemes: &mut Peekable<I>)
+where
+  I: Iterator<Item = Lexeme>,
+{
+  let lexeme = lexemes.next().unwrap();
+
+  #[allow(clippy::enum_variant_names)]
+  enum Discard {
+    JustThis,
+    CountedChildren(usize),
+    DelimitedChildren,
+  }
+
+  let action = match lexeme.token {
+    (T::Nil
+    | T::Boolean { .. }
+    | T::Numeric { .. }
+    | T::Char { .. }
+    | T::String { .. }
+    | T::Regex { .. }
+    | T::SymbolicValue { .. }
+    | T::Symbol { .. }
+    | T::Keyword { .. }
+    | T::Tag { .. }) => Discard::JustThis,
+
+    (T::Discard
+    | T::Quote
+    | T::VarQuote
+    | T::Synquote
+    | T::Unquote
+    | T::SplicingUnquote) => Discard::CountedChildren(1),
+
+    T::Meta { .. } => Discard::CountedChildren(2),
+
+    (T::StartList
+    | T::StartVector
+    | T::StartSet
+    | T::StartMap
+    | T::StartAnonymousFn
+    | T::StartReaderConditional) => Discard::DelimitedChildren,
+
+    _ => panic!("unexpected lexeme while discarding: lexeme = {lexeme:?}",),
+  };
+
+  match action {
+    Discard::JustThis => {}
+
+    Discard::CountedChildren(n) => {
+      for _ in 0..n {
+        let child = lexemes.peek().unwrap();
+        if child.parent_ix == lexeme.form_ix {
+          discard_recursively(lexemes);
+        } else {
+          panic!(
+            "unexpected lexeme while discarding child: parent = {lexeme:?}, child {child:?}"
+          );
+        }
+      }
+    }
+
+    Discard::DelimitedChildren => loop {
+      let child_or_end = lexemes.peek().unwrap();
+      match child_or_end.token {
+          (T::EndList
+          | T::EndVector
+          | T::EndSet
+          | T::EndMap
+          | T::EndAnonymousFn
+          | T::EndReaderConditional)
+            if child_or_end.form_ix == lexeme.form_ix => {
+            lexemes.next().unwrap();
+            break;
+          },
+          _ if child_or_end.parent_ix == lexeme.form_ix => discard_recursively( lexemes),
+          _ => panic!("unexpected lexeme while discarding delimited children: parent = {lexeme:?}, child = {child_or_end:?}"),
+        }
+    },
   }
 }
