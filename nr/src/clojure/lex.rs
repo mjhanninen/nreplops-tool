@@ -13,6 +13,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+use std::rc::Rc;
+
 use thiserror::Error;
 
 use super::pest_grammar::*;
@@ -26,7 +28,7 @@ pub enum Error {
   Pest(#[from] pest::error::Error<Rule>),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FormIx {
   /// The index of the parent form or zero, if none.
   pub parent: u32,
@@ -47,10 +49,10 @@ impl FormIx {
 }
 
 #[derive(Debug)]
-pub enum Lexeme<'a> {
+pub enum Lexeme {
   /// Whitespace
   Whitespace {
-    source: &'a str,
+    source: Rc<str>,
   },
   /// Comment
   Comment {
@@ -59,7 +61,7 @@ pub enum Lexeme<'a> {
     /// Effectively the end of the line starting from the comment marker up to
     /// but excluding the line break.  Note that in addition to `;` the comment
     /// marker can be `#!`.
-    source: &'a str,
+    source: Rc<str>,
   },
   /// Meta data prefix (`^` or `#^`)
   Meta {
@@ -70,156 +72,187 @@ pub enum Lexeme<'a> {
     data_ix: FormIx,
     /// The original source for the meta data prefix.  Effectively either `"^"`
     /// or `"#^"`.
-    source: &'a str,
+    source: Rc<str>,
   },
   Discard {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   Quote {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   VarQuote {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   Synquote {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   Unquote {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   SplicingUnquote {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   Nil {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   Boolean {
     form_ix: FormIx,
     value: bool,
-    source: &'a str,
+    source: Rc<str>,
   },
   Numeric {
     form_ix: FormIx,
     class: NumberClass,
-    value: NumericValue<'a>,
-    source: &'a str,
+    value: NumericValue,
+    source: Rc<str>,
   },
   Char {
     form_ix: FormIx,
     syntax: CharSyntax,
     value: char,
-    source: &'a str,
+    source: Rc<str>,
   },
   String {
     form_ix: FormIx,
-    value: Box<[StringFragment<'a>]>,
-    source: &'a str,
+    value: Box<[StringFragment]>,
+    source: Rc<str>,
   },
   Regex {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   SymbolicValuePrefix {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   SymbolicValue {
     form_ix: FormIx,
-    value: SymbolicValue<'a>,
-    source: &'a str,
+    value: SymbolicValue,
+    source: Rc<str>,
   },
   Symbol {
     form_ix: FormIx,
-    namespace: Option<&'a str>,
-    name: &'a str,
-    source: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
+    source: Rc<str>,
   },
   Tag {
     form_ix: FormIx,
-    namespace: Option<&'a str>,
-    name: &'a str,
-    source: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
+    source: Rc<str>,
   },
   Keyword {
     form_ix: FormIx,
     alias: bool,
-    namespace: Option<&'a str>,
-    name: &'a str,
-    source: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
+    source: Rc<str>,
   },
   StartList {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   EndList {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   StartVector {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   EndVector {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   StartSet {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   EndSet {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   MapQualifier {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   StartMap {
     form_ix: FormIx,
     alias: bool,
-    namespace: Option<&'a str>,
-    source: &'a str,
+    namespace: Option<Rc<str>>,
+    source: Rc<str>,
   },
   EndMap {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   StartAnonymousFn {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   EndAnonymousFn {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   ReaderConditionalPrefix {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   StartReaderConditional {
     form_ix: FormIx,
     splicing: bool,
-    source: &'a str,
+    source: Rc<str>,
   },
   EndReaderConditional {
     form_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
   TaggedLiteral {
     form_ix: FormIx,
     tag_ix: FormIx,
     arg_ix: FormIx,
-    source: &'a str,
+    source: Rc<str>,
   },
-  Residual(Pair<'a>),
+  Residual {
+    pair: Box<str>,
+    ploc: ParserLoc,
+  },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParserLoc {
+  TopLevel,
+  Form,
+  QuoteUnquoteForm,
+  Preforms,
+  DiscardedForm,
+  MetaForm,
+  Expr,
+  Char,
+  Number,
+  UnsignedRatio,
+  UnsignedRadixInt,
+  UnsignedInt,
+  String,
+  Regex,
+  SymbolicValue,
+  Symbol,
+  Tag,
+  Keyword,
+  Map,
+  MapQualifier,
+  ReaderConditional,
+  Body,
+  TaggedLiteralTag,
+  TaggedLiteralValue,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -230,28 +263,28 @@ pub enum CharSyntax {
   Simple,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum SymbolicValue<'a> {
+#[derive(Clone, Debug)]
+pub enum SymbolicValue {
   PosInf,
   NegInf,
   NaN,
-  Other(&'a str),
+  Other(Rc<str>),
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum NumericValue<'a> {
+#[derive(Clone, Debug)]
+pub enum NumericValue {
   Int {
     positive: bool,
     radix: u32,
-    value: &'a str,
+    value: Rc<str>,
   },
   Float {
-    value: &'a str,
+    value: Rc<str>,
   },
   Fraction {
     positive: bool,
-    numerator: &'a str,
-    denominator: &'a str,
+    numerator: Rc<str>,
+    denominator: Rc<str>,
   },
 }
 
@@ -265,13 +298,13 @@ pub enum NumberClass {
   Ratio,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum StringFragment<'a> {
-  Unescaped { value: &'a str },
+#[derive(Clone, Debug)]
+pub enum StringFragment {
+  Unescaped { value: Rc<str> },
   Escaped { code: u32 },
 }
 
-type Lexemes<'a> = Vec<Lexeme<'a>>;
+type Lexemes = Vec<Lexeme>;
 
 #[allow(clippy::result_large_err)]
 pub fn lex(input: &str) -> Result<Lexemes, Error> {
@@ -288,17 +321,17 @@ pub fn lex(input: &str) -> Result<Lexemes, Error> {
 }
 
 #[derive(Debug, Default)]
-struct Helper<'a> {
+struct Helper {
   form_count: u32,
-  lexemes: Lexemes<'a>,
+  lexemes: Lexemes,
 }
 
-impl<'a> Helper<'a> {
-  fn push(&mut self, lexeme: Lexeme<'a>) {
+impl Helper {
+  fn push(&mut self, lexeme: Lexeme) {
     self.lexemes.push(lexeme)
   }
 
-  fn into_lexemes(mut self) -> Lexemes<'a> {
+  fn into_lexemes(mut self) -> Lexemes {
     self.lexemes.shrink_to_fit();
     self.lexemes
   }
@@ -310,19 +343,19 @@ impl<'a> Helper<'a> {
       .unwrap_or_else(|| FormIx::root(self.form_count))
   }
 
-  fn whitespace(&mut self, pair: Pair<'a>) {
+  fn whitespace(&mut self, pair: Pair) {
     self.push(L::Whitespace {
-      source: pair.as_str(),
+      source: pair.as_str().into(),
     });
   }
 
-  fn comment(&mut self, pair: Pair<'a>) {
+  fn comment(&mut self, pair: Pair) {
     self.push(L::Comment {
-      source: pair.as_str(),
+      source: pair.as_str().into(),
     });
   }
 
-  fn top_level(&mut self, parent: Pair<'a>) {
+  fn top_level(&mut self, parent: Pair) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::COMMENT => self.comment(child),
@@ -332,12 +365,15 @@ impl<'a> Helper<'a> {
           self.form(child, current);
         }
         R::EOI => (),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:?}", child).into_boxed_str(),
+          ploc: ParserLoc::TopLevel,
+        }),
       }
     }
   }
 
-  fn form(&mut self, parent: Pair<'a>, current: FormIx) {
+  fn form(&mut self, parent: Pair, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::COMMENT => self.comment(child),
@@ -346,12 +382,15 @@ impl<'a> Helper<'a> {
         R::preform => self.preforms(child, current),
         R::form => self.form(child, current),
         R::expr => self.expr(child, current),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Form,
+        }),
       }
     }
   }
 
-  fn quote_unquote_form(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn quote_unquote_form(&mut self, parent: Pair, parent_ix: FormIx) {
     let child_ix = self.next_form_ix(Some(parent_ix));
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -360,45 +399,51 @@ impl<'a> Helper<'a> {
         R::quote_unquote_prefix => self.push(match child.as_str() {
           "'" => L::Quote {
             form_ix: parent_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           },
           "#'" => L::VarQuote {
             form_ix: parent_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           },
           "`" => L::Synquote {
             form_ix: parent_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           },
           "~@" => L::SplicingUnquote {
             form_ix: parent_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           },
           "~" => L::Unquote {
             form_ix: parent_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           },
           _ => unreachable!("quote-unquote prefix case analysis"),
         }),
         R::form => self.form(child, child_ix),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::QuoteUnquoteForm,
+        }),
       }
     }
   }
 
-  fn preforms(&mut self, parent: Pair<'a>, current: FormIx) {
+  fn preforms(&mut self, parent: Pair, current: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::COMMENT => self.comment(child),
         R::WHITESPACE => self.whitespace(child),
         R::discarded_form => self.discarded_form(child),
         R::meta_form => self.meta_form(child, current),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Preforms,
+        }),
       }
     }
   }
 
-  fn discarded_form(&mut self, parent: Pair<'a>) {
+  fn discarded_form(&mut self, parent: Pair) {
     let form_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -406,16 +451,19 @@ impl<'a> Helper<'a> {
         R::WHITESPACE => self.whitespace(child),
         R::discard_prefix => self.push(L::Discard {
           form_ix,
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
         R::preform => self.preforms(child, form_ix),
         R::form => self.form(child, form_ix),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::DiscardedForm,
+        }),
       }
     }
   }
 
-  fn meta_form(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn meta_form(&mut self, parent: Pair, form_ix: FormIx) {
     let data_ix = self.next_form_ix(None);
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -424,27 +472,30 @@ impl<'a> Helper<'a> {
         R::meta_prefix => self.push(L::Meta {
           form_ix,
           data_ix,
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
         R::form => self.form(child, data_ix),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::MetaForm,
+        }),
       }
     }
   }
 
-  fn expr(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn expr(&mut self, parent: Pair, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::COMMENT => self.comment(child),
         R::WHITESPACE => self.whitespace(child),
         R::nil => self.push(L::Nil {
           form_ix,
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
         R::boolean => self.push(L::Boolean {
           form_ix,
           value: child.as_str() == "true",
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
         R::number => self.number(child, form_ix),
         R::char => self.char(child, form_ix),
@@ -460,13 +511,20 @@ impl<'a> Helper<'a> {
         R::map => self.map(child, form_ix),
         R::reader_conditional => self.reader_conditional(child, form_ix),
         R::tagged_literal => self.tagged_literal(child, form_ix),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Expr,
+        }),
       }
     }
   }
 
-  fn char(&mut self, parent: Pair<'a>, form_ix: FormIx) {
-    let source = parent.as_str();
+  fn char(&mut self, parent: Pair, form_ix: FormIx) {
+    let source: Rc<str> = parent.as_str().to_string().into();
+    // XXX(soija) This should be refactored so that we match the character
+    //            literal only once and the assert that there are no remaining
+    //            pairs left.  Among other things it would get rid of cloning
+    //            `source`.
     for child in parent.into_inner() {
       match child.as_rule() {
         R::char_name => self.push(L::Char {
@@ -480,7 +538,7 @@ impl<'a> Helper<'a> {
             "backspace" => '\u{08}',
             _ => unreachable!("char name case analysis"),
           },
-          source,
+          source: source.clone(),
         }),
         R::char_octal => self.push(L::Char {
           form_ix,
@@ -489,7 +547,7 @@ impl<'a> Helper<'a> {
             u32::from_str_radix(child.as_str(), 8).unwrap(),
           )
           .unwrap(),
-          source,
+          source: source.clone(),
         }),
         R::char_code_point => self.push(L::Char {
           form_ix,
@@ -498,14 +556,17 @@ impl<'a> Helper<'a> {
             u32::from_str_radix(child.as_str(), 16).unwrap(),
           )
           .unwrap(),
-          source,
+          source: source.clone(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Char,
+        }),
       }
     }
   }
 
-  fn number(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn number(&mut self, parent: Pair, form_ix: FormIx) {
     let mut positive = true;
     let literal = parent.as_str();
     for child in parent.into_inner() {
@@ -524,16 +585,19 @@ impl<'a> Helper<'a> {
           self.unsigned_radix_int(child, form_ix, literal, positive)
         }
         R::unsigned_int => self.unsigned_int(child, form_ix, literal, positive),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Number,
+        }),
       }
     }
   }
 
   fn unsigned_floats(
     &mut self,
-    _parent: Pair<'a>,
+    _parent: Pair,
     form_ix: FormIx,
-    literal: &'a str,
+    literal: &str,
     big: bool,
   ) {
     self.push(if big {
@@ -541,26 +605,27 @@ impl<'a> Helper<'a> {
         form_ix,
         class: NumberClass::BigDecimal,
         value: NumericValue::Float {
-          value: &literal[..literal.len() - 1],
+          value: literal[..literal.len() - 1].into(),
         },
-        source: literal,
+        source: literal.into(),
       }
     } else {
       L::Numeric {
         form_ix,
         class: NumberClass::Double,
-        value: NumericValue::Float { value: literal },
-        source: literal,
+        value: NumericValue::Float {
+          value: literal.into(),
+        },
+        source: literal.into(),
       }
     })
   }
 
   fn unsigned_ratio(
     &mut self,
-    parent: Pair<'a>,
-
+    parent: Pair,
     form_ix: FormIx,
-    literal: &'a str,
+    literal: &str,
     positive: bool,
   ) {
     let mut numerator = None;
@@ -569,26 +634,28 @@ impl<'a> Helper<'a> {
       match child.as_rule() {
         R::numerator => numerator = Some(child.as_str()),
         R::denominator => denominator = Some(child.as_str()),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::UnsignedRatio,
+        }),
       }
     }
     self.push(L::Numeric {
       form_ix,
-      source: literal,
+      source: literal.into(),
       class: NumberClass::Ratio,
       value: NumericValue::Fraction {
         positive,
-        numerator: numerator.unwrap(),
-        denominator: denominator.unwrap(),
+        numerator: numerator.unwrap().into(),
+        denominator: denominator.unwrap().into(),
       },
     })
   }
   fn unsigned_radix_int(
     &mut self,
-    parent: Pair<'a>,
-
+    parent: Pair,
     form_ix: FormIx,
-    literal: &'a str,
+    literal: &str,
     positive: bool,
   ) {
     let mut radix = None;
@@ -597,24 +664,27 @@ impl<'a> Helper<'a> {
         R::radix => radix = Some(child.as_str()),
         R::radix_digits => self.push(L::Numeric {
           form_ix,
-          source: literal,
+          source: literal.into(),
           class: NumberClass::Long,
           value: NumericValue::Int {
             positive,
             radix: radix.unwrap().parse::<u32>().unwrap(),
-            value: child.as_str(),
+            value: child.as_str().into(),
           },
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::UnsignedRadixInt,
+        }),
       }
     }
   }
 
   fn unsigned_int(
     &mut self,
-    parent: Pair<'a>,
+    parent: Pair,
     form_ix: FormIx,
-    literal: &'a str,
+    literal: &str,
     positive: bool,
   ) {
     let mut class = NumberClass::Long;
@@ -625,42 +695,45 @@ impl<'a> Helper<'a> {
           value = Some(NumericValue::Int {
             positive,
             radix: 8,
-            value: child.as_str(),
+            value: child.as_str().into(),
           })
         }
         R::hex_digits => {
           value = Some(NumericValue::Int {
             positive,
             radix: 16,
-            value: child.as_str(),
+            value: child.as_str().into(),
           })
         }
         R::unsigned_dec => {
           value = Some(NumericValue::Int {
             positive,
             radix: 10,
-            value: child.as_str(),
+            value: child.as_str().into(),
           })
         }
         R::bigint_suffix => class = NumberClass::BigInt,
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::UnsignedInt,
+        }),
       }
     }
     self.push(L::Numeric {
       form_ix,
-      source: literal,
+      source: literal.into(),
       class,
       value: value.unwrap(),
     })
   }
 
-  fn string(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn string(&mut self, parent: Pair, form_ix: FormIx) {
     let mut fragments = Vec::new();
     let literal = parent.as_str();
     for child in parent.into_inner() {
       match child.as_rule() {
         R::unescaped => fragments.push(StringFragment::Unescaped {
-          value: child.as_str(),
+          value: child.as_str().into(),
         }),
         R::esc_char => {
           let value = &child.as_str()[1..];
@@ -686,37 +759,43 @@ impl<'a> Helper<'a> {
           let code = u32::from_str_radix(value, 16).unwrap();
           fragments.push(StringFragment::Escaped { code })
         }
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::String,
+        }),
       }
     }
     fragments.shrink_to_fit();
     self.push(L::String {
       form_ix,
-      source: literal,
+      source: literal.into(),
       value: fragments.into_boxed_slice(),
     });
   }
 
-  fn regex(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn regex(&mut self, parent: Pair, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::regex_content => self.push(L::Regex {
           form_ix,
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Regex,
+        }),
       }
     }
   }
 
-  fn symbolic_value(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn symbolic_value(&mut self, parent: Pair, form_ix: FormIx) {
     for child in parent.into_inner() {
       match child.as_rule() {
         R::COMMENT => self.comment(child),
         R::WHITESPACE => self.whitespace(child),
         R::symbolic_value_prefix => self.push(L::SymbolicValuePrefix {
           form_ix,
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
         R::unqualified_symbol => self.push(L::SymbolicValue {
           form_ix,
@@ -724,134 +803,146 @@ impl<'a> Helper<'a> {
             "Inf" => SymbolicValue::PosInf,
             "-Inf" => SymbolicValue::NegInf,
             "NaN" => SymbolicValue::NaN,
-            _ => SymbolicValue::Other(child.as_str()),
+            _ => SymbolicValue::Other(child.as_str().into()),
           },
-          source: child.as_str(),
+          source: child.as_str().into(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::SymbolicValue,
+        }),
       }
     }
   }
 
-  fn symbol(&mut self, parent: Pair<'a>, form_ix: FormIx) {
-    let source = parent.as_str();
+  fn symbol(&mut self, parent: Pair, form_ix: FormIx) {
+    let source: Rc<str> = parent.as_str().to_string().into();
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        R::namespace => namespace = Some(child.as_str()),
+        R::namespace => namespace = Some(child.as_str().into()),
         R::qualified_symbol | R::unqualified_symbol => self.push(L::Symbol {
           form_ix,
-          namespace,
-          name: child.as_str(),
-          source,
+          namespace: namespace.clone(),
+          name: child.as_str().into(),
+          source: source.clone(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Symbol,
+        }),
       }
     }
   }
 
-  fn tag(&mut self, parent: Pair<'a>, form_ix: FormIx) {
-    let source = parent.as_str();
+  fn tag(&mut self, parent: Pair, form_ix: FormIx) {
+    let source: Rc<str> = parent.as_str().to_string().into();
     let mut namespace = None;
     for child in parent.into_inner() {
       match child.as_rule() {
-        R::namespace => namespace = Some(child.as_str()),
+        R::namespace => namespace = Some(child.as_str().into()),
         R::qualified_symbol | R::unqualified_symbol => self.push(L::Tag {
           form_ix,
-          namespace,
-          name: child.as_str(),
-          source,
+          namespace: namespace.clone(),
+          name: child.as_str().into(),
+          source: source.clone(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Tag,
+        }),
       }
     }
   }
 
-  fn keyword(&mut self, parent: Pair<'a>, form_ix: FormIx) {
-    let source = parent.as_str();
+  fn keyword(&mut self, parent: Pair, form_ix: FormIx) {
+    let source: Rc<str> = parent.as_str().to_string().into();
     let mut namespace = None;
     let mut alias = false;
     for child in parent.into_inner() {
       match child.as_rule() {
         R::keyword_prefix => alias = child.as_str() == "::",
-        R::namespace => namespace = Some(child.as_str()),
+        R::namespace => namespace = Some(child.as_str().into()),
         R::qualified_symbol | R::unqualified_keyword => self.push(L::Keyword {
           form_ix,
           alias,
-          namespace,
-          name: child.as_str(),
-          source,
+          namespace: namespace.clone(),
+          name: child.as_str().into(),
+          source: source.clone(),
         }),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Keyword,
+        }),
       }
     }
   }
 
-  fn list(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn list(&mut self, parent: Pair, parent_ix: FormIx) {
     let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
       L::StartList {
         form_ix: parent_ix,
-        source: &source[..1],
+        source: source[..1].into(),
       },
       L::EndList {
         form_ix: parent_ix,
-        source: &source[source.len() - 1..],
+        source: source[source.len() - 1..].into(),
       },
     );
   }
 
-  fn vector(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn vector(&mut self, parent: Pair, parent_ix: FormIx) {
     let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
       L::StartVector {
         form_ix: parent_ix,
-        source: &source[..1],
+        source: source[..1].into(),
       },
       L::EndVector {
         form_ix: parent_ix,
-        source: &source[source.len() - 1..],
+        source: source[source.len() - 1..].into(),
       },
     );
   }
 
-  fn anonymous_fn(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn anonymous_fn(&mut self, parent: Pair, parent_ix: FormIx) {
     let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
       L::StartAnonymousFn {
         form_ix: parent_ix,
-        source: &source[..2],
+        source: source[..2].into(),
       },
       L::EndAnonymousFn {
         form_ix: parent_ix,
-        source: &source[source.len() - 1..],
+        source: source[source.len() - 1..].into(),
       },
     );
   }
 
-  fn set(&mut self, parent: Pair<'a>, parent_ix: FormIx) {
+  fn set(&mut self, parent: Pair, parent_ix: FormIx) {
     let source = parent.as_str();
     self.body(
       parent,
       parent_ix,
       L::StartSet {
         form_ix: parent_ix,
-        source: &source[..2],
+        source: source[..2].into(),
       },
       L::EndSet {
         form_ix: parent_ix,
-        source: &source[source.len() - 1..],
+        source: source[source.len() - 1..].into(),
       },
     );
   }
 
-  fn map(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn map(&mut self, parent: Pair, form_ix: FormIx) {
     let mut alias = false;
     let mut namespace = None;
     for child in parent.into_inner() {
@@ -861,13 +952,16 @@ impl<'a> Helper<'a> {
         R::map_qualifier => {
           self.push(L::MapQualifier {
             form_ix,
-            source: child.as_str(),
+            source: child.as_str().into(),
           });
           for child2 in child.into_inner() {
             match child2.as_rule() {
               R::map_qualifier_prefix => alias = child2.as_str() == "#::",
-              R::namespace => namespace = Some(child2.as_str()),
-              _ => self.push(L::Residual(child2)),
+              R::namespace => namespace = Some(child2.as_str().into()),
+              _ => self.push(L::Residual {
+                pair: format!("{:#?}", child2).into_boxed_str(),
+                ploc: ParserLoc::MapQualifier,
+              }),
             }
           }
         }
@@ -879,22 +973,25 @@ impl<'a> Helper<'a> {
             L::StartMap {
               form_ix,
               alias,
-              namespace,
-              source: &source[..1],
+              namespace: namespace.clone(),
+              source: source[..1].into(),
             },
             L::EndMap {
               form_ix,
-              source: &source[source.len() - 1..],
+              source: source[source.len() - 1..].into(),
             },
           )
         }
         R::discarded_form => self.discarded_form(child),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Map,
+        }),
       }
     }
   }
 
-  fn reader_conditional(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn reader_conditional(&mut self, parent: Pair, form_ix: FormIx) {
     let mut splicing = false;
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -909,26 +1006,29 @@ impl<'a> Helper<'a> {
             L::StartReaderConditional {
               form_ix,
               splicing,
-              source: &source[1..],
+              source: source[1..].into(),
             },
             L::EndReaderConditional {
               form_ix,
-              source: &source[source.len() - 1..],
+              source: source[source.len() - 1..].into(),
             },
           )
         }
         R::discarded_form => self.discarded_form(child),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::ReaderConditional,
+        }),
       }
     }
   }
 
   fn body(
     &mut self,
-    parent: Pair<'a>,
+    parent: Pair,
     parent_ix: FormIx,
-    start_lexeme: Lexeme<'a>,
-    end_lexeme: Lexeme<'a>,
+    start_lexeme: Lexeme,
+    end_lexeme: Lexeme,
   ) {
     self.push(start_lexeme);
     for child in parent.into_inner() {
@@ -940,13 +1040,16 @@ impl<'a> Helper<'a> {
           self.form(child, child_ix)
         }
         R::discarded_form => self.discarded_form(child),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::Body,
+        }),
       }
     }
     self.push(end_lexeme);
   }
 
-  fn tagged_literal(&mut self, parent: Pair<'a>, form_ix: FormIx) {
+  fn tagged_literal(&mut self, parent: Pair, form_ix: FormIx) {
     let tag_ix = self.next_form_ix(Some(form_ix));
     let arg_ix = self.next_form_ix(Some(form_ix));
     self.push(L::TaggedLiteral {
@@ -956,7 +1059,7 @@ impl<'a> Helper<'a> {
       // XXX(soija) Aw, this is a hack.  We want to capture only the prefix as
       //            the rest of the tagged literal is captured be the following
       //            lexemes.
-      source: &parent.as_str()[..1],
+      source: parent.as_str()[..1].into(),
     });
     for child in parent.into_inner() {
       match child.as_rule() {
@@ -969,12 +1072,18 @@ impl<'a> Helper<'a> {
               R::WHITESPACE => self.whitespace(child2),
               R::preform => self.preforms(child2, tag_ix),
               R::symbol => self.tag(child2, tag_ix),
-              _ => self.push(L::Residual(child2)),
+              _ => self.push(L::Residual {
+                pair: format!("{:#?}", child2).into_boxed_str(),
+                ploc: ParserLoc::TaggedLiteralTag,
+              }),
             }
           }
         }
         R::form => self.form(child, arg_ix),
-        _ => self.push(L::Residual(child)),
+        _ => self.push(L::Residual {
+          pair: format!("{:#?}", child).into_boxed_str(),
+          ploc: ParserLoc::TaggedLiteralValue,
+        }),
       }
     }
   }

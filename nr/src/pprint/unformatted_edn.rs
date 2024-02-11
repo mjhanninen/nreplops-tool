@@ -28,23 +28,25 @@ use Style as S;
 
 pub fn generate_printer_input<'a, I>(
   lexemes: I,
-  printer_input: &mut Vec<Command<'a>>,
+  printer_input: &mut Vec<Command>,
 ) where
-  I: Iterator<Item = &'a Lexeme<'a>>,
+  I: Iterator<Item = &'a Lexeme>,
 {
   let mut last_var_quote: Option<u32> = None;
 
   for l in lexemes {
-    match *l {
+    match l {
       L::Whitespace { source } => {
-        printer_input.add_styled(S::Whitespace, source)
+        printer_input.add_styled(S::Whitespace, source.clone())
       }
-      L::Nil { source, .. } => printer_input.add_styled(S::NilValue, source),
+      L::Nil { source, .. } => {
+        printer_input.add_styled(S::NilValue, source.clone())
+      }
       L::Boolean { source, .. } => {
-        printer_input.add_styled(S::BooleanValue, source)
+        printer_input.add_styled(S::BooleanValue, source.clone())
       }
       L::Numeric { source, .. } => {
-        printer_input.add_styled(S::NumberValue, source)
+        printer_input.add_styled(S::NumberValue, source.clone())
       }
       L::String { source, .. } => {
         printer_input.add_styled(S::StringDecoration, "\"");
@@ -52,10 +54,10 @@ pub fn generate_printer_input<'a, I>(
         printer_input.add_styled(S::StringDecoration, "\"");
       }
       L::SymbolicValuePrefix { source, .. } => {
-        printer_input.add_styled(S::SymbolicValueDecoration, source)
+        printer_input.add_styled(S::SymbolicValueDecoration, source.clone())
       }
       L::SymbolicValue { source, .. } => {
-        printer_input.add_styled(S::SymbolicValue, source)
+        printer_input.add_styled(S::SymbolicValue, source.clone())
       }
       L::Symbol {
         form_ix,
@@ -67,17 +69,17 @@ pub fn generate_printer_input<'a, I>(
           .map(|ix| ix == form_ix.parent)
           .unwrap_or(false);
         if is_var_quoted {
-          if let Some(s) = namespace {
-            printer_input.add_styled(S::VarQuoteNamespace, s);
+          if let Some(ns) = namespace {
+            printer_input.add_styled(S::VarQuoteNamespace, ns.clone());
             printer_input.add_styled(S::VarQuoteDecoration, "/");
           }
-          printer_input.add_styled(S::VarQuoteName, name);
+          printer_input.add_styled(S::VarQuoteName, name.clone());
         } else {
-          if let Some(s) = namespace {
-            printer_input.add_styled(S::SymbolNamespace, s);
+          if let Some(ns) = namespace {
+            printer_input.add_styled(S::SymbolNamespace, ns.clone());
             printer_input.add_styled(S::SymbolDecoration, "/");
           }
-          printer_input.add_styled(S::SymbolName, name);
+          printer_input.add_styled(S::SymbolName, name.clone());
         }
       }
       L::Keyword {
@@ -87,28 +89,28 @@ pub fn generate_printer_input<'a, I>(
         ..
       } => {
         printer_input
-          .add_styled(S::KeywordDecoration, if alias { "::" } else { ":" });
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::KeywordNamespace, s);
+          .add_styled(S::KeywordDecoration, if *alias { "::" } else { ":" });
+        if let Some(ns) = namespace {
+          printer_input.add_styled(S::KeywordNamespace, ns.clone());
           printer_input.add_styled(S::KeywordDecoration, "/");
         }
-        printer_input.add_styled(S::KeywordName, name);
+        printer_input.add_styled(S::KeywordName, name.clone());
       }
       L::VarQuote { form_ix, source } => {
-        printer_input.add_styled(S::VarQuoteDecoration, source);
+        printer_input.add_styled(S::VarQuoteDecoration, source.clone());
         last_var_quote = Some(form_ix.ix);
       }
       L::TaggedLiteral { source, .. } => {
-        printer_input.add_styled(S::TaggedLiteralDecoration, source);
+        printer_input.add_styled(S::TaggedLiteralDecoration, source.clone());
       }
       L::Tag {
         namespace, name, ..
       } => {
-        if let Some(s) = namespace {
-          printer_input.add_styled(S::TaggedLiteralNamespace, s);
+        if let Some(ns) = namespace {
+          printer_input.add_styled(S::TaggedLiteralNamespace, ns.clone());
           printer_input.add_styled(S::TaggedLiteralDecoration, "/");
         }
-        printer_input.add_styled(S::TaggedLiteralName, name);
+        printer_input.add_styled(S::TaggedLiteralName, name.clone());
       }
       L::StartList { source, .. }
       | L::EndList { source, .. }
@@ -118,7 +120,7 @@ pub fn generate_printer_input<'a, I>(
       | L::EndSet { source, .. }
       | L::StartMap { source, .. }
       | L::EndMap { source, .. } => {
-        printer_input.add_styled(S::CollectionDelimiter, source)
+        printer_input.add_styled(S::CollectionDelimiter, source.clone())
       }
       ref unhandled => todo!("no rule for: {:?}", unhandled),
     }

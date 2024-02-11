@@ -20,8 +20,21 @@ pub(self) use super::lex::*;
 
 #[macro_export]
 macro_rules! assert_lexemes {
-  ( $input:expr, $( $expect:pat ),+ ) => {
-    {
+
+  (@attr $enum:path, $field:ident == $expect:expr) => {
+    if $field != $expect {
+      panic!("field {}.{}: {:?} != {:?}", stringify!($enum), stringify!($field), $field, $expect);
+
+    }
+  };
+
+  (@attr $enum:path, $field:ident => $func:expr) => {
+    if !($func)(&$field) {
+      panic!("field {}.{}: {:?} fails {}", stringify!($enum), stringify!($field), $field, stringify!($func));
+    }
+  };
+
+  ($input:expr, [ $( $enum:path { $( $field:ident $op:tt $expect_attr:expr ),* } ),+ ]) => {
       let input = $input;
       let Ok(lexemes) = lex(&input) else {
         panic!("failed to parse: \"{}\"", input);
@@ -29,19 +42,19 @@ macro_rules! assert_lexemes {
       let mut it = lexemes.into_iter();
       $(
         {
-          let actual = it.next();
-          assert!(matches!(
-              actual,
-              Some($expect),
-            ),
-            "expected: {}, got: {:?}",
-            stringify!($expect),
-            actual
-          );
+          let Some(actual) = it.next() else {
+            panic!("expected: {}, got no lexeme", stringify!($enum));
+          };
+          let $enum { $( $field, )* .. } = actual else {
+            panic!("expected: {}, got: {:?}", stringify!($enum), actual);
+          };
+          $(
+            assert_lexemes!(@attr $enum, $field $op $expect_attr);
+          )*
         }
       )+
       assert!(it.next().is_none(), "unexpected residual lexemes remain");
-    }
+
   }
 }
 

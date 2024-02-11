@@ -13,20 +13,20 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::borrow::Borrow;
+use std::rc::Rc;
 
 use super::style::Style;
 
 #[derive(Clone, Debug)]
-pub struct Fragment<'a> {
+pub struct Fragment {
   pub style: Style,
-  pub text: FragmentText<'a>,
+  pub text: Rc<str>,
 }
 
-impl<'a> Fragment<'a> {
+impl Fragment {
   pub fn new<T>(style: Style, text: T) -> Self
   where
-    T: Into<FragmentText<'a>>,
+    T: Into<Rc<str>>,
   {
     Self {
       style,
@@ -35,46 +35,6 @@ impl<'a> Fragment<'a> {
   }
 
   pub fn width(&self) -> usize {
-    self.text.as_str().chars().count()
-  }
-}
-
-#[derive(Clone, Debug)]
-pub enum FragmentText<'a> {
-  Borrowed(&'a str),
-  Owned(Box<str>),
-}
-
-impl<'a> FragmentText<'a> {
-  pub fn as_str(&'a self) -> &'a str {
-    self.borrow()
-  }
-
-  pub fn as_bytes(&'a self) -> &'a [u8] {
-    match self {
-      FragmentText::Borrowed(b) => b.as_bytes(),
-      FragmentText::Owned(o) => o.as_bytes(),
-    }
-  }
-}
-
-impl<'a> From<&'a str> for FragmentText<'a> {
-  fn from(s: &'a str) -> Self {
-    FragmentText::Borrowed(s)
-  }
-}
-
-impl<'a> From<String> for FragmentText<'a> {
-  fn from(s: String) -> Self {
-    FragmentText::Owned(s.into_boxed_str())
-  }
-}
-
-impl<'a> Borrow<str> for FragmentText<'a> {
-  fn borrow(&self) -> &str {
-    match self {
-      FragmentText::Borrowed(s) => s,
-      FragmentText::Owned(s) => s.borrow(),
-    }
+    self.text.chars().count()
   }
 }

@@ -29,13 +29,13 @@ use Value as V;
 
 /// Convert the given result value into a program to be passed on to the layout
 /// solver.
-pub fn convert_to_layout_program<'a>(value: &Value<'a>) -> Program<'a> {
+pub fn convert_to_layout_program(value: &Value) -> Program {
   let mut builder = ProgramBuilder::new();
   program_value(&mut builder, value);
   builder.build()
 }
 
-fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
+fn program_value(builder: &mut ProgramBuilder, value: &Value) {
   match value {
     V::Nil => {
       builder.add_text(TB::new().add("nil", S::NilValue));
@@ -46,7 +46,7 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
       );
     }
     V::Number { literal } => {
-      builder.add_text(TB::new().add(*literal, S::NumberValue));
+      builder.add_text(TB::new().add(literal.clone(), S::NumberValue));
     }
     V::String { literal } => {
       builder.add_text(TB::new().add("\"", S::StringDecoration));
@@ -61,19 +61,20 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
     }
     V::SymbolicValue { literal } => {
       builder.add_text(TB::new().add("##", S::SymbolicValueDecoration));
-      builder.add_text(TB::new().add(*literal, S::SymbolicValue));
+      builder.add_text(TB::new().add(literal.clone(), S::SymbolicValue));
     }
     V::Symbol { namespace, name } => {
       builder.add_text(
         TB::new()
           .apply(|b| {
-            if let Some(n) = namespace {
-              b.add(*n, S::SymbolNamespace).add("/", S::SymbolDecoration)
+            if let Some(ns) = namespace {
+              b.add(ns.clone(), S::SymbolNamespace)
+                .add("/", S::SymbolDecoration)
             } else {
               b
             }
           })
-          .add(*name, S::SymbolName),
+          .add(name.clone(), S::SymbolName),
       );
     }
     V::Keyword {
@@ -84,27 +85,27 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
       TB::new()
         .add(if *alias { "::" } else { ":" }, S::KeywordDecoration)
         .apply(|b| {
-          if let Some(n) = namespace {
-            b.add(*n, S::KeywordNamespace)
+          if let Some(ns) = namespace {
+            b.add(ns.clone(), S::KeywordNamespace)
               .add("/", S::KeywordDecoration)
           } else {
             b
           }
         })
-        .add(*name, S::KeywordName),
+        .add(name.clone(), S::KeywordName),
     ),
     V::VarQuoted { namespace, name } => builder.add_text(
       TB::new()
         .add("#'", S::VarQuoteDecoration)
         .apply(|b| {
-          if let Some(n) = namespace {
-            b.add(*n, S::VarQuoteNamespace)
+          if let Some(ns) = namespace {
+            b.add(ns.clone(), S::VarQuoteNamespace)
               .add("/", S::VarQuoteDecoration)
           } else {
             b
           }
         })
-        .add(*name, S::VarQuoteName),
+        .add(name.clone(), S::VarQuoteName),
     ),
     V::TaggedLiteral {
       namespace,
@@ -115,14 +116,14 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
         TB::new()
           .add("#", S::TaggedLiteralDecoration)
           .apply(|b| {
-            if let Some(s) = namespace {
-              b.add(*s, S::TaggedLiteralNamespace)
+            if let Some(ns) = namespace {
+              b.add(ns.clone(), S::TaggedLiteralNamespace)
                 .add("/", S::TaggedLiteralDecoration)
             } else {
               b
             }
           })
-          .add(*name, S::TaggedLiteralName),
+          .add(name.clone(), S::TaggedLiteralName),
       );
       builder.add_soft_space();
       program_value(builder, value);
@@ -135,9 +136,9 @@ fn program_value<'a>(builder: &mut ProgramBuilder<'a>, value: &Value<'a>) {
 }
 
 /// Generate a program for a delimited sequence of values.
-fn program_seq<'a>(
-  builder: &mut ProgramBuilder<'a>,
-  values: &[Value<'a>],
+fn program_seq(
+  builder: &mut ProgramBuilder,
+  values: &[Value],
   anchor_after_first: bool,
   opening_delim: &'static str,
   closing_delim: &'static str,
@@ -181,7 +182,7 @@ fn program_seq<'a>(
 }
 
 /// Generate program for a map structure.
-fn program_map<'a>(builder: &mut ProgramBuilder<'a>, entries: &[MapEntry<'a>]) {
+fn program_map(builder: &mut ProgramBuilder, entries: &[MapEntry]) {
   builder.add_text(TB::new().add("{", S::CollectionDelimiter));
 
   let key_width = entries
@@ -256,11 +257,11 @@ fn rigid_width(value: &Value) -> Option<usize> {
       alias,
     } => Some(
       if *alias { 2 } else { 1 }
-        + namespace.map(|s| s.len() + 1).unwrap_or(0)
+        + namespace.as_ref().map(|s| s.len() + 1).unwrap_or(0)
         + name.len(),
     ),
-    V::Symbol { namespace, name } => Some(if let Some(n) = namespace {
-      n.len() + 1 + name.len()
+    V::Symbol { namespace, name } => Some(if let Some(ns) = namespace {
+      ns.len() + 1 + name.len()
     } else {
       name.len()
     }),

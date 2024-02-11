@@ -20,61 +20,63 @@
 //            to use it for splitting and rewriting the forms that are sent to
 //            the nREPL server.
 
+use std::rc::Rc;
+
 use super::lex::Lexeme;
 
 #[derive(Debug)]
-pub enum Value<'a> {
+pub enum Value {
   Nil,
   Number {
-    literal: &'a str,
+    literal: Rc<str>,
   },
   String {
-    literal: &'a str,
+    literal: Rc<str>,
   },
   Boolean {
     value: bool,
   },
   SymbolicValue {
-    literal: &'a str,
+    literal: Rc<str>,
   },
   Symbol {
-    namespace: Option<&'a str>,
-    name: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
   },
   Keyword {
-    namespace: Option<&'a str>,
-    name: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
     alias: bool,
   },
   TaggedLiteral {
-    namespace: Option<&'a str>,
-    name: &'a str,
-    value: Box<Value<'a>>,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
+    value: Box<Value>,
   },
   VarQuoted {
-    namespace: Option<&'a str>,
-    name: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
   },
   List {
-    values: Box<[Value<'a>]>,
+    values: Box<[Value]>,
   },
 
   Vector {
-    values: Box<[Value<'a>]>,
+    values: Box<[Value]>,
   },
 
   Set {
-    values: Box<[Value<'a>]>,
+    values: Box<[Value]>,
   },
   Map {
-    entries: Box<[MapEntry<'a>]>,
+    entries: Box<[MapEntry]>,
   },
 }
 
 #[derive(Debug)]
-pub struct MapEntry<'a> {
-  pub key: Value<'a>,
-  pub value: Value<'a>,
+pub struct MapEntry {
+  pub key: Value,
+  pub value: Value,
 }
 
 #[derive(Debug)]
@@ -92,7 +94,7 @@ pub enum BuildError {
   ExpectedSymbolForVarQuote,
 }
 
-pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
+pub fn build<'a>(lexemes: &[Lexeme]) -> Result<Value, BuildError> {
   use Lexeme::*;
   let mut b = Builder::new();
 
@@ -103,14 +105,16 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       Boolean { value, .. } => {
         b.add_to_composite(Value::Boolean { value: *value })?
       }
-      Numeric { source, .. } => {
-        b.add_to_composite(Value::Number { literal: source })?
-      }
-      String { source, .. } => {
-        b.add_to_composite(Value::String { literal: source })?
-      }
+      Numeric { source, .. } => b.add_to_composite(Value::Number {
+        literal: source.clone(),
+      })?,
+      String { source, .. } => b.add_to_composite(Value::String {
+        literal: source.clone(),
+      })?,
       SymbolicValue { source, .. } => {
-        b.add_to_composite(Value::SymbolicValue { literal: source })?
+        b.add_to_composite(Value::SymbolicValue {
+          literal: source.clone(),
+        })?
       }
       // NB: The tagged literal builder expects that the tag is passed on as a
       //     symbol.  This way we don't need to add a separate "tag" value that
@@ -121,8 +125,8 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
       | Tag {
         namespace, name, ..
       } => b.add_to_composite(Value::Symbol {
-        name,
-        namespace: *namespace,
+        name: name.clone(),
+        namespace: namespace.clone(),
       })?,
       Keyword {
         alias,
@@ -130,8 +134,8 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
         name,
         ..
       } => b.add_to_composite(Value::Keyword {
-        name,
-        namespace: *namespace,
+        name: name.clone(),
+        namespace: namespace.clone(),
         alias: *alias,
       })?,
       StartList { .. } => b.start(CompositeType::List)?,
@@ -155,11 +159,11 @@ pub fn build<'a>(lexemes: &[Lexeme<'a>]) -> Result<Value<'a>, BuildError> {
   b.build_top_level()
 }
 
-struct Builder<'a> {
-  stack: Vec<CompositeBuilder<'a>>,
+struct Builder {
+  stack: Vec<CompositeBuilder>,
 }
 
-impl<'a> Builder<'a> {
+impl Builder {
   fn new() -> Self {
     Self {
       stack: vec![CompositeBuilder::new(CompositeType::TopLevel)],
@@ -182,7 +186,7 @@ impl<'a> Builder<'a> {
     }
   }
 
-  fn add_to_composite(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add_to_composite(&mut self, value: Value) -> Result<bool, BuildError> {
     self.stack.last_mut().unwrap().add(value)
   }
 
@@ -191,7 +195,7 @@ impl<'a> Builder<'a> {
     self.add_to_composite(b.build()?)
   }
 
-  fn build_top_level(mut self) -> Result<Value<'a>, BuildError> {
+  fn build_top_level(mut self) -> Result<Value, BuildError> {
     // We can unwrap safely ⇐ last one is a top-level builder and we have
     // asserted the type of the other ones when popping them out of the
     // builder stack.
@@ -204,14 +208,14 @@ impl<'a> Builder<'a> {
   }
 }
 
-trait BuildComposite<'a> {
+trait BuildComposite {
   fn composite_type(&self) -> CompositeType;
 
   /// Adds a contained value to the value being built.  Returns `true` if value
   /// being built is complete and should be popped out.
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError>;
+  fn add(&mut self, value: Value) -> Result<bool, BuildError>;
 
-  fn build(self) -> Result<Value<'a>, BuildError>;
+  fn build(self) -> Result<Value, BuildError>;
 }
 
 /// The types of comosite values we recognize at the level of syntax.
@@ -240,15 +244,15 @@ enum CompositeType {
 //
 // XXX(soija) Okay, this keeps growing and is getting unbearably clunky.
 //
-enum CompositeBuilder<'a> {
-  TopLevel(TopLevelBuilder<'a>),
-  Seq(SeqBuilder<'a>),
-  Map(MapBuilder<'a>),
-  TaggedLiteral(TaggedLiteralBuilder<'a>),
-  VarQuoted(VarQuotedBuilder<'a>),
+enum CompositeBuilder {
+  TopLevel(TopLevelBuilder),
+  Seq(SeqBuilder),
+  Map(MapBuilder),
+  TaggedLiteral(TaggedLiteralBuilder),
+  VarQuoted(VarQuotedBuilder),
 }
 
-impl<'a> CompositeBuilder<'a> {
+impl CompositeBuilder {
   fn new(composite_type: CompositeType) -> Self {
     use CompositeType as T;
     match composite_type {
@@ -263,7 +267,7 @@ impl<'a> CompositeBuilder<'a> {
   }
 }
 
-impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
+impl BuildComposite for CompositeBuilder {
   fn composite_type(&self) -> CompositeType {
     match self {
       CompositeBuilder::Seq(b) => b.composite_type(),
@@ -274,7 +278,7 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
     }
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     match self {
       CompositeBuilder::Seq(b) => b.add(value),
       CompositeBuilder::Map(b) => b.add(value),
@@ -284,7 +288,7 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
     }
   }
 
-  fn build(self) -> Result<Value<'a>, BuildError> {
+  fn build(self) -> Result<Value, BuildError> {
     match self {
       CompositeBuilder::Seq(b) => b.build(),
       CompositeBuilder::Map(b) => b.build(),
@@ -295,12 +299,12 @@ impl<'a> BuildComposite<'a> for CompositeBuilder<'a> {
   }
 }
 
-struct SeqBuilder<'a> {
+struct SeqBuilder {
   seq_type: SeqType,
-  values: Vec<Value<'a>>,
+  values: Vec<Value>,
 }
 
-impl<'a> SeqBuilder<'a> {
+impl SeqBuilder {
   fn new(seq_type: SeqType) -> Self {
     SeqBuilder {
       seq_type,
@@ -309,7 +313,7 @@ impl<'a> SeqBuilder<'a> {
   }
 }
 
-impl<'a> BuildComposite<'a> for SeqBuilder<'a> {
+impl BuildComposite for SeqBuilder {
   fn composite_type(&self) -> CompositeType {
     match self.seq_type {
       SeqType::List => CompositeType::List,
@@ -318,12 +322,12 @@ impl<'a> BuildComposite<'a> for SeqBuilder<'a> {
     }
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     self.values.push(value);
     Ok(false)
   }
 
-  fn build(mut self) -> Result<Value<'a>, BuildError> {
+  fn build(mut self) -> Result<Value, BuildError> {
     self.values.shrink_to_fit();
     let values = self.values.into_boxed_slice();
     Ok(match self.seq_type {
@@ -341,27 +345,27 @@ enum SeqType {
 }
 
 #[derive(Default)]
-enum TaggedLiteralBuilder<'a> {
+enum TaggedLiteralBuilder {
   #[default]
   Empty,
   WithTag {
-    namespace: Option<&'a str>,
-    name: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
   },
   WithTagAndValue {
-    namespace: Option<&'a str>,
-    name: &'a str,
-    value: Value<'a>,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
+    value: Value,
   },
   Invalid,
 }
 
-impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
+impl BuildComposite for TaggedLiteralBuilder {
   fn composite_type(&self) -> CompositeType {
     CompositeType::TaggedLiteral
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     use TaggedLiteralBuilder as B;
     match std::mem::replace(self, B::Invalid) {
       B::Empty => match value {
@@ -386,7 +390,7 @@ impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
     }
   }
 
-  fn build(self) -> Result<Value<'a>, BuildError> {
+  fn build(self) -> Result<Value, BuildError> {
     if let TaggedLiteralBuilder::WithTagAndValue {
       namespace,
       name,
@@ -407,22 +411,22 @@ impl<'a> BuildComposite<'a> for TaggedLiteralBuilder<'a> {
 }
 
 #[derive(Default)]
-enum VarQuotedBuilder<'a> {
+enum VarQuotedBuilder {
   #[default]
   Empty,
   WithSymbol {
-    namespace: Option<&'a str>,
-    name: &'a str,
+    namespace: Option<Rc<str>>,
+    name: Rc<str>,
   },
   Invalid,
 }
 
-impl<'a> BuildComposite<'a> for VarQuotedBuilder<'a> {
+impl BuildComposite for VarQuotedBuilder {
   fn composite_type(&self) -> CompositeType {
     CompositeType::VarQuoted
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     use VarQuotedBuilder as B;
     match std::mem::replace(self, VarQuotedBuilder::Invalid) {
       B::Empty => match value {
@@ -436,7 +440,7 @@ impl<'a> BuildComposite<'a> for VarQuotedBuilder<'a> {
     }
   }
 
-  fn build(self) -> Result<Value<'a>, BuildError> {
+  fn build(self) -> Result<Value, BuildError> {
     if let VarQuotedBuilder::WithSymbol { namespace, name } = self {
       Ok(Value::VarQuoted { namespace, name })
     } else {
@@ -447,17 +451,17 @@ impl<'a> BuildComposite<'a> for VarQuotedBuilder<'a> {
 }
 
 #[derive(Default)]
-struct MapBuilder<'a> {
-  key: Option<Value<'a>>,
-  entries: Vec<MapEntry<'a>>,
+struct MapBuilder {
+  key: Option<Value>,
+  entries: Vec<MapEntry>,
 }
 
-impl<'a> BuildComposite<'a> for MapBuilder<'a> {
+impl BuildComposite for MapBuilder {
   fn composite_type(&self) -> CompositeType {
     CompositeType::Map
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     if let Some(key) = self.key.take() {
       self.entries.push(MapEntry { key, value });
     } else {
@@ -466,7 +470,7 @@ impl<'a> BuildComposite<'a> for MapBuilder<'a> {
     Ok(false)
   }
 
-  fn build(mut self) -> Result<Value<'a>, BuildError> {
+  fn build(mut self) -> Result<Value, BuildError> {
     if self.key.is_none() {
       self.entries.shrink_to_fit();
       Ok(Value::Map {
@@ -479,22 +483,22 @@ impl<'a> BuildComposite<'a> for MapBuilder<'a> {
 }
 
 #[derive(Default)]
-struct TopLevelBuilder<'a> {
-  value: Option<Value<'a>>,
+struct TopLevelBuilder {
+  value: Option<Value>,
 }
 
-impl<'a> TopLevelBuilder<'a> {
+impl TopLevelBuilder {
   fn new() -> Self {
     Default::default()
   }
 }
 
-impl<'a> BuildComposite<'a> for TopLevelBuilder<'a> {
+impl BuildComposite for TopLevelBuilder {
   fn composite_type(&self) -> CompositeType {
     CompositeType::TopLevel
   }
 
-  fn add(&mut self, value: Value<'a>) -> Result<bool, BuildError> {
+  fn add(&mut self, value: Value) -> Result<bool, BuildError> {
     if self.value.is_none() {
       self.value = Some(value);
       // XXX(soija) Actually, it would be consistent to return `true` in here
@@ -506,7 +510,7 @@ impl<'a> BuildComposite<'a> for TopLevelBuilder<'a> {
     }
   }
 
-  fn build(self) -> Result<Value<'a>, BuildError> {
+  fn build(self) -> Result<Value, BuildError> {
     self.value.ok_or(BuildError::TooFewTopLevelValues)
   }
 }

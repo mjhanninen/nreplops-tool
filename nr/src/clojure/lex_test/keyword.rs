@@ -15,17 +15,20 @@
 
 use super::*;
 
+use std::rc::Rc;
+
 #[test]
 fn plain_keyword() {
   assert_lexemes! {
     ":foo",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "foo",
-      source: ":foo",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "foo"},
+        source => |s: &str| { s == ":foo" }
+      }
+    ]
   }
 }
 
@@ -33,13 +36,14 @@ fn plain_keyword() {
 fn keyword_with_dot_in_name() {
   assert_lexemes! {
     ":foo.bar",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "foo.bar",
-      source: ":foo.bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n ==  "foo.bar" },
+        source => |s: &str| { s == ":foo.bar" }
+      }
+    ]
   }
 }
 
@@ -47,13 +51,14 @@ fn keyword_with_dot_in_name() {
 fn keyword_with_colon_in_name() {
   assert_lexemes! {
     ":foo:bar",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "foo:bar",
-      source: ":foo:bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "foo:bar" },
+        source => |s: &str| { s == ":foo:bar" }
+      }
+    ]
   }
 }
 
@@ -61,13 +66,14 @@ fn keyword_with_colon_in_name() {
 fn simple_keyword_with_namespace() {
   assert_lexemes! {
     ":foo/bar",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo"),
-      name: "bar",
-      source: ":foo/bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo") },
+        name => |n: &str| { n == "bar" },
+        source => |s: &str| { s == ":foo/bar" }
+      }
+    ]
   }
 }
 
@@ -75,13 +81,14 @@ fn simple_keyword_with_namespace() {
 fn keyword_with_dotted_namespace_and_name() {
   assert_lexemes! {
     ":foo.bar/zip.zap",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo.bar"),
-      name: "zip.zap",
-      source: ":foo.bar/zip.zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip.zap" },
+        source => |s: &str| { s == ":foo.bar/zip.zap" }
+      }
+    ]
   }
 }
 
@@ -89,13 +96,14 @@ fn keyword_with_dotted_namespace_and_name() {
 fn namespaced_keyword_with_slash_in_name() {
   assert_lexemes! {
     ":foo.bar/zip/zap",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo.bar"),
-      name: "zip/zap",
-      source: ":foo.bar/zip/zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip/zap" },
+        source => |s: &str| { s == ":foo.bar/zip/zap" }
+      }
+    ]
   }
 }
 
@@ -103,13 +111,14 @@ fn namespaced_keyword_with_slash_in_name() {
 fn namespaced_keyword_with_complex_name_1() {
   assert_lexemes! {
     ":foo.bar/zip/:zap",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo.bar"),
-      name: "zip/:zap",
-      source: ":foo.bar/zip/:zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip/:zap" },
+        source => |s: &str| { s == ":foo.bar/zip/:zap" }
+      }
+    ]
   }
 }
 
@@ -117,13 +126,14 @@ fn namespaced_keyword_with_complex_name_1() {
 fn namespaced_keyword_with_complex_name_2() {
   assert_lexemes! {
     ":foo.bar/zip//:zap",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo.bar"),
-      name: "zip//:zap",
-      source: ":foo.bar/zip//:zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip//:zap" },
+        source => |s: &str| { s == ":foo.bar/zip//:zap" }
+      }
+    ]
   }
 }
 
@@ -131,13 +141,14 @@ fn namespaced_keyword_with_complex_name_2() {
 fn just_slash_keyword() {
   assert_lexemes! {
     ":/",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "/",
-      source: ":/",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "/" },
+        source => |s: &str| { s == ":/" }
+      }
+    ]
   }
 }
 
@@ -145,13 +156,14 @@ fn just_slash_keyword() {
 fn just_slash_keyword_with_namespace() {
   assert_lexemes! {
     ":foo//",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: Some("foo"),
-      name: "/",
-      source: ":foo//",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo") },
+        name => |n: &str| { n == "/" },
+        source => |s: &str| { s == ":foo//" }
+      }
+    ]
   }
 }
 
@@ -159,13 +171,14 @@ fn just_slash_keyword_with_namespace() {
 fn unqualified_begins_with_number() {
   assert_lexemes! {
     ":42",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "42",
-      source: ":42",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "42" },
+        source => |s: &str| { s == ":42" }
+      }
+    ]
   }
 }
 
@@ -173,13 +186,14 @@ fn unqualified_begins_with_number() {
 fn unqualified_begins_with_quote() {
   assert_lexemes! {
     ":'foo",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "'foo",
-      source: ":'foo",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "'foo" },
+        source => |s: &str| { s == ":'foo" }
+      }
+    ]
   }
 }
 
@@ -187,13 +201,14 @@ fn unqualified_begins_with_quote() {
 fn unqualified_begins_with_hash() {
   assert_lexemes! {
     ":#foo",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "#foo",
-      source: ":#foo",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "#foo" },
+        source => |s: &str| { s == ":#foo" }
+      }
+    ]
   }
 }
 
@@ -201,13 +216,14 @@ fn unqualified_begins_with_hash() {
 fn unqualified_begins_with_hash_quote() {
   assert_lexemes! {
     ":#'foo",
-    Lexeme::Keyword {
-      alias: false,
-      namespace: None,
-      name: "#'foo",
-      source: ":#'foo",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        alias == false,
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "#'foo" },
+        source => |s: &str| { s == ":#'foo" }
+      }
+    ]
   }
 }
 
@@ -215,13 +231,14 @@ fn unqualified_begins_with_hash_quote() {
 fn plain_alias() {
   assert_lexemes! {
     "::foo",
-    Lexeme::Keyword {
-      namespace: None,
-      name: "foo",
-      alias: true,
-      source: "::foo",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "foo" },
+        alias == true,
+        source => |s: &str| { s == "::foo" }
+      }
+    ]
   }
 }
 
@@ -229,13 +246,14 @@ fn plain_alias() {
 fn alias_with_dot_in_name() {
   assert_lexemes! {
     "::foo.bar",
-    Lexeme::Keyword {
-      namespace: None,
-      name: "foo.bar",
-      alias: true,
-      source: "::foo.bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "foo.bar" },
+        alias == true,
+        source => |s: &str| { s == "::foo.bar" }
+      }
+    ]
   }
 }
 
@@ -243,13 +261,14 @@ fn alias_with_dot_in_name() {
 fn alias_with_colon_in_name() {
   assert_lexemes! {
     "::foo:bar",
-    Lexeme::Keyword {
-      namespace: None,
-      name: "foo:bar",
-      alias: true,
-      source: "::foo:bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "foo:bar" },
+        alias == true,
+        source => |s: &str| { s == "::foo:bar" }
+      }
+    ]
   }
 }
 
@@ -257,13 +276,14 @@ fn alias_with_colon_in_name() {
 fn simple_namespaced_alias() {
   assert_lexemes! {
     "::foo/bar",
-    Lexeme::Keyword {
-      namespace: Some("foo"),
-      name: "bar",
-      alias: true,
-      source: "::foo/bar",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo") },
+        name => |n: &str| { n == "bar" },
+        alias == true,
+        source => |s: &str| { s == "::foo/bar" }
+      }
+    ]
   }
 }
 
@@ -271,13 +291,14 @@ fn simple_namespaced_alias() {
 fn alias_with_dotted_namespace_and_name() {
   assert_lexemes! {
     "::foo.bar/zip.zap",
-    Lexeme::Keyword {
-      namespace: Some("foo.bar"),
-      name: "zip.zap",
-      alias: true,
-      source: "::foo.bar/zip.zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip.zap" },
+        alias == true,
+        source => |s: &str| { s == "::foo.bar/zip.zap" }
+      }
+    ]
   }
 }
 
@@ -285,13 +306,14 @@ fn alias_with_dotted_namespace_and_name() {
 fn alias_with_namespace_and_complex_name_1() {
   assert_lexemes! {
     "::foo.bar/zip/:zap",
-    Lexeme::Keyword {
-      namespace: Some("foo.bar"),
-      name: "zip/:zap",
-      alias: true,
-      source: "::foo.bar/zip/:zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip/:zap" },
+        alias == true,
+        source => |s: &str| { s == "::foo.bar/zip/:zap" }
+      }
+    ]
   }
 }
 
@@ -299,13 +321,14 @@ fn alias_with_namespace_and_complex_name_1() {
 fn alias_with_namespace_and_complex_name_2() {
   assert_lexemes! {
     "::foo.bar/zip//:zap",
-    Lexeme::Keyword {
-      namespace: Some("foo.bar"),
-      name: "zip//:zap",
-      alias: true,
-      source: "::foo.bar/zip//:zap",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo.bar") },
+        name => |n: &str| { n == "zip//:zap" },
+        alias == true,
+        source => |s: &str| { s == "::foo.bar/zip//:zap" }
+      }
+    ]
   }
 }
 
@@ -314,13 +337,14 @@ fn alias_with_namespace_and_complex_name_2() {
 fn just_slash_alias() {
   assert_lexemes! {
     "::/",
-    Lexeme::Keyword {
-      namespace: None,
-      name: "/",
-      alias: true,
-      source: "::/",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.is_none() },
+        name => |n: &str| { n == "/" },
+        alias == true,
+        source => |s: &str| { s == "::/" }
+      }
+    ]
   }
 }
 
@@ -328,12 +352,13 @@ fn just_slash_alias() {
 fn just_slash_alias_with_namespace() {
   assert_lexemes! {
     "::foo//",
-    Lexeme::Keyword {
-      namespace: Some("foo"),
-      name: "/",
-      alias: true,
-      source: "::foo//",
-      ..
-    }
+    [
+      Lexeme::Keyword {
+        namespace => |ns: &Option<Rc<str>>| { ns.as_deref() == Some("foo") },
+        name => |n: &str| { n == "/" },
+        alias == true,
+        source => |s: &str| { s == "::foo//" }
+      }
+    ]
   }
 }

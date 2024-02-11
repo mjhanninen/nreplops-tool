@@ -13,15 +13,13 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use super::{
-  fragments::{Fragment, FragmentText},
-  printer::Command,
-  style::Style,
-};
+use std::rc::Rc;
+
+use super::{fragments::Fragment, printer::Command, style::Style};
 
 /// An instruction of an optimization program.
 #[derive(Clone, Debug)]
-pub enum Instruction<'a> {
+pub enum Instruction {
   /// Set the given `anchor` at the current horizontal position offset by the
   /// `offset` amount.
   SetAnchor { anchor: Anchor },
@@ -38,27 +36,27 @@ pub enum Instruction<'a> {
   /// Jumps horizontally to the `anchor` position.
   JumpTo { anchor: Anchor },
   /// Unbreakable strip of fragments
-  Text(Box<[Fragment<'a>]>),
+  Text(Box<[Fragment]>),
 }
 
 /// An optimization program for the layout solver.
 #[derive(Debug)]
-pub struct Program<'a> {
+pub struct Program {
   anchor_count: usize,
-  instructions: Box<[Instruction<'a>]>,
+  instructions: Box<[Instruction]>,
 }
 
 #[derive(Debug, Default)]
-pub struct ProgramBuilder<'a> {
+pub struct ProgramBuilder {
   anchor_count: usize,
-  instructions: Vec<Instruction<'a>>,
+  instructions: Vec<Instruction>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Anchor(usize);
 
-impl<'a> ProgramBuilder<'a> {
+impl ProgramBuilder {
   pub fn new() -> Self {
     Default::default()
   }
@@ -99,12 +97,12 @@ impl<'a> ProgramBuilder<'a> {
 
   pub fn add_text<T>(&mut self, text: T)
   where
-    T: Into<Box<[Fragment<'a>]>>,
+    T: Into<Box<[Fragment]>>,
   {
     self.instructions.push(Instruction::Text(text.into()))
   }
 
-  pub fn build(self) -> Program<'a> {
+  pub fn build(self) -> Program {
     let ProgramBuilder {
       anchor_count,
       mut instructions,
@@ -118,20 +116,16 @@ impl<'a> ProgramBuilder<'a> {
 }
 
 #[derive(Default)]
-pub struct TextBuilder<'a> {
-  fragments: Vec<Fragment<'a>>,
+pub struct TextBuilder {
+  fragments: Vec<Fragment>,
 }
 
-impl<'a> TextBuilder<'a> {
+impl TextBuilder {
   pub fn new() -> Self {
     Self::default()
   }
 
-  pub fn add<T: Into<FragmentText<'a>>>(
-    mut self,
-    text: T,
-    style: Style,
-  ) -> Self {
+  pub fn add<T: Into<Rc<str>>>(mut self, text: T, style: Style) -> Self {
     self.fragments.push(Fragment::new(style, text));
     self
   }
@@ -143,7 +137,7 @@ impl<'a> TextBuilder<'a> {
     func(self)
   }
 
-  pub fn build(mut self) -> Box<[Fragment<'a>]> {
+  pub fn build(mut self) -> Box<[Fragment]> {
     self.fragments.shrink_to_fit();
     self.fragments.into()
   }
@@ -151,13 +145,13 @@ impl<'a> TextBuilder<'a> {
 
 // Unfortunately we cannot implement the dual `From<...>` rule.
 #[allow(clippy::from_over_into)]
-impl<'a> Into<Box<[Fragment<'a>]>> for TextBuilder<'a> {
-  fn into(self) -> Box<[Fragment<'a>]> {
+impl Into<Box<[Fragment]>> for TextBuilder {
+  fn into(self) -> Box<[Fragment]> {
     self.build()
   }
 }
 
-pub fn solve<'a>(program: &Program<'a>, printer_input: &mut Vec<Command<'a>>) {
+pub fn solve(program: &Program, printer_input: &mut Vec<Command>) {
   use super::printer::BuildInput;
   use Instruction as C;
 

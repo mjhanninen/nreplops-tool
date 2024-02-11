@@ -95,4 +95,10 @@ pub enum Error {
   // Related to parsing Clojure
   #[error("failed to parse result: {0}")]
   FailedToParseResult(Box<lex::Error>),
+  // XXX(soija) This work for now, but in reality we want to produce actually
+  //            useful error messages in this situation. FIXME: Write better
+  //            error handling once input parsing and pre-processing is
+  //            otherwise in good shape.
+  #[error("failed to parse input: {0}")]
+  FailedToParseInput(Box<lex::Error>),
 }

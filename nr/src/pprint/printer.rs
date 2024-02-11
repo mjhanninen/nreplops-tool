@@ -13,22 +13,22 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-use std::io::{self, Write};
-
-use super::{
-  fragments::{Fragment, FragmentText},
-  style::Style,
+use std::{
+  io::{self, Write},
+  rc::Rc,
 };
 
-pub enum Command<'a> {
+use super::{fragments::Fragment, style::Style};
+
+pub enum Command {
   NewLine,
   Space(u16),
   SetStyle(Style),
   ResetStyle(Style),
-  Text(FragmentText<'a>),
+  Text(Rc<str>),
 }
 
-impl<'a> Command<'a> {
+impl Command {
   fn is_set_style(&self) -> bool {
     matches!(self, Command::SetStyle(_))
   }
@@ -44,7 +44,7 @@ pub fn print<'a, W, I>(
 ) -> io::Result<()>
 where
   W: Write,
-  I: Iterator<Item = &'a Command<'a>>,
+  I: Iterator<Item = &'a Command>,
 {
   use Command as C;
 
@@ -96,15 +96,15 @@ where
   Ok(())
 }
 
-pub trait BuildInput<'a> {
+pub trait BuildInput {
   fn add_new_line(&mut self);
   fn add_spaces(&mut self, amount: u16);
-  fn add_fragment(&mut self, fragment: &Fragment<'a>);
-  fn add_styled<T: Into<FragmentText<'a>>>(&mut self, style: Style, text: T);
-  fn add_plain<T: Into<FragmentText<'a>>>(&mut self, text: T);
+  fn add_fragment(&mut self, fragment: &Fragment);
+  fn add_styled<T: Into<Rc<str>>>(&mut self, style: Style, text: T);
+  fn add_plain<T: Into<Rc<str>>>(&mut self, text: T);
 }
 
-impl<'a> BuildInput<'a> for Vec<Command<'a>> {
+impl BuildInput for Vec<Command> {
   fn add_new_line(&mut self) {
     self.push(Command::NewLine);
   }
@@ -113,7 +113,7 @@ impl<'a> BuildInput<'a> for Vec<Command<'a>> {
     self.push(Command::Space(amount))
   }
 
-  fn add_fragment(&mut self, fragment: &Fragment<'a>) {
+  fn add_fragment(&mut self, fragment: &Fragment) {
     self.push(Command::SetStyle(fragment.style));
     self.push(Command::Text(fragment.text.clone()));
     self.push(Command::ResetStyle(fragment.style));
@@ -121,7 +121,7 @@ impl<'a> BuildInput<'a> for Vec<Command<'a>> {
 
   fn add_styled<T>(&mut self, style: Style, text: T)
   where
-    T: Into<FragmentText<'a>>,
+    T: Into<Rc<str>>,
   {
     self.push(Command::SetStyle(style));
     self.add_plain(text);
@@ -130,7 +130,7 @@ impl<'a> BuildInput<'a> for Vec<Command<'a>> {
 
   fn add_plain<T>(&mut self, text: T)
   where
-    T: Into<FragmentText<'a>>,
+    T: Into<Rc<str>>,
   {
     self.push(Command::Text(text.into()));
   }
