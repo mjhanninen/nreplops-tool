@@ -33,23 +33,18 @@ top_level = { SOI ~ form* ~ discarded_form? ~ EOI }
 form = {
     expr
   | quote_unquote_form
-  | preform+ ~ form
+  | meta_data_form
+  | discarded_form+ ~ form
 }
 
 quote_unquote_form = { quote_unquote_prefix ~ form }
 quote_unquote_prefix = { "'" | "#'" | "`" | "~@" | "~" }
 
-preform = { meta_form | discarded_form }
-
-// XXX(soija) Given that the "form" reulf now takes optional preforms as prefix
-//            itself, could  we drop the preform form the "discarded_form" rule?
-//            FIXME: Test and drop.
-
-discarded_form = { discard_prefix ~ preform* ~ form }
-discard_prefix = { "#_" }
-
-meta_form = { meta_prefix ~ form }
 meta_prefix = { "^" | "#^" }
+meta_data_form = { meta_prefix ~ form ~ form }
+
+discarded_form = { discard_prefix ~ form }
+discard_prefix = { "#_" }
 
 expr = {
     nil
@@ -216,6 +211,9 @@ control_char = {
 // Symbolic values
 //
 
+// XXX(soija) Symbolic values should permit metadata between the preifx and the
+//            actual symbol value.  For example `## ^{:foo 42} NaN`.
+
 symbolic_value = { symbolic_value_prefix ~ unqualified_symbol }
 symbolic_value_prefix = { "##" }
 
@@ -294,12 +292,16 @@ reader_conditional = { reader_conditional_prefix ~ reader_conditional_body }
 reader_conditional_prefix = { "#?@" | "#?" }
 reader_conditional_body = { "(" ~ map_body ~ ")" }
 
-map_body = _{ map_entry* ~ discarded_form? }
+map_body = _{ map_entry* ~ discarded_form* }
 map_entry = _{ form ~ form }
 
 //
 // Tagged literals
 //
+
+// XXX(soija) Tagged literal values should permit meta-data and discarded forms
+//            between the prefix, the tag, and the actual value.  For example,
+//            `# ^{foo 42} inst #_ "bad date" "2024-01-01"` is okay.
 
 tagged_literal = {
     ! "#_"
@@ -307,4 +309,4 @@ tagged_literal = {
   ~ tagged_literal_tag
   ~ form
 }
-tagged_literal_tag = { preform* ~ symbol }
+tagged_literal_tag = { symbol }
