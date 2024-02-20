@@ -196,12 +196,12 @@ esc_code_point = @{ "\\u" ~ ASCII_HEX_DIGIT{4} }
 //
 
 regex = ${ "#\"" ~ regex_content ~ "\"" }
-regex_content = @{
+regex_content = _{
   ( "\\" ~ ! control_char ~ ANY
   | ! ( control_char | "\"" ) ~ ANY
   )*
 }
-control_char = {
+control_char = _{
     '\u{00}'..'\u{08}'
   | '\u{0E}'..'\u{1F}'
   | "\u{7F}"
@@ -272,10 +272,21 @@ unqualified_keyword = @{
 // Lists, vectors, and the like
 //
 
-list = { "(" ~ seq_body ~ ")" }
-vector = { "[" ~ seq_body ~ "]" }
-anonymous_fn = { "#(" ~ seq_body ~ ")"}
-set = { "#{" ~ seq_body ~ "}" }
+list = { list_start ~ seq_body ~ list_end }
+list_start = @{ "(" }
+list_end = @{ ")" }
+
+vector = { vector_start ~ seq_body ~ vector_end }
+vector_start = @{ "[" }
+vector_end = @{ "]" }
+
+anonymous_fn = { anonymous_fn_start ~ seq_body ~ anonymous_fn_end }
+anonymous_fn_start = @{ "#(" }
+anonymous_fn_end = @{ ")" }
+
+set = { set_start ~ seq_body ~ set_end }
+set_start = @{ "#{" }
+set_end = @{ "}" }
 
 seq_body = _{ form* ~ discarded_form? }
 
@@ -286,12 +297,20 @@ seq_body = _{ form* ~ discarded_form? }
 map = { map_qualifier? ~ unqualified_map }
 map_qualifier = ${ map_qualifier_prefix ~ namespace }
 map_qualifier_prefix = { "#::" | "#:" }
-unqualified_map = { "{" ~ map_body ~ "}" }
+unqualified_map = { map_start ~ map_body ~ map_end }
 
 reader_conditional = { reader_conditional_prefix ~ reader_conditional_body }
 reader_conditional_prefix = { "#?@" | "#?" }
-reader_conditional_body = { "(" ~ map_body ~ ")" }
+reader_conditional_body = {
+    reader_conditional_start
+  ~ map_body
+  ~ reader_conditional_end
+}
+reader_conditional_start = @{ "(" }
+reader_conditional_end = @{ ")" }
 
+map_start = @{ "{" }
+map_end = @{ "}" }
 map_body = _{ map_entry* ~ discarded_form* }
 map_entry = _{ form ~ form }
 
@@ -306,7 +325,6 @@ map_entry = _{ form ~ form }
 tagged_literal = {
     ! "#_"
   ~ "#"
-  ~ tagged_literal_tag
+  ~ symbol
   ~ form
 }
-tagged_literal_tag = { symbol }

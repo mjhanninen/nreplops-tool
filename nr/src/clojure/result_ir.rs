@@ -22,7 +22,7 @@
 
 use std::rc::Rc;
 
-use super::lex::Lexeme;
+use super::lex::{Lexeme, Token};
 
 #[derive(Debug)]
 pub enum Value {
@@ -94,61 +94,62 @@ pub enum BuildError {
   ExpectedSymbolForVarQuote,
 }
 
-pub fn build<'a>(lexemes: &[Lexeme]) -> Result<Value, BuildError> {
-  use Lexeme::*;
+pub fn build(lexemes: &[Lexeme]) -> Result<Value, BuildError> {
+  use Token as T;
+
   let mut b = Builder::new();
 
-  for lexeme in lexemes {
-    let mut composite_ready = match lexeme {
-      Whitespace { .. } | SymbolicValuePrefix { .. } => false, // ignore
-      Nil { .. } => b.add_to_composite(Value::Nil)?,
-      Boolean { value, .. } => {
+  for l in lexemes {
+    let mut composite_ready = match &l.token {
+      T::Whitespace | T::SymbolicValuePrefix => false, // ignore
+      T::Nil => b.add_to_composite(Value::Nil)?,
+      T::Boolean { value } => {
         b.add_to_composite(Value::Boolean { value: *value })?
       }
-      Numeric { source, .. } => b.add_to_composite(Value::Number {
-        literal: source.clone(),
+      T::Numeric { .. } => b.add_to_composite(Value::Number {
+        // XXX(soija) FIXME: Extract the value from the token, not from the
+        //            lexeme.
+        literal: l.source.as_ref().unwrap().str.clone(),
       })?,
-      String { source, .. } => b.add_to_composite(Value::String {
-        literal: source.clone(),
+      T::String { raw_value, .. } => b.add_to_composite(Value::String {
+        literal: raw_value.clone().into(),
       })?,
-      SymbolicValue { source, .. } => {
+      T::SymbolicValue { .. } => {
         b.add_to_composite(Value::SymbolicValue {
-          literal: source.clone(),
+          // XXX(soija) FIXME: Extract the value from the token, not from the
+          //            lexeme.
+          literal: l.source.as_ref().unwrap().str.clone(),
         })?
       }
-      // NB: The tagged literal builder expects that the tag is passed on as a
-      //     symbol.  This way we don't need to add a separate "tag" value that
-      //     would stick out of the enum like a sore thumb.
-      Symbol {
-        namespace, name, ..
-      }
-      | Tag {
-        namespace, name, ..
-      } => b.add_to_composite(Value::Symbol {
-        name: name.clone(),
-        namespace: namespace.clone(),
-      })?,
-      Keyword {
+      // NB: The tagged literal builder expects that the tag is passed on as
+      //     a symbol.  This way we don't need to add a separate `Value::Tag`
+      //     value that would stick out of the enum like a sore thumb.
+      T::Symbol { namespace, name } | T::Tag { namespace, name } => b
+        .add_to_composite(Value::Symbol {
+          name: name.clone(),
+          namespace: namespace.clone(),
+        })?,
+      T::Keyword {
         alias,
         namespace,
         name,
-        ..
       } => b.add_to_composite(Value::Keyword {
         name: name.clone(),
         namespace: namespace.clone(),
         alias: *alias,
       })?,
-      StartList { .. } => b.start(CompositeType::List)?,
-      EndList { .. } => b.end(CompositeType::List)?,
-      StartSet { .. } => b.start(CompositeType::Set)?,
-      EndSet { .. } => b.end(CompositeType::Set)?,
-      StartVector { .. } => b.start(CompositeType::Vector)?,
-      EndVector { .. } => b.end(CompositeType::Vector)?,
-      StartMap { .. } => b.start(CompositeType::Map)?,
-      EndMap { .. } => b.end(CompositeType::Map)?,
-      TaggedLiteral { .. } => b.start(CompositeType::TaggedLiteral)?,
-      VarQuote { .. } => b.start(CompositeType::VarQuoted)?,
-      unhandled => todo!("Missing rule for:\n{:#?}", unhandled),
+      T::StartList => b.start(CompositeType::List)?,
+      T::EndList => b.end(CompositeType::List)?,
+      T::StartSet => b.start(CompositeType::Set)?,
+      T::EndSet => b.end(CompositeType::Set)?,
+      T::StartVector => b.start(CompositeType::Vector)?,
+      T::EndVector => b.end(CompositeType::Vector)?,
+      T::StartMap => b.start(CompositeType::Map)?,
+      T::EndMap => b.end(CompositeType::Map)?,
+      T::TaggedLiteral { .. } => b.start(CompositeType::TaggedLiteral)?,
+      T::VarQuote => b.start(CompositeType::VarQuoted)?,
+
+      _ => todo!("Missing rule for: {l:#?}"),
     };
 
     while composite_ready {
