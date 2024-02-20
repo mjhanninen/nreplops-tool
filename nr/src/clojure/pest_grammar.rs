@@ -22,3 +22,4 @@ use pest_derive::Parser;
 pub struct Grammar;
 
 pub type Pair<'a> = pest::iterators::Pair<'a, Rule>;
+pub type Pairs<'a> = pest::iterators::Pairs<'a, Rule>;

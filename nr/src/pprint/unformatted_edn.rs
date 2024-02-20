@@ -16,15 +16,15 @@
 //! Converts the result IR into a layout problem that should produce in a
 //! relatively pretty EDN output once solved.
 
-use crate::clojure::lex::Lexeme;
+use crate::clojure::lex::{Lexeme, Token};
 
 use super::{
   printer::{BuildInput, Command},
   style::Style,
 };
 
-use Lexeme as L;
 use Style as S;
+use Token as T;
 
 pub fn generate_printer_input<'a, I>(
   lexemes: I,
@@ -35,39 +35,39 @@ pub fn generate_printer_input<'a, I>(
   let mut last_var_quote: Option<u32> = None;
 
   for l in lexemes {
-    match l {
-      L::Whitespace { source } => {
-        printer_input.add_styled(S::Whitespace, source.clone())
+    match &l.token {
+      T::Whitespace => {
+        // XXX(soija) FIXME: Try first the original source and, if not present,
+        //            use just single blank space.
+        printer_input
+          .add_styled(S::Whitespace, l.source.as_ref().unwrap().str.clone())
       }
-      L::Nil { source, .. } => {
-        printer_input.add_styled(S::NilValue, source.clone())
+      T::Nil => printer_input.add_styled(S::NilValue, " "),
+      T::Boolean { value } => printer_input
+        .add_styled(S::BooleanValue, if *value { "true" } else { "false" }),
+      T::Numeric { .. } => {
+        // XXX(soija) FIXME: Try first the original source and, if not present,
+        //            use token to derive representation.
+        printer_input
+          .add_styled(S::NumberValue, l.source.as_ref().unwrap().str.clone())
       }
-      L::Boolean { source, .. } => {
-        printer_input.add_styled(S::BooleanValue, source.clone())
-      }
-      L::Numeric { source, .. } => {
-        printer_input.add_styled(S::NumberValue, source.clone())
-      }
-      L::String { source, .. } => {
+      T::String { raw_value, .. } => {
         printer_input.add_styled(S::StringDecoration, "\"");
-        printer_input.add_styled(S::StringValue, &source[1..source.len() - 1]);
+        printer_input.add_styled(S::StringValue, raw_value.clone());
         printer_input.add_styled(S::StringDecoration, "\"");
       }
-      L::SymbolicValuePrefix { source, .. } => {
-        printer_input.add_styled(S::SymbolicValueDecoration, source.clone())
+      T::SymbolicValuePrefix => {
+        printer_input.add_styled(S::SymbolicValueDecoration, "##")
       }
-      L::SymbolicValue { source, .. } => {
-        printer_input.add_styled(S::SymbolicValue, source.clone())
+      T::SymbolicValue { .. } => {
+        // XXX(soija) FIXME: Try first the original source and, if not present,
+        //            use token to derive representation.
+        printer_input
+          .add_styled(S::SymbolicValue, l.source.as_ref().unwrap().str.clone())
       }
-      L::Symbol {
-        form_ix,
-        namespace,
-        name,
-        ..
-      } => {
-        let is_var_quoted = last_var_quote
-          .map(|ix| ix == form_ix.parent)
-          .unwrap_or(false);
+      T::Symbol { namespace, name } => {
+        let is_var_quoted =
+          last_var_quote.map(|ix| ix == l.parent_ix).unwrap_or(false);
         if is_var_quoted {
           if let Some(ns) = namespace {
             printer_input.add_styled(S::VarQuoteNamespace, ns.clone());
@@ -82,11 +82,10 @@ pub fn generate_printer_input<'a, I>(
           printer_input.add_styled(S::SymbolName, name.clone());
         }
       }
-      L::Keyword {
+      T::Keyword {
         alias,
         namespace,
         name,
-        ..
       } => {
         printer_input
           .add_styled(S::KeywordDecoration, if *alias { "::" } else { ":" });
@@ -96,33 +95,31 @@ pub fn generate_printer_input<'a, I>(
         }
         printer_input.add_styled(S::KeywordName, name.clone());
       }
-      L::VarQuote { form_ix, source } => {
-        printer_input.add_styled(S::VarQuoteDecoration, source.clone());
-        last_var_quote = Some(form_ix.ix);
+      T::VarQuote => {
+        printer_input.add_styled(S::VarQuoteDecoration, "#'");
+        last_var_quote = Some(l.form_ix);
       }
-      L::TaggedLiteral { source, .. } => {
-        printer_input.add_styled(S::TaggedLiteralDecoration, source.clone());
+      T::TaggedLiteral { .. } => {
+        printer_input.add_styled(S::TaggedLiteralDecoration, "#");
       }
-      L::Tag {
-        namespace, name, ..
-      } => {
+      T::Tag { namespace, name } => {
         if let Some(ns) = namespace {
           printer_input.add_styled(S::TaggedLiteralNamespace, ns.clone());
           printer_input.add_styled(S::TaggedLiteralDecoration, "/");
         }
         printer_input.add_styled(S::TaggedLiteralName, name.clone());
       }
-      L::StartList { source, .. }
-      | L::EndList { source, .. }
-      | L::StartVector { source, .. }
-      | L::EndVector { source, .. }
-      | L::StartSet { source, .. }
-      | L::EndSet { source, .. }
-      | L::StartMap { source, .. }
-      | L::EndMap { source, .. } => {
-        printer_input.add_styled(S::CollectionDelimiter, source.clone())
-      }
-      ref unhandled => todo!("no rule for: {:?}", unhandled),
+
+      T::StartList => printer_input.add_styled(S::CollectionDelimiter, "("),
+      T::EndList => printer_input.add_styled(S::CollectionDelimiter, ")"),
+      T::StartVector => printer_input.add_styled(S::CollectionDelimiter, "["),
+      T::EndVector => printer_input.add_styled(S::CollectionDelimiter, "]"),
+      T::StartSet => printer_input.add_styled(S::CollectionDelimiter, "#{"),
+      T::EndSet => printer_input.add_styled(S::CollectionDelimiter, "}"),
+      T::StartMap => printer_input.add_styled(S::CollectionDelimiter, "{"),
+      T::EndMap => printer_input.add_styled(S::CollectionDelimiter, "}"),
+
+      _ => todo!("no rule for: {l:?}"),
     }
   }
 }
