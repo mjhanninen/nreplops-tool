@@ -33,22 +33,15 @@ use Token as T;
 /// A single top-level form.
 #[derive(Debug)]
 pub struct Form {
-  fragments: Box<[Fragment]>,
-  source: Source,
+  pub fragments: Box<[Fragment]>,
+  pub source: Source,
 }
 
 /// A fragment of a (top-level) form.
 #[derive(Debug)]
 pub enum Fragment {
-  Lexemes(LexemeFragment),
+  Lexemes(Box<[Lexeme]>),
   Directive(DirectiveFragment),
-}
-
-/// A fragment of lexemes to used as-is.
-#[derive(Debug)]
-pub struct LexemeFragment {
-  lexemes: Box<[Lexeme]>,
-  pos: SourcePos,
 }
 
 /// A template directive.
@@ -172,101 +165,126 @@ fn parse_forms(
   let mut lexemes = lex::lex(input)
     .map_err(|e| Error::FailedToParseInput(e.into()))?
     .into_iter()
+    .filter(|l| !matches!(l.token, T::Whitespace | T::Comment))
     .peekable();
-  while let Some(form) = parse_form(source, &mut lexemes)? {
+  while let Some(form) = try_parse_form(source, &mut lexemes)? {
     forms.push(form);
   }
   Ok(())
 }
 
-fn parse_form<I>(
+fn try_parse_form<I>(
   source: &Source,
   lexemes: &mut Peekable<I>,
 ) -> Result<Option<Form>, Error>
 where
   I: Iterator<Item = Lexeme>,
 {
-  let mut fragments = Vec::new();
-  parse_form_inner(lexemes, &mut fragments)?;
-  if fragments.is_empty() {
-    Ok(None)
-  } else {
-    Ok(Some(Form {
-      fragments: fragments.into_boxed_slice(),
-      source: source.clone(),
-    }))
+  let mut collector = FragmentCollector::new();
+  while lexemes.peek().is_some() {
+    parse_form_inner(lexemes, &mut collector)?;
+    if !collector.is_empty() {
+      return Ok(Some(Form {
+        fragments: collector.build(),
+        source: source.clone(),
+      }));
+    }
   }
+  Ok(None)
 }
 
+#[derive(Default)]
 struct FragmentCollector {
   unfinished: Vec<Lexeme>,
   fragments: Vec<Fragment>,
 }
 
 impl FragmentCollector {
+  fn new() -> Self {
+    Self::default()
+  }
+
   fn collect_lexeme(&mut self, lexeme: Lexeme) {
     self.unfinished.push(lexeme);
   }
 
+  fn is_empty(&self) -> bool {
+    self.fragments.is_empty() && self.unfinished.is_empty()
+  }
+
   fn build(mut self) -> Box<[Fragment]> {
     if !self.unfinished.is_empty() {
-      let pos = self
-        .unfinished
-        .first()
-        .unwrap()
-        .source
-        .as_ref()
-        .unwrap()
-        .into();
-      let lexemes = self.unfinished.into_boxed_slice();
       self
         .fragments
-        .push(Fragment::Lexemes(LexemeFragment { lexemes, pos }));
+        .push(Fragment::Lexemes(self.unfinished.into_boxed_slice()));
     }
-
     self.fragments.into()
   }
 }
 
 fn parse_form_inner<I>(
   lexemes: &mut Peekable<I>,
-  fragments: &mut [Fragment],
+  collector: &mut FragmentCollector,
 ) -> Result<(), Error>
 where
   I: Iterator<Item = Lexeme>,
 {
   use Action as A;
-  use Token as T;
 
+  #[derive(Debug)]
   enum Action {
     DiscardForm(Ix),
-    CollectChildren(Ix),
+    Collect,
+    CollectChildrenOf(Ix),
   }
 
-  loop {
-    let action = {
-      let l = lexemes.peek().expect("unexpected end of lexemes");
+  let action = {
+    let l = lexemes.peek().expect("unexpected end of lexemes");
 
-      match l.token {
-        T::Discard => A::DiscardForm(l.form_ix),
-        T::StartList
-        | T::StartVector
-        | T::StartSet
-        | T::StartMap
-        | T::StartAnonymousFn
-        | T::StartReaderConditional => A::CollectChildren(l.form_ix),
+    match dbg!(&l.token) {
+      T::Discard => A::DiscardForm(l.form_ix),
+      T::StartList
+      | T::StartVector
+      | T::StartSet
+      | T::StartMap
+      | T::StartAnonymousFn
+      | T::StartReaderConditional => A::CollectChildrenOf(l.form_ix),
 
-        _ => panic!("unexpected lexeme: {l:?}"),
-      }
-    };
+      T::String { .. } | T::Symbol { .. } => A::Collect,
 
-    match action {
-      A::DiscardForm(form_ix) => {
-        lexemes.next().unwrap();
-        discard_child_of(form_ix, lexemes);
-      }
-      A::CollectChildren(form_ix) => {}
+      T::Comment => panic!("unexpected comment lexeme: {l:?}"),
+      T::Whitespace => panic!("unexpected whitespace lexeme: {l:?}"),
+
+      _ => todo!("no handling for: {l:?}"),
     }
+  };
+
+  match dbg!(action) {
+    A::DiscardForm(form_ix) => {
+      lexemes.next().unwrap();
+      discard_child_of(form_ix, lexemes);
+    }
+    A::Collect => collector.collect_lexeme(lexemes.next().unwrap()),
+    A::CollectChildrenOf(form_ix) => {
+      lexemes.next().unwrap();
+      collect_children_of(form_ix, lexemes, collector);
+    }
+  }
+
+  Ok(())
+}
+
+fn collect_children_of<I>(
+  parent: Ix,
+  lexemes: &mut Peekable<I>,
+  collector: &mut FragmentCollector,
+) -> Result<(), Error>
+where
+  I: Iterator<Item = Lexeme>,
+{
+  while lexemes.next_if(|l| l.form_ix == parent).is_none() {
+    debug_assert!(lexemes.peek().unwrap().parent_ix == parent);
+    parse_form_inner(lexemes, collector)?;
   }
 
   Ok(())
@@ -286,8 +304,6 @@ where
   }
 
   loop {
-    skip_whitespace(lexemes);
-
     let action = {
       let l = lexemes.peek().unwrap();
       match l.token {
@@ -371,8 +387,6 @@ where
   I: Iterator<Item = Lexeme>,
 {
   loop {
-    skip_whitespace(lexemes);
-
     let l = lexemes.peek().unwrap();
     match l.token {
       (T::EndList
@@ -390,14 +404,4 @@ where
       _ => discard_child_of(parent, lexemes),
     }
   }
-}
-
-fn skip_whitespace<I>(lexemes: &mut Peekable<I>)
-where
-  I: Iterator<Item = Lexeme>,
-{
-  while lexemes
-    .next_if(|l| matches!(l.token, T::Whitespace | T::Comment { .. }))
-    .is_some()
-  {}
 }
