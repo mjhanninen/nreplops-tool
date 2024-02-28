@@ -182,7 +182,7 @@ where
 {
   let mut collector = FragmentCollector::new();
   while lexemes.peek().is_some() {
-    parse_form_inner(lexemes, &mut collector)?;
+    collect_form(lexemes, &mut collector)?;
     if !collector.is_empty() {
       return Ok(Some(Form {
         fragments: collector.build(),
@@ -222,7 +222,22 @@ impl FragmentCollector {
   }
 }
 
-fn parse_form_inner<I>(
+fn collect_form<I>(
+  lexemes: &mut Peekable<I>,
+  collector: &mut FragmentCollector,
+) -> Result<(), Error>
+where
+  I: Iterator<Item = Lexeme>,
+{
+  if let Some(parent_ix) = lexemes.peek().map(|l| l.parent_ix) {
+    collect_form_recursively(parent_ix, lexemes, collector)
+  } else {
+    Ok(())
+  }
+}
+
+fn collect_form_recursively<I>(
+  parent_ix: Ix,
   lexemes: &mut Peekable<I>,
   collector: &mut FragmentCollector,
 ) -> Result<(), Error>
@@ -233,175 +248,163 @@ where
 
   #[derive(Debug)]
   enum Action {
-    DiscardForm(Ix),
-    Collect,
-    CollectChildrenOf(Ix),
+    Discard,
+    CollectJustThis,
+    CollectCountedChildren(usize),
+    CollectDelimitedChildren,
   }
 
   let action = {
-    let l = lexemes.peek().expect("unexpected end of lexemes");
+    let lexeme = lexemes.peek().unwrap();
 
-    match dbg!(&l.token) {
-      T::Discard => A::DiscardForm(l.form_ix),
+    debug_assert_eq!(lexeme.parent_ix, parent_ix);
+
+    match dbg!(&lexeme.token) {
+      T::Discard => A::Discard,
+
       T::StartList
       | T::StartVector
       | T::StartSet
       | T::StartMap
       | T::StartAnonymousFn
-      | T::StartReaderConditional => A::CollectChildrenOf(l.form_ix),
+      | T::StartReaderConditional => A::CollectDelimitedChildren,
 
-      T::String { .. } | T::Symbol { .. } => A::Collect,
+      (T::Quote
+      | T::VarQuote
+      | T::Synquote
+      | T::Unquote
+      | T::SplicingUnquote) => A::CollectCountedChildren(1),
 
-      T::Comment => panic!("unexpected comment lexeme: {l:?}"),
-      T::Whitespace => panic!("unexpected whitespace lexeme: {l:?}"),
+      T::Meta { .. } => A::CollectCountedChildren(2),
 
-      _ => todo!("no handling for: {l:?}"),
-    }
-  };
+      T::String { .. } | T::Symbol { .. } => A::CollectJustThis,
 
-  match dbg!(action) {
-    A::DiscardForm(form_ix) => {
-      lexemes.next().unwrap();
-      discard_child_of(form_ix, lexemes);
-    }
-    A::Collect => collector.collect_lexeme(lexemes.next().unwrap()),
-    A::CollectChildrenOf(form_ix) => {
-      lexemes.next().unwrap();
-      collect_children_of(form_ix, lexemes, collector);
-    }
-  }
-
-  Ok(())
-}
-
-fn collect_children_of<I>(
-  parent: Ix,
-  lexemes: &mut Peekable<I>,
-  collector: &mut FragmentCollector,
-) -> Result<(), Error>
-where
-  I: Iterator<Item = Lexeme>,
-{
-  while lexemes.next_if(|l| l.form_ix == parent).is_none() {
-    debug_assert!(lexemes.peek().unwrap().parent_ix == parent);
-    parse_form_inner(lexemes, collector)?;
-  }
-
-  Ok(())
-}
-
-fn discard_child_of<I>(parent: Ix, lexemes: &mut Peekable<I>)
-where
-  I: Iterator<Item = Lexeme>,
-{
-  use Action as A;
-
-  #[allow(clippy::enum_variant_names)]
-  enum Action {
-    DiscardAndStop,
-    DiscardAndContinue,
-    DiscardChildren(Ix, Option<usize>),
-  }
-
-  loop {
-    let action = {
-      let l = lexemes.peek().unwrap();
-      match l.token {
-        (T::Nil
-        | T::Boolean { .. }
-        | T::Numeric { .. }
-        | T::Char { .. }
-        | T::String { .. }
-        | T::Regex { .. }
-        | T::SymbolicValue { .. }
-        | T::Symbol { .. }
-        | T::Keyword { .. }
-        | T::Tag { .. })
-          if l.parent_ix == parent =>
-        {
-          A::DiscardAndStop
-        }
-
-        (T::SymbolicValuePrefix
-        | T::MapQualifier { .. }
-        | T::ReaderConditionalPrefix { .. })
-          if l.parent_ix == parent =>
-        {
-          A::DiscardAndContinue
-        }
-
-        (T::Discard
-        | T::Quote
-        | T::VarQuote
-        | T::Synquote
-        | T::Unquote
-        | T::SplicingUnquote)
-          if l.parent_ix == parent =>
-        {
-          A::DiscardChildren(l.form_ix, Some(1))
-        }
-
-        (T::StartList
-        | T::StartVector
-        | T::StartSet
-        | T::StartMap
-        | T::StartAnonymousFn
-        | T::StartReaderConditional)
-          if l.parent_ix == parent =>
-        {
-          A::DiscardChildren(l.form_ix, None)
-        }
-
-        _ => panic!(
-          "unexpected lexeme while discarding:\nlexeme = {l:?}\nparent = {parent}",
-        ),
-      }
-    };
-
-    match action {
-      A::DiscardAndStop => {
-        lexemes.next().unwrap();
-        return;
-      }
-      A::DiscardAndContinue => {
-        lexemes.next().unwrap();
-      }
-      A::DiscardChildren(form_ix, how_many) => {
-        lexemes.next().unwrap();
-        if let Some(n) = how_many {
-          for _ in 0..n {
-            discard_child_of(form_ix, lexemes);
-          }
-        } else {
-          discard_children_of(form_ix, lexemes);
-        }
-        return;
-      }
-    }
-  }
-}
-
-// Discards children until the lexeme that closes the parent form is encountered
-fn discard_children_of<I>(parent: u32, lexemes: &mut Peekable<I>)
-where
-  I: Iterator<Item = Lexeme>,
-{
-  loop {
-    let l = lexemes.peek().unwrap();
-    match l.token {
       (T::EndList
       | T::EndVector
       | T::EndSet
       | T::EndMap
       | T::EndAnonymousFn
-      | T::EndReaderConditional)
-        if l.form_ix == parent =>
-      {
-        lexemes.next().unwrap();
-        break;
+      | T::EndReaderConditional) => {
+        panic!("unexpected end lexeme while collecting next form: {lexeme:?}")
       }
-
-      _ => discard_child_of(parent, lexemes),
+      _ => panic!("unexpected lexeme while collecting next form: {lexeme:?}"),
     }
+  };
+
+  match dbg!(action) {
+    A::Discard => discard_recursively(lexemes),
+    A::CollectJustThis => collector.collect_lexeme(lexemes.next().unwrap()),
+    A::CollectCountedChildren(n) => {
+      let lexeme = lexemes.next().unwrap();
+      let form_ix = lexeme.form_ix;
+      collector.collect_lexeme(lexemes.next().unwrap());
+      for _ in 0..n {
+        collect_form_recursively(form_ix, lexemes, collector)?;
+      }
+    }
+    A::CollectDelimitedChildren => {
+      let start_lexeme = lexemes.next().unwrap();
+      let form_ix = start_lexeme.form_ix;
+      collector.collect_lexeme(lexemes.next().unwrap());
+      loop {
+        let next = lexemes.peek().unwrap();
+        match next.token {
+          (T::EndList
+          | T::EndVector
+          | T::EndSet
+          | T::EndMap
+          | T::EndAnonymousFn
+          | T::EndReaderConditional)
+            if next.form_ix == form_ix =>
+          {
+            collector.collect_lexeme(lexemes.next().unwrap());
+            break;
+          }
+          _ => collect_form_recursively(form_ix, lexemes, collector)?,
+        }
+      }
+    }
+  }
+
+  Ok(())
+}
+
+fn discard_recursively<I>(lexemes: &mut Peekable<I>)
+where
+  I: Iterator<Item = Lexeme>,
+{
+  let lexeme = lexemes.next().unwrap();
+
+  #[allow(clippy::enum_variant_names)]
+  enum Discard {
+    JustThis,
+    CountedChildren(usize),
+    DelimitedChildren,
+  }
+
+  let action = match lexeme.token {
+    (T::Nil
+    | T::Boolean { .. }
+    | T::Numeric { .. }
+    | T::Char { .. }
+    | T::String { .. }
+    | T::Regex { .. }
+    | T::SymbolicValue { .. }
+    | T::Symbol { .. }
+    | T::Keyword { .. }
+    | T::Tag { .. }) => Discard::JustThis,
+
+    (T::Discard
+    | T::Quote
+    | T::VarQuote
+    | T::Synquote
+    | T::Unquote
+    | T::SplicingUnquote) => Discard::CountedChildren(1),
+
+    T::Meta { .. } => Discard::CountedChildren(2),
+
+    (T::StartList
+    | T::StartVector
+    | T::StartSet
+    | T::StartMap
+    | T::StartAnonymousFn
+    | T::StartReaderConditional) => Discard::DelimitedChildren,
+
+    _ => panic!("unexpected lexeme while discarding: lexeme = {lexeme:?}",),
+  };
+
+  match action {
+    Discard::JustThis => {}
+
+    Discard::CountedChildren(n) => {
+      for _ in 0..n {
+        let child = lexemes.peek().unwrap();
+        if child.parent_ix == lexeme.form_ix {
+          discard_recursively(lexemes);
+        } else {
+          panic!(
+            "unexpected lexeme while discarding child: parent = {lexeme:?}, child {child:?}"
+          );
+        }
+      }
+    }
+
+    Discard::DelimitedChildren => loop {
+      let child_or_end = lexemes.peek().unwrap();
+      match child_or_end.token {
+          (T::EndList
+          | T::EndVector
+          | T::EndSet
+          | T::EndMap
+          | T::EndAnonymousFn
+          | T::EndReaderConditional)
+            if child_or_end.form_ix == lexeme.form_ix => {
+            lexemes.next().unwrap();
+            break;
+          },
+          _ if child_or_end.parent_ix == lexeme.form_ix => discard_recursively( lexemes),
+          _ => panic!("unexpected lexeme while discarding delimited children: parent = {lexeme:?}, child = {child_or_end:?}"),
+        }
+    },
   }
 }
