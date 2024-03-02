@@ -255,7 +255,7 @@ where
   }
 
   let action = {
-    let lexeme = lexemes.peek().unwrap();
+    let lexeme = dbg!(lexemes.peek().unwrap());
 
     debug_assert_eq!(lexeme.parent_ix, parent_ix);
 
@@ -277,7 +277,10 @@ where
 
       T::Meta { .. } => A::CollectCountedChildren(2),
 
-      T::String { .. } | T::Symbol { .. } => A::CollectJustThis,
+      T::Numeric { .. }
+      | T::String { .. }
+      | T::Symbol { .. }
+      | T::Keyword { .. } => A::CollectJustThis,
 
       (T::EndList
       | T::EndVector
@@ -297,7 +300,7 @@ where
     A::CollectCountedChildren(n) => {
       let lexeme = lexemes.next().unwrap();
       let form_ix = lexeme.form_ix;
-      collector.collect_lexeme(lexemes.next().unwrap());
+      collector.collect_lexeme(lexeme);
       for _ in 0..n {
         collect_form_recursively(form_ix, lexemes, collector)?;
       }
@@ -305,7 +308,7 @@ where
     A::CollectDelimitedChildren => {
       let start_lexeme = lexemes.next().unwrap();
       let form_ix = start_lexeme.form_ix;
-      collector.collect_lexeme(lexemes.next().unwrap());
+      collector.collect_lexeme(start_lexeme);
       loop {
         let next = lexemes.peek().unwrap();
         match next.token {
