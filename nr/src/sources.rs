@@ -275,12 +275,14 @@ where
       | T::Unquote
       | T::SplicingUnquote) => A::CollectCountedChildren(1),
 
-      T::Meta { .. } => A::CollectCountedChildren(2),
+      T::Meta { .. } | T::TaggedLiteral { .. } => A::CollectCountedChildren(2),
 
       T::Numeric { .. }
+      | T::Char { .. }
       | T::String { .. }
       | T::Symbol { .. }
-      | T::Keyword { .. } => A::CollectJustThis,
+      | T::Keyword { .. }
+      | T::Tag { .. } => A::CollectJustThis,
 
       (T::EndList
       | T::EndVector
