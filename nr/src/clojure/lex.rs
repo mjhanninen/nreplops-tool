@@ -547,6 +547,14 @@ impl Helper {
         },
         Some(form_ix),
       ),
+      R::char_simple => self.push_token(
+        parent,
+        T::Char {
+          syntax: CharSyntax::Simple,
+          value: child.as_str().chars().next().unwrap(),
+        },
+        Some(form_ix),
+      ),
 
       _ => panic!("unexpected pair while parsing character: {child:?}"),
     }
