@@ -73,11 +73,11 @@ pub enum Token {
     value: char,
   },
   String {
-    raw_value: Box<str>,
+    raw_value: Rc<str>,
     value: Box<[StringFragment]>,
   },
   Regex {
-    raw_value: Box<str>,
+    raw_value: Rc<str>,
   },
   SymbolicValuePrefix,
   SymbolicValue {
