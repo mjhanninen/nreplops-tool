@@ -125,38 +125,6 @@ pub enum Token {
     tag_ix: Ix,
     arg_ix: Ix,
   },
-  Residual {
-    pair: Box<str>,
-    ploc: ParserLoc,
-  },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParserLoc {
-  TopLevel,
-  Form,
-  QuoteUnquoteForm,
-  Preforms,
-  DiscardedForm,
-  MetaForm,
-  Expr,
-  Char,
-  Number,
-  UnsignedRatio,
-  UnsignedRadixInt,
-  UnsignedInt,
-  String,
-  Regex,
-  SymbolicValue,
-  Symbol,
-  Tag,
-  Keyword,
-  Map,
-  MapQualifier,
-  ReaderConditional,
-  Body,
-  TaggedLiteralTag,
-  TaggedLiteralValue,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -584,14 +552,8 @@ impl Helper {
         R::unsigned_int => {
           self.unsigned_int(parent.clone(), child, form_ix, positive)
         }
-        _ => self.push_token(
-          parent.clone(),
-          T::Residual {
-            pair: format!("{:#?}", child).into_boxed_str(),
-            ploc: ParserLoc::Number,
-          },
-          None,
-        ),
+
+        _ => panic!("unexpected pair while parsing number: {child:?}"),
       }
     }
   }
