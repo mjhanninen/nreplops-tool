@@ -12,6 +12,20 @@ author.
 
 Please see [PLAN.md](./PLAN.md) for project goals and planned features.
 
+## Minumum Supported Rust Version
+
+The Minimum Supported Rust Version (MSRV) is 1.85.0. This matches the `rustc`
+package on the stable Debian Linux distibution (Trixie at the moment of writing
+this).
+
+This is somewhat behind from where some of the dependencies and tools currently
+are. Dependencies that are stuck due to MSVC are annotated in `Cargo.toml`. As
+for tooling you may want to install specific tool versions:
+
+```sh
+cargo install --locked cargo-audit@0.22.1
+```
+
 ## Installation
 
 ### Homebrew
@@ -22,15 +36,12 @@ brew install mjhanninen/sour/nreplops-tool
 
 ### Cargo
 
-The Minimum Supported Rust Version (MSRV) is 1.70.0.
 
 ```sh
 cargo install nreplops-tool
 ```
 
 ### Building from sources
-
-The Minimum Supported Rust Version (MSRV) is 1.70.0.
 
 Clone the repository:
 
