@@ -113,9 +113,11 @@ impl RoutesInner {
     } else {
       let mut ips = match route_expr.addr {
         None => dns_lookup::lookup_host("localhost")
-          .map_err(|_| Error::DomainNotFound("localhost".to_owned()))?,
+          .map_err(|_| Error::DomainNotFound("localhost".to_owned()))?
+          .collect(),
         Some(Addr::Domain(ref domain)) => dns_lookup::lookup_host(domain)
-          .map_err(|_| Error::DomainNotFound(domain.clone()))?,
+          .map_err(|_| Error::DomainNotFound(domain.clone()))?
+          .collect(),
         Some(Addr::IP(ip)) => vec![ip],
       };
       ips.sort();
