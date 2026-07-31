@@ -9,7 +9,7 @@ jobs:
 
   pre-release:
     name: Pre-release checks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
 
       - name: Detect version
@@ -23,13 +23,13 @@ jobs:
           fi
 
       - name: Shallow checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check version bump
         run: scripts/gh-run-version-checks
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           components:  rustfmt, clippy
 
@@ -43,7 +43,7 @@ jobs:
         run: cargo clippy --locked --all-targets --all-features -- --no-deps
 
       - name: Create release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -59,15 +59,15 @@ jobs:
         job:
 
           - name: linux-x86_64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             target: x86_64-unknown-linux-musl
 
           - name: macos-x86_64
-            os: macos-12
+            os: macos-15
             target: x86_64-apple-darwin
 
           - name: macos-aarch64
-            os: macos-12
+            os: macos-15
             target: aarch64-apple-darwin
 
     steps:
@@ -81,13 +81,13 @@ jobs:
         run: sudo apt-get install -y pandoc
 
       - name: Shallow checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Extract project info
         run: scripts/gh-project-info | tee -a "$GITHUB_ENV"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.job.target }}
 
@@ -109,7 +109,7 @@ jobs:
           GITHUB_OUTPUTS: true
 
       - name: Add artifacts to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ${{ steps.build-tarball.outputs.tarball-path }}
@@ -118,14 +118,14 @@ jobs:
     name: Publish to crates.io
     needs:
       - release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
 
       - name: Shallow checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.70.0
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Publish
         run: cargo publish --package nreplops-tool --locked
