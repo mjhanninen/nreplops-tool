@@ -64,13 +64,13 @@ impl<'a> From<&'a str> for FragmentText<'a> {
   }
 }
 
-impl<'a> From<String> for FragmentText<'a> {
+impl From<String> for FragmentText<'_> {
   fn from(s: String) -> Self {
     FragmentText::Owned(s.into_boxed_str())
   }
 }
 
-impl<'a> Borrow<str> for FragmentText<'a> {
+impl Borrow<str> for FragmentText<'_> {
   fn borrow(&self) -> &str {
     match self {
       FragmentText::Borrowed(s) => s,

@@ -186,7 +186,7 @@ fn program_map<'a>(builder: &mut ProgramBuilder<'a>, entries: &[MapEntry<'a>]) {
 
   let key_width = entries
     .iter()
-    .fold(Some(0), |acc, e| Some(acc?.max(rigid_width(&e.key)?)));
+    .try_fold(0, |acc, e| Some(acc.max(rigid_width(&e.key)?)));
 
   let mut it = entries.iter();
   if let Some(first) = it.next() {

@@ -28,7 +28,7 @@ pub enum Command<'a> {
   Text(FragmentText<'a>),
 }
 
-impl<'a> Command<'a> {
+impl Command<'_> {
   fn is_set_style(&self) -> bool {
     matches!(self, Command::SetStyle(_))
   }

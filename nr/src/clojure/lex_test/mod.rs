@@ -16,7 +16,7 @@
 mod discard_and_meta;
 mod keyword;
 
-pub(self) use super::lex::*;
+use super::lex::*;
 
 #[macro_export]
 macro_rules! assert_lexemes {
@@ -45,4 +45,4 @@ macro_rules! assert_lexemes {
   }
 }
 
-pub(self) use assert_lexemes;
+use assert_lexemes;

@@ -248,7 +248,7 @@ enum CompositeBuilder<'a> {
   VarQuoted(VarQuotedBuilder<'a>),
 }
 
-impl<'a> CompositeBuilder<'a> {
+impl CompositeBuilder<'_> {
   fn new(composite_type: CompositeType) -> Self {
     use CompositeType as T;
     match composite_type {
@@ -300,7 +300,7 @@ struct SeqBuilder<'a> {
   values: Vec<Value<'a>>,
 }
 
-impl<'a> SeqBuilder<'a> {
+impl SeqBuilder<'_> {
   fn new(seq_type: SeqType) -> Self {
     SeqBuilder {
       seq_type,
@@ -483,7 +483,7 @@ struct TopLevelBuilder<'a> {
   value: Option<Value<'a>>,
 }
 
-impl<'a> TopLevelBuilder<'a> {
+impl TopLevelBuilder<'_> {
   fn new() -> Self {
     Default::default()
   }

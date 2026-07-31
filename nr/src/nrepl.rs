@@ -42,7 +42,7 @@ impl Session {
       column: None,
       file: None,
     })?;
-    #[allow(clippy::blocks_in_if_conditions)]
+    #[allow(clippy::blocks_in_conditions)]
     while self
       .connection
       .recv(|r| Ok(!(r.matches(&id) && r.has_status("session-closed"))))?
@@ -73,7 +73,7 @@ impl Session {
       column: column.map(|n| n.try_into().unwrap_or_default()),
       file: file_name,
     })?;
-    #[allow(clippy::blocks_in_if_conditions)]
+    #[allow(clippy::blocks_in_conditions)]
     while self.connection.recv(|r| {
       if !r.matches(&id) {
         return Ok(true);

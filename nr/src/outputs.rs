@@ -98,7 +98,7 @@ pub enum OutputWriter<'a> {
   },
 }
 
-impl<'a> Write for OutputWriter<'a> {
+impl Write for OutputWriter<'_> {
   fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
     match *self {
       OutputWriter::StdOut => io::stdout().lock().write(buf),
@@ -161,10 +161,7 @@ impl Outputs {
     let mut logical_connections = HashMap::<Dst, Vec<Src>>::new();
 
     let mut connect = |source: Src, sink: Dst| {
-      logical_connections
-        .entry(sink)
-        .or_insert_with(Vec::new)
-        .push(source);
+      logical_connections.entry(sink).or_default().push(source);
     };
 
     match args.stdout_to {
