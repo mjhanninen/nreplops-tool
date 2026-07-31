@@ -18,7 +18,7 @@ use std::{
   collections::HashMap,
   fmt, fs,
   io::{self, IsTerminal, Write},
-  os::fd::AsRawFd,
+  os::fd::AsFd,
   path::{self, Path},
   rc::Rc,
 };
@@ -185,11 +185,11 @@ impl Outputs {
 
     fn determine_std_type<S>(s: S) -> StdType
     where
-      S: IsTerminal + AsRawFd,
+      S: IsTerminal + AsFd,
     {
-      use terminal_size::{terminal_size_using_fd, Width};
+      use terminal_size::{Width, terminal_size_of};
       if s.is_terminal() {
-        if let Some((Width(w), _)) = terminal_size_using_fd(s.as_raw_fd()) {
+        if let Some((Width(w), _)) = terminal_size_of(s.as_fd()) {
           StdType::Terminal(w)
         } else {
           StdType::TerminalWithoutWidth
