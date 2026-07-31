@@ -2,6 +2,10 @@
 
 ## [Unreleased][unreleased]
 
+- Upgrades dependencies.
+
+- Changes MSRV to 1.85.0.
+
 [unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.1...main
 
 ## [Version 0.3.1][v0.3.1]
@@ -43,7 +47,7 @@
 - Fixes the thread leakage issue on the nREPL host further: attempts to close
   the session in failure cases too.
 
-- Upgrades dependecies. MSRV is 1.70.0.
+- Upgrades dependencies. MSRV is 1.70.0.
 
 [v0.1.1]: https://github.com/mjhanninen/nreplops-tool/compare/v0.1.0...v0.1.1}
 
