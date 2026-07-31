@@ -84,7 +84,7 @@ impl str::FromStr for Version {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     let mut it = s.split('.');
     let Some(major_str) = it.next() else {
-      return Err(ParseVersionError)
+      return Err(ParseVersionError);
     };
     let major = major_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     let Some(minor_str) = it.next() else {
@@ -92,7 +92,7 @@ impl str::FromStr for Version {
     };
     let minor = minor_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     let Some(patch_str) = it.next() else {
-      return Ok(Version::MajorMinor(major, minor))
+      return Ok(Version::MajorMinor(major, minor));
     };
     let patch = patch_str.parse::<u16>().map_err(|_| ParseVersionError)?;
     if it.next().is_none() {

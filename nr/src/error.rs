@@ -71,9 +71,7 @@ pub enum Error {
     not supported yet"
   )]
   RecursiveHostKeysNotSupported(String),
-  #[error(
-    "unexpected error while loading for default host configuration: {0}"
-  )]
+  #[error("unexpected error while loading for default host configuration: {0}")]
   FailedToLoadDefaultHostConfig(io::Error),
 
   // Related to nREPL connection

@@ -150,9 +150,11 @@ impl TryFrom<Cli> for Args {
     } else if !io::stdin().is_terminal() {
       vec![SourceArg::Pipe]
     } else if let Some(f) = pos_arg_it.next() {
-      vec![IoArg::parse_from_path_or_pipe(f)
-        .map(SourceArg::from)
-        .map_err(|_| Error::BadSourceFile)?]
+      vec![
+        IoArg::parse_from_path_or_pipe(f)
+          .map(SourceArg::from)
+          .map_err(|_| Error::BadSourceFile)?,
+      ]
     } else if cli.wait_port_file.is_some() {
       vec![]
     } else {
