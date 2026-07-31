@@ -27,8 +27,8 @@ pub fn resolve_routes(
 ) -> Result<Routes, Error> {
   use ConnectionExpr::*;
   let route_expr = match conn_expr {
-    RouteExpr(ref e) => e,
-    HostKey(ref k) => host_opts_table
+    RouteExpr(e) => e,
+    HostKey(k) => host_opts_table
       .get(k)
       .ok_or_else(|| Error::HostKeyNotFound(k.to_string()))?
       .conn_expr

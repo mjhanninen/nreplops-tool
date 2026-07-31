@@ -20,7 +20,7 @@ pub(self) use super::lex::*;
 
 #[macro_export]
 macro_rules! assert_lexemes {
-  ( $input:expr, $( $expect:pat ),+ ) => {
+  ( $input:expr_2021, $( $expect:pat ),+ ) => {
     {
       let input = $input;
       let Ok(lexemes) = lex(&input) else {

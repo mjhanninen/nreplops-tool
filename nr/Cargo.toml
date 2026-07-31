@@ -8,18 +8,18 @@ authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/mjhanninen/nreplops-tool"
 readme = "../README.md"
-edition = "2021"
+edition = "2024"
 default-run = "nr"
 
 [dependencies]
 anstyle = "1.0.4"
-clap = { version = "^4.4", default_features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
+clap = { version = "^4.4", features = ["derive", "error-context", "help", "std", "suggestions", "usage"] , default-features = false}
 dns-lookup = "^2.0"
 pest = "^2.7"
 pest_derive = "^2.7"
 regex = "^1.9"
 serde = { version = "1.0", features = ["derive"] }
-serde_with = { version = "^3.3", default_features = false, features = ["macros"] }
+serde_with = { version = "^3.3", features = ["macros"] , default-features = false}
 terminal_size = "0.3.0"
 thiserror = "1.0"
 toml = "^0.8"

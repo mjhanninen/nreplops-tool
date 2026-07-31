@@ -5,7 +5,7 @@ authors = ["Matti Hänninen <matti@mjhanninen.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/mjhanninen/nreplops-tool"
 readme = "README.md"
-edition = "2021"
+edition = "2024"
 publish = false
 
 [dependencies]
