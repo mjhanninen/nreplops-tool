@@ -2,11 +2,15 @@
 
 ## [Unreleased][unreleased]
 
+[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.2...main
+
+## [Version 0.3.2][v0.3.2]
+
 - Upgrades dependencies.
 
 - Changes MSRV to 1.85.0.
 
-[unreleased]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.1...main
+[v0.3.2]: https://github.com/mjhanninen/nreplops-tool/compare/v0.3.1...v0.3.2}
 
 ## [Version 0.3.1][v0.3.1]
 
